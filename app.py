@@ -387,10 +387,11 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             return None
         log(f"✅ Image uploaded: {uploaded_filename}")
 
-        # Step 2: Load workflow template (prefer v11 format, fallback to v10)
+        # Step 2: Load workflow template (prefer v10 format for API compatibility)
         log("📋 Loading workflow template...")
         workflow_path = None
-        for path in ["ANIMATION_M1 (11).json", "ANIMATION_M1 (10).json"]:
+        # Prefer v10 format (API-compatible), fallback to v11
+        for path in ["ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
             if os.path.exists(path):
                 workflow_path = path
                 break
@@ -402,43 +403,82 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
         with open(workflow_path, "r") as f:
             workflow = json.load(f)
 
-        # Step 3: Update workflow with dynamic prompts and image
-        # Find CLIPTextEncode nodes (positive=node "2", negative=node "3")
-        # Find LoadImage node (node "4")
+        # Step 3: Update workflow with prompts and image
         if "nodes" in workflow:
-            # v11 format (newer)
+            # v11 format - need conversion (complex, so prefer v10 template)
+            st.warning("⚠️ v11 format detected. For best results, use ANIMATION_M1 (10).json template.")
+            # Try simple conversion: extract nodes and rebuild v10 format
+            v10_workflow = {}
+            node_map = {}
             for node in workflow["nodes"]:
-                if node.get("id") == 2 and node.get("type") == "CLIPTextEncode":
-                    node["widgets_values"][0] = pos_prompt
-                elif node.get("id") == 3 and node.get("type") == "CLIPTextEncode":
-                    node["widgets_values"][0] = neg_prompt
-                elif node.get("id") == 4 and node.get("type") == "LoadImage":
-                    node["widgets_values"][0] = uploaded_filename
-        else:
-            # v10 format (older, flat dict)
-            if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
-                workflow["2"]["inputs"]["text"] = pos_prompt
-            if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
-                workflow["3"]["inputs"]["text"] = neg_prompt
-            if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
-                workflow["4"]["inputs"]["image"] = uploaded_filename
+                node_id = str(node.get("id"))
+                node_type = node.get("type")
+                node_map[node_id] = {
+                    "class_type": node_type,
+                    "inputs": {}
+                }
+                # Copy widgets_values to inputs where applicable
+                if "widgets_values" in node:
+                    widgets = node["widgets_values"]
+                    if node_type == "CLIPTextEncode" and len(widgets) > 0:
+                        node_map[node_id]["inputs"]["text"] = widgets[0]
+                        node_map[node_id]["inputs"]["clip"] = [node.get("inputs", [{}])[0].get("link", "1"), 1] if node.get("inputs") else ["1", 1]
+                    elif node_type == "LoadImage" and len(widgets) > 0:
+                        node_map[node_id]["inputs"]["image"] = widgets[0]
+            
+            # Rebuild from links
+            if "links" in workflow:
+                for link in workflow["links"]:
+                    if len(link) >= 6:
+                        target_id = str(link[3])
+                        source_id = str(link[1])
+                        if target_id in node_map:
+                            # Map link to input (simplified)
+                            pass
+            
+            # Build final v10 workflow
+            for node_id, node_data in node_map.items():
+                v10_workflow[node_id] = node_data
+            
+            workflow = v10_workflow
+            log("⚠️ Converted v11 to v10 (may have issues - prefer v10 template)")
+        
+        # Update prompts and image (works for both formats after conversion)
+        if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
+            workflow["2"]["inputs"]["text"] = pos_prompt
+        if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
+            workflow["3"]["inputs"]["text"] = neg_prompt
+        if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
+            workflow["4"]["inputs"]["image"] = uploaded_filename
+        
+        log("✅ Workflow updated with prompts and image")
 
         # Step 4: Submit workflow
         log("🚀 Submitting workflow to ComfyUI...")
         prompt_id = str(uuid.uuid4())
-        submit_resp = requests.post(
-            f"{base_url}/prompt",
-            json={"prompt": workflow, "client_id": prompt_id},
-            timeout=30,
-        )
-        submit_resp.raise_for_status()
-        submit_data = submit_resp.json()
-        actual_prompt_id = submit_data.get("prompt_id")
-        if not actual_prompt_id:
-            st.error("ComfyUI submission failed: no prompt_id returned")
-            st.json(submit_data)  # Debug output
+        try:
+            submit_resp = requests.post(
+                f"{base_url}/prompt",
+                json={"prompt": workflow, "client_id": prompt_id},
+                timeout=30,
+            )
+            submit_resp.raise_for_status()
+            submit_data = submit_resp.json()
+            actual_prompt_id = submit_data.get("prompt_id")
+            if not actual_prompt_id:
+                st.error("ComfyUI submission failed: no prompt_id returned")
+                st.json(submit_data)  # Debug output
+                return None
+            log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
+        except requests.exceptions.HTTPError as e:
+            error_detail = "Unknown error"
+            try:
+                error_detail = submit_resp.json() if 'submit_resp' in locals() else str(e.response.text) if hasattr(e, 'response') else str(e)
+            except:
+                error_detail = str(e)
+            st.error(f"ComfyUI API error (400 Bad Request): {error_detail}")
+            st.json({"workflow_keys": list(workflow.keys())[:10]})  # Show first 10 node IDs
             return None
-        log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
 
         # Step 5: Poll for completion (max 2 minutes)
         log("⏳ Waiting for generation (this may take 30-60 seconds)...")
