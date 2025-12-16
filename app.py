@@ -238,6 +238,57 @@ def normalize_report(report: dict) -> dict:
     }
 
 
+def _generate_smart_fallback_prompts(
+    source_phase: str, dest_phase: str, pose_lock: bool, style_lock: bool
+) -> Tuple[str, str, str]:
+    """Generate smart fallback prompts based on phase transition and locks."""
+    # Phase-specific positive prompts
+    phase_positives = {
+        "Skeleton": "simple construction lines, stick-figure structure, posing and proportion focus, line art only, no colors, no shading",
+        "Roughs": "gestural movement capture, loose volumetric shapes, building blocks, line art only, no colors, no shading",
+        "Tie Down": "on-model shapes, defined forms, clean single lines, preserve intended gesture, black line art only, no colors, no shading, line art style",
+        "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, pure black line art only, monochrome black lines, no colors whatsoever, no shading, line art style",
+        "Colors": "accurate color fills behind clean lines, preserve line integrity, color inside shapes, maintain existing line art",
+    }
+    
+    # Phase-specific negative prompts
+    phase_negatives = {
+        "Skeleton": "fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills",
+        "Roughs": "perfect lineart, inked outlines, shading, colours, gradients, color fills",
+        "Tie Down": "rough sketch, messy lines, double lines, fuzzy lines, construction lines, dense scribbles, perfect crisp ink lines, ultra-clean lineart, colors, color fills, shading, gradients, colored clothing, skin tones, 3D rendering, photorealistic shading",
+        "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, overlapping strokes, inconsistent line weight, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading",
+        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions",
+    }
+    
+    # Build positive prompt
+    pos_parts = [phase_positives.get(dest_phase, "clean line art, defined forms")]
+    
+    # Add preservation based on locks
+    if pose_lock:
+        pos_parts.append("preserve character pose and motion, maintain gesture")
+    if style_lock:
+        pos_parts.append("preserve art style and proportions")
+    
+    # Always preserve color scheme (black lines, white background)
+    pos_parts.append("pure black line art only, pure white background (canvas area outside character), no colors, no shading, no fills")
+    
+    # Build negative prompt
+    neg_parts = [phase_negatives.get(dest_phase, "rough sketch, messy lines, construction lines")]
+    
+    # Block colors for non-Color phases
+    if dest_phase != "Colors":
+        neg_parts.append("colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading, purple lines, pink lines, blue lines, any colored line art")
+    
+    # Always block grayscale backgrounds
+    neg_parts.append("grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background")
+    
+    pos = ", ".join(pos_parts)
+    neg = ", ".join(neg_parts)
+    rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Focus on phase-appropriate cleanup while maintaining character structure."
+    
+    return pos, neg, rationale
+
+
 def run_visual_analyst(image_bytes: bytes, mime: str, cfg: AnalysisConfig) -> dict:
     client = _get_genai_client()
     prompt = cfg.master_instruction.strip() or DEFAULT_ANALYST_PROMPT
@@ -296,30 +347,39 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
     except Exception as exc:
         # Graceful degradation on overload/404/etc.
         st.warning(f"Gemini analyst fallback (error: {exc})")
+        # Generate phase-appropriate fallback based on config
+        phase_fixes = {
+            "Skeleton": ["simplify to construction lines", "focus on posing and proportion"],
+            "Roughs": ["capture gestural movement", "add volumetric building blocks"],
+            "Tie Down": ["define on-model shapes", "clean up lines", "remove construction marks"],
+            "CleanUp": ["smooth all lines to uniform weight", "remove sketchiness", "refine line quality"],
+            "Colors": ["add accurate color fills", "preserve line integrity"],
+        }
+        phase_removes = {
+            "Skeleton": ["detailed volumetric rendering", "perfect lineart", "shading", "colours"],
+            "Roughs": ["perfect lineart", "shading", "colours"],
+            "Tie Down": ["rough sketch", "messy lines", "construction lines", "dense scribbles", "colors", "shading"],
+            "CleanUp": ["sketchy lines", "wobbly lines", "construction lines", "colors", "colored lines", "shading"],
+            "Colors": ["rough sketch", "messy lines", "construction lines"],
+        }
         return {
-            "fixes": [
-                "anatomically correct left hand on steering wheel",
-                "clear volumetric forearm and wrist",
-                "on-model torso proportions",
-                "defined facial plane"
-            ],
-            "removes": [
-                "rough sketch",
-                "messy lines",
-                "construction lines",
-                "dense scribbles"
+            "fixes": phase_fixes.get(cfg.dest_phase, ["refine shapes", "clean up lines"]),
+            "removes": phase_removes.get(cfg.dest_phase, ["rough sketch", "messy lines"]),
+            "preserve": [
+                "preserve black line art on pure white background" if cfg.dest_phase != "Colors" else "preserve line art integrity",
+                "preserve character pose and motion" if cfg.pose_lock else "preserve overall composition",
+                "preserve art style and proportions" if cfg.style_lock else "preserve character design",
             ],
             "notes": [f"Fallback due to Gemini error: {exc}"],
         }
 
 
-def run_prompt_engineer(report: dict, dest_phase: str, override: str) -> Tuple[str, str, str]:
+def run_prompt_engineer(report: dict, dest_phase: str, override: str, source_phase: str = "Roughs", pose_lock: bool = True, style_lock: bool = True) -> Tuple[str, str, str]:
     client = _get_genai_client()
     prompt = override.strip() or DEFAULT_PROMPT_ENGINEER
     if not client:
-        pos = "anatomically correct left hand, on-model torso, clean single lines"
-        neg = "rough sketch, messy lines, construction lines, perfect crisp ink lines"
-        rationale = "Offline fallback rationale: focus on anatomy fixes; strip scribbles; avoid over-inking."
+        # Use smart fallback
+        pos, neg, rationale = _generate_smart_fallback_prompts(source_phase, dest_phase, pose_lock, style_lock)
         return pos, neg, rationale
 
     merged_prompt = f"""{prompt}
@@ -426,9 +486,8 @@ report: {report}
         return pos or text.strip(), neg, rationale
     except Exception as exc:
         st.warning(f"Gemini prompt-engineer fallback (error: {exc})")
-        pos = "anatomically correct left hand, on-model torso, clean single lines"
-        neg = "rough sketch, messy lines, construction lines, perfect crisp ink lines"
-        rationale = "Fallback rationale: apply anatomy corrections; remove scribbles; avoid ink-perfect lines."
+        # Use smart fallback based on phase transition
+        pos, neg, rationale = _generate_smart_fallback_prompts(source_phase, dest_phase, pose_lock, style_lock)
         return pos, neg, rationale
 
 
@@ -723,7 +782,12 @@ if generate:
             report = normalize_report(raw_report)
 
             status.write("2) Running Prompt Engineer (Gemini text)...")
-            pos_prompt, neg_prompt, rationale = run_prompt_engineer(report, dest_phase, master_instruction)
+            pos_prompt, neg_prompt, rationale = run_prompt_engineer(
+                report, dest_phase, master_instruction, 
+                source_phase=source_phase, 
+                pose_lock=pose_lock, 
+                style_lock=style_lock
+            )
 
             status.write("3) Calling ComfyUI / KSampler...")
             generated_image = call_comfyui(image_bytes, pos_prompt, neg_prompt, status)
