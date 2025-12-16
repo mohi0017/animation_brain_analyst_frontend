@@ -222,11 +222,20 @@ def run_visual_analyst(image_bytes: bytes, mime: str, cfg: AnalysisConfig) -> di
     # Build multimodal content
     model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     image_part = genai_types.Part.from_bytes(data=image_bytes, mime_type=mime)
+    # Inject run-time config so the model knows the transition and constraints.
+    config_block = f"""
+SOURCE_PHASE: {cfg.source_phase}
+DEST_PHASE: {cfg.dest_phase}
+POSE_LOCK: {cfg.pose_lock}
+STYLE_LOCK: {cfg.style_lock}
+ANATOMICAL_LEVEL: {cfg.anatomical_level}
+"""
+    full_prompt = f"{prompt}\n\n{config_block}"
     # Follow Gemini docs: contents can be a mix of Parts and plain text strings.
     try:
         response = client.models.generate_content(
             model=model_name,
-            contents=[image_part, prompt],
+            contents=[image_part, full_prompt],
             config=genai_types.GenerateContentConfig(
                 temperature=0.2,
                 thinking_config=_thinking_config(),
@@ -349,9 +358,17 @@ if uploaded:
 
 col_src, col_dst = st.columns(2)
 with col_src:
-    source_phase = st.selectbox("Source Phase", ["Skeleton", "Roughs"], index=1)
+    source_phase = st.selectbox(
+        "Source Phase",
+        ["Skeleton", "Roughs", "Tie Down", "CleanUp", "Colors"],
+        index=1,
+    )
 with col_dst:
-    dest_phase = st.selectbox("Destination Phase", ["Tie Down", "CleanUp", "Colors"], index=0)
+    dest_phase = st.selectbox(
+        "Destination Phase",
+        ["Skeleton", "Roughs", "Tie Down", "CleanUp", "Colors"],
+        index=2,
+    )
 
 # 2) Phase Configuration
 st.header("Phase Configuration (LLM Analyst Control)")
