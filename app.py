@@ -128,10 +128,16 @@ Strategy:
   * Encode this in the prompts: describe both the cleanup and the final coloured look, while preserving existing line/background colours.
 - Rationale: briefly explain the intended edits so the diffusion model “knows what to fix” (e.g., “edit left hand to read as on-model animated character anatomy”).
 
-Return EXACTLY:
-POSITIVE_PROMPT: ...
-NEGATIVE_PROMPT: ...
-RATIONALE: ...
+Return EXACTLY in this format (one section per line, no extra prefixes):
+POSITIVE_PROMPT: [your positive prompt text here, can be multiple lines]
+NEGATIVE_PROMPT: [your negative prompt text here, can be multiple lines]
+RATIONALE: [your rationale text here]
+
+IMPORTANT: 
+- Start each section with "POSITIVE_PROMPT:", "NEGATIVE_PROMPT:", or "RATIONALE:" followed by a colon and space
+- The text after the colon is the actual prompt/rationale (can span multiple lines)
+- Do NOT include "POSITIVE_PROMPT:" or "NEGATIVE_PROMPT:" prefix in the actual prompt text sent to ComfyUI
+- Keep the structure consistent regardless of source/destination phase transition
 """
 
 
@@ -332,15 +338,91 @@ report: {report}
             ),
         )
         text = response.text or ""
-        # Simple split
+        # Parse prompts with better handling for multi-line and consistent format
         pos, neg, rationale = "", "", ""
-        for line in text.splitlines():
-            if line.lower().startswith("positive_prompt"):
-                pos = line.split(":", 1)[-1].strip()
-            if line.lower().startswith("negative_prompt"):
-                neg = line.split(":", 1)[-1].strip()
-            if line.lower().startswith("rationale"):
-                rationale = line.split(":", 1)[-1].strip()
+        lines = text.splitlines()
+        current_section = None
+        current_content = []
+        
+        for line in lines:
+            line_lower = line.lower().strip()
+            # Check for section headers
+            if line_lower.startswith("positive_prompt"):
+                # Save previous section if any
+                if current_section == "pos" and current_content:
+                    pos = "\n".join(current_content).strip()
+                elif current_section == "neg" and current_content:
+                    neg = "\n".join(current_content).strip()
+                elif current_section == "rationale" and current_content:
+                    rationale = "\n".join(current_content).strip()
+                # Start new section
+                current_section = "pos"
+                current_content = []
+                # Extract text after colon if present
+                if ":" in line:
+                    after_colon = line.split(":", 1)[-1].strip()
+                    if after_colon:
+                        current_content.append(after_colon)
+            elif line_lower.startswith("negative_prompt"):
+                # Save previous section
+                if current_section == "pos" and current_content:
+                    pos = "\n".join(current_content).strip()
+                elif current_section == "neg" and current_content:
+                    neg = "\n".join(current_content).strip()
+                elif current_section == "rationale" and current_content:
+                    rationale = "\n".join(current_content).strip()
+                # Start new section
+                current_section = "neg"
+                current_content = []
+                # Extract text after colon if present
+                if ":" in line:
+                    after_colon = line.split(":", 1)[-1].strip()
+                    if after_colon:
+                        current_content.append(after_colon)
+            elif line_lower.startswith("rationale"):
+                # Save previous section
+                if current_section == "pos" and current_content:
+                    pos = "\n".join(current_content).strip()
+                elif current_section == "neg" and current_content:
+                    neg = "\n".join(current_content).strip()
+                elif current_section == "rationale" and current_content:
+                    rationale = "\n".join(current_content).strip()
+                # Start new section
+                current_section = "rationale"
+                current_content = []
+                # Extract text after colon if present
+                if ":" in line:
+                    after_colon = line.split(":", 1)[-1].strip()
+                    if after_colon:
+                        current_content.append(after_colon)
+            elif current_section and line.strip():
+                # Continue current section (multi-line content)
+                current_content.append(line.strip())
+        
+        # Save last section
+        if current_section == "pos" and current_content:
+            pos = "\n".join(current_content).strip()
+        elif current_section == "neg" and current_content:
+            neg = "\n".join(current_content).strip()
+        elif current_section == "rationale" and current_content:
+            rationale = "\n".join(current_content).strip()
+        
+        # Fallback: if no structured format found, try simple extraction
+        if not pos and not neg:
+            # Try old format as fallback
+            for line in lines:
+                if line.lower().startswith("positive_prompt"):
+                    pos = line.split(":", 1)[-1].strip() if ":" in line else ""
+                elif line.lower().startswith("negative_prompt"):
+                    neg = line.split(":", 1)[-1].strip() if ":" in line else ""
+                elif line.lower().startswith("rationale"):
+                    rationale = line.split(":", 1)[-1].strip() if ":" in line else ""
+        
+        # Ensure we return clean prompts (no prefixes)
+        pos = pos.strip() if pos else ""
+        neg = neg.strip() if neg else ""
+        rationale = rationale.strip() if rationale else ""
+        
         return pos or text.strip(), neg, rationale
     except Exception as exc:
         st.warning(f"Gemini prompt-engineer fallback (error: {exc})")
