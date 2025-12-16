@@ -345,7 +345,7 @@ with st.sidebar:
 st.header("Input & Upload")
 uploaded = st.file_uploader("Upload Rough Image", type=["png", "jpg", "jpeg"])
 if uploaded:
-    st.image(uploaded, caption="Preview", width=None)
+    st.image(uploaded, caption="Preview")
 
 col_src, col_dst = st.columns(2)
 with col_src:
