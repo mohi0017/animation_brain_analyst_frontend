@@ -350,21 +350,30 @@ report: {report}
         return pos, neg, rationale
 
 
-def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Optional[bytes]:
+def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_writer=None) -> Optional[bytes]:
     """
     Submit workflow to ComfyUI API (RunPod) and retrieve generated image.
     Uses workflow template from ANIMATION_M1 (10).json or (11).json.
     """
     base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
+        if status_writer:
+            status_writer.write("⚠️ COMFYUI_API_URL not set in environment")
         return None
 
     import json
     import time
     import uuid
 
+    def log(msg):
+        if status_writer:
+            status_writer.write(msg)
+        else:
+            st.info(msg)
+
     try:
         # Step 1: Upload image to ComfyUI
+        log("📤 Uploading image to ComfyUI...")
         upload_resp = requests.post(
             f"{base_url}/upload/image",
             files={"image": ("input.png", image_bytes, "image/png")},
@@ -376,8 +385,10 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
         if not uploaded_filename:
             st.error("ComfyUI upload failed: no filename returned")
             return None
+        log(f"✅ Image uploaded: {uploaded_filename}")
 
         # Step 2: Load workflow template (prefer v11 format, fallback to v10)
+        log("📋 Loading workflow template...")
         workflow_path = None
         for path in ["ANIMATION_M1 (11).json", "ANIMATION_M1 (10).json"]:
             if os.path.exists(path):
@@ -386,6 +397,7 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
         if not workflow_path:
             st.error("ComfyUI workflow template not found")
             return None
+        log(f"✅ Using template: {workflow_path}")
 
         with open(workflow_path, "r") as f:
             workflow = json.load(f)
@@ -412,6 +424,7 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
                 workflow["4"]["inputs"]["image"] = uploaded_filename
 
         # Step 4: Submit workflow
+        log("🚀 Submitting workflow to ComfyUI...")
         prompt_id = str(uuid.uuid4())
         submit_resp = requests.post(
             f"{base_url}/prompt",
@@ -423,9 +436,12 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
         actual_prompt_id = submit_data.get("prompt_id")
         if not actual_prompt_id:
             st.error("ComfyUI submission failed: no prompt_id returned")
+            st.json(submit_data)  # Debug output
             return None
+        log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
 
         # Step 5: Poll for completion (max 2 minutes)
+        log("⏳ Waiting for generation (this may take 30-60 seconds)...")
         max_wait = 120
         poll_interval = 2
         elapsed = 0
@@ -438,6 +454,7 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
             if actual_prompt_id in history:
                 status = history[actual_prompt_id]
                 if status.get("status", {}).get("completed", False):
+                    log("✅ Generation complete! Downloading image...")
                     # Find output image filename
                     outputs = status.get("outputs", {})
                     for node_id, node_output in outputs.items():
@@ -453,19 +470,31 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Option
                                         params["subfolder"] = subfolder
                                     img_resp = requests.get(view_url, params=params, timeout=30)
                                     img_resp.raise_for_status()
+                                    log("✅ Image downloaded successfully!")
                                     return img_resp.content
                 elif status.get("status", {}).get("error"):
-                    st.error(f"ComfyUI generation error: {status['status']['error']}")
+                    error_msg = status.get("status", {}).get("error", "Unknown error")
+                    st.error(f"ComfyUI generation error: {error_msg}")
                     return None
+            if elapsed % 10 == 0:  # Update every 10 seconds
+                log(f"⏳ Still processing... ({elapsed}s/{max_wait}s)")
 
         st.error("ComfyUI generation timeout (exceeded 2 minutes)")
         return None
 
     except requests.exceptions.RequestException as exc:
-        st.error(f"ComfyUI API error: {exc}")
+        error_msg = f"ComfyUI API error: {exc}"
+        st.error(error_msg)
+        if status_writer:
+            status_writer.write(f"❌ {error_msg}")
         return None
     except Exception as exc:
-        st.error(f"ComfyUI call failed: {exc}")
+        error_msg = f"ComfyUI call failed: {exc}"
+        st.error(error_msg)
+        if status_writer:
+            status_writer.write(f"❌ {error_msg}")
+        import traceback
+        st.code(traceback.format_exc())  # Debug traceback
         return None
 
 
@@ -554,7 +583,7 @@ if generate:
             pos_prompt, neg_prompt, rationale = run_prompt_engineer(report, dest_phase, master_instruction)
 
             status.write("3) Calling ComfyUI / KSampler...")
-            generated_image = call_comfyui(image_bytes, pos_prompt, neg_prompt)
+            generated_image = call_comfyui(image_bytes, pos_prompt, neg_prompt, status)
 
             status.update(label="Done", state="complete")
 
