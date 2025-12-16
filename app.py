@@ -106,11 +106,12 @@ Strategy:
   * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes. CRITICAL: explicitly add "line art only, no colors, no shading, no fills."
   * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture. CRITICAL: explicitly add "black line art only, no colors, no color fills, no shading, no gradients, line art style."
   * Cleanup: perfect smooth uniform linework on existing tie-down shapes. CRITICAL: explicitly add "pure black line art only, monochrome black lines, no colors whatsoever, no color fills, no shading, no gradients, no tints, no hues, no colored lines, line art style, black ink only, grayscale line art forbidden."
-  * Colors: accurate fills behind clean lines; keep line integrity; colour inside shapes while preserving existing line art.
+  * Colors: fill character with colors inside all shapes, colorize entire character including skin tones, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill background with colors, colorize background area, complete colorization of character and background, ensure all areas are filled with colors, no empty white spaces inside character, full color fill, preserve line art integrity.
 - Negative Prompt: removes + anything that would overshoot the phase.
   * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills, colored clothing, skin tones.
   * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, "perfect crisp ink lines", "ultra-clean lineart". CRITICAL: also block "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading."
   * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged. CRITICAL: MUST aggressively block "any colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, colored lines, purple lines, pink lines, blue lines, red lines, any colored line art, grayscale lines, tinted lines, 3D rendering, photorealistic shading, realistic colors, colorized lines, non-black lines, any line color except pure black."
+  * Colors: block rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, incomplete colorization, white spaces within character, transparent areas, uncolored regions, monochrome fill, grayscale fill.
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
 - Colour scheme:
   * Read from report.preserve/notes any mention of line colour and background colour.
@@ -119,7 +120,7 @@ Strategy:
   * For WHITE backgrounds: explicitly say “pure white background (canvas/paper area outside character), solid white background, no shading in background area, no grayscale in background, no gray tones in background” to prevent SD from confusing character internal colors with background.
   * For BLACK line art: explicitly say "pure black lines, solid black line art, monochrome black lines, no grayscale lines, no gray tones in lines, no colored lines, no purple lines, no pink lines, no blue lines, black ink only" to prevent SD from generating any colored or tinted lines.
   * CRITICAL: If dest_phase is NOT "Colors", then character internal colors (clothing, skin tones, shading) should be BLOCKED, not preserved. Only preserve line art color and background color. For non-Color phases, add to NEGATIVE_PROMPT: "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, 3D rendering, photorealistic shading."
-  * If dest_phase IS "Colors", then preserve character internal colors separately: "preserve character internal colors (clothing, skin) as shown, keep background white separately."
+  * If dest_phase IS "Colors", then fill character with colors AND colorize background: "fill character with colors inside all shapes, colorize entire character including skin tones, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, fill background with colors, colorize background area, complete colorization of character and background, ensure all areas are filled with colors, no empty white spaces inside character, full color fill."
   * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
   * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
   * ALWAYS block in NEGATIVE_PROMPT: "grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background, gray shading in background area, purple lines, pink lines, blue lines, red lines, colored lines, tinted lines, any non-black line color" when the original background is pure white/black and line art is black. But DO NOT block character internal shading/colors if they exist in the original (only for Colors phase).
@@ -248,7 +249,7 @@ def _generate_smart_fallback_prompts(
         "Roughs": "gestural movement capture, loose volumetric shapes, building blocks, line art only, no colors, no shading",
         "Tie Down": "on-model shapes, defined forms, clean single lines, preserve intended gesture, black line art only, no colors, no shading, line art style",
         "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, pure black line art only, monochrome black lines, no colors whatsoever, no shading, line art style",
-        "Colors": "accurate color fills behind clean lines, preserve line integrity, color inside shapes, maintain existing line art, vibrant colors, fill all shapes with appropriate colors, colorize character, add skin tones, clothing colors, accessory colors",
+        "Colors": "fill character with colors inside all shapes, colorize entire character including skin tones, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill background with colors, colorize background area, complete colorization of character and background, ensure all areas are filled with colors, no empty white spaces inside character, full color fill",
     }
     
     # Phase-specific negative prompts
@@ -257,7 +258,7 @@ def _generate_smart_fallback_prompts(
         "Roughs": "perfect lineart, inked outlines, shading, colours, gradients, color fills",
         "Tie Down": "rough sketch, messy lines, double lines, fuzzy lines, construction lines, dense scribbles, perfect crisp ink lines, ultra-clean lineart, colors, color fills, shading, gradients, colored clothing, skin tones, 3D rendering, photorealistic shading",
         "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, overlapping strokes, inconsistent line weight, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading",
-        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless, monochrome fill, grayscale fill",
+        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, monochrome fill, grayscale fill, incomplete colorization, white spaces within character, transparent areas, uncolored regions",
     }
     
     # Build positive prompt
@@ -271,8 +272,8 @@ def _generate_smart_fallback_prompts(
     
     # Preserve color scheme based on destination phase
     if dest_phase == "Colors":
-        # Colors phase: preserve line art integrity, allow color fills
-        pos_parts.append("preserve existing black line art, maintain line integrity, color fills behind lines, pure white background (canvas area outside character)")
+        # Colors phase: preserve line art integrity, allow color fills for character AND background
+        pos_parts.append("preserve existing line art, maintain line integrity, fill character with colors inside all shapes, fill background with colors, colorize entire image including character and background, ensure complete colorization, no empty white spaces")
     else:
         # Non-Color phases: enforce black lines, white background, no colors
         pos_parts.append("pure black line art only, pure white background (canvas area outside character), no colors, no shading, no fills")
@@ -284,11 +285,16 @@ def _generate_smart_fallback_prompts(
     if dest_phase != "Colors":
         neg_parts.append("colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading, purple lines, pink lines, blue lines, any colored line art")
     else:
-        # Colors phase: block rough sketch quality but allow colors
-        neg_parts.append("rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines")
+        # Colors phase: block rough sketch quality, empty spaces, incomplete colorization
+        neg_parts.append("rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, incomplete colorization, white spaces within character, transparent areas, uncolored regions")
     
-    # Always block grayscale backgrounds (even for Colors phase, keep white background)
-    neg_parts.append("grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background")
+    # Background handling: for Colors phase, allow colored backgrounds; for others, block grayscale
+    if dest_phase == "Colors":
+        # Colors phase: allow colored backgrounds, but block grayscale/monochrome backgrounds
+        neg_parts.append("grayscale background, monochrome background, colorless background, empty background")
+    else:
+        # Non-Color phases: always block grayscale backgrounds
+        neg_parts.append("grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background")
     
     pos = ", ".join(pos_parts)
     neg = ", ".join(neg_parts)
