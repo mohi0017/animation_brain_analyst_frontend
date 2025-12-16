@@ -76,11 +76,13 @@ Locks/levels:
 
 Colour & background rules:
 - Detect dominant line colour(s) and background colour. Be precise: distinguish pure white from light gray, pure black from dark gray.
+- CRITICAL DISTINCTION: Background = canvas/paper area OUTSIDE the character boundaries. Character internal colors (clothing, skin, shading inside character) are NOT background.
+- If the image has a white/light canvas area around the character, that is the BACKGROUND. Character's internal colors (crop top, shorts, skin tones, shading) are separate and should be preserved as-is if they exist.
 - By default, PRESERVE the existing colour scheme (line colours + background) across phases, unless explicitly instructed otherwise.
 - For phase upgrades, refine structure and cleanliness, not the colour scheme.
 - For Roughs -> Colors, assume the same line/background colours in the final result unless notes clearly say otherwise.
-- ALWAYS include at least one PRESERVE entry that explicitly states the colour scheme, e.g. “Preserve black line art on a pure white background (no shading, no grayscale).”
-- If background is pure white, explicitly note “pure white background, solid white, no gray tones, no shading” to prevent SD from generating grayscale/shaded backgrounds.
+- ALWAYS include at least one PRESERVE entry that explicitly states the colour scheme, e.g. “Preserve black line art on a pure white background (canvas area outside character, not character internal colors).”
+- If background is pure white, explicitly note “pure white background (canvas/paper area), solid white, no gray tones, no shading in background area” to prevent SD from generating grayscale/shaded backgrounds.
 
 Output JSON ONLY:
 {
@@ -112,12 +114,14 @@ Strategy:
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
 - Colour scheme:
   * Read from report.preserve/notes any mention of line colour and background colour.
-  * You MUST add an explicit phrase like “preserve blue line art on a white background” in POSITIVE_PROMPT when a colour scheme is present.
-  * For WHITE backgrounds: explicitly say “pure white background, solid white background, no shading, no grayscale, no gray tones” to prevent SD from generating light gray/shaded backgrounds.
+  * CRITICAL: Background = canvas/paper area OUTSIDE character boundaries. Character internal colors (clothing, skin, shading inside character) are NOT background and should be preserved separately if they exist.
+  * You MUST add an explicit phrase like “preserve blue line art on a white background (canvas area outside character)” in POSITIVE_PROMPT when a colour scheme is present.
+  * For WHITE backgrounds: explicitly say “pure white background (canvas/paper area outside character), solid white background, no shading in background area, no grayscale in background, no gray tones in background” to prevent SD from confusing character internal colors with background.
   * For BLACK line art: explicitly say “pure black lines, solid black line art, no grayscale lines, no gray tones in lines” to prevent SD from generating gray lines.
+  * If character has internal colors (clothing, skin tones, shading), preserve them separately: “preserve character internal colors (clothing, skin) as shown, keep background white separately.”
   * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
   * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
-  * ALWAYS block in NEGATIVE_PROMPT: “grayscale, gray background, shaded background, monochrome shading, light gray background, gray tones, gray shading” when the original is pure white/black.
+  * ALWAYS block in NEGATIVE_PROMPT: “grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background, gray shading in background area” when the original background is pure white/black. But DO NOT block character internal shading/colors if they exist in the original.
 - Roughs -> Colors behaviour:
   * Treat this as a two-step process in one generation: first cleanup/define lines (as if doing Tie Down/Cleanup), then apply colours.
   * Encode this in the prompts: describe both the cleanup and the final coloured look, while preserving existing line/background colours.
