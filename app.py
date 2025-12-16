@@ -387,16 +387,16 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             return None
         log(f"✅ Image uploaded: {uploaded_filename}")
 
-        # Step 2: Load workflow template (prefer v10 format for API compatibility)
+        # Step 2: Load workflow template (check RunPod filename first, then local versions)
         log("📋 Loading workflow template...")
         workflow_path = None
-        # Prefer v10 format (API-compatible), fallback to v11
-        for path in ["ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
+        # Check in order: RunPod filename, then v10 (API-compatible), then v11
+        for path in ["ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
             if os.path.exists(path):
                 workflow_path = path
                 break
         if not workflow_path:
-            st.error("ComfyUI workflow template not found")
+            st.error("ComfyUI workflow template not found. Expected: ANIMATION_M1.json or ANIMATION_M1 (10).json")
             return None
         log(f"✅ Using template: {workflow_path}")
 
@@ -445,11 +445,24 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
         
         # Update prompts and image (works for both formats after conversion)
         if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
+            old_pos = workflow["2"]["inputs"].get("text", "")[:50]
             workflow["2"]["inputs"]["text"] = pos_prompt
+            log(f"✅ Updated positive prompt (was: {old_pos}...)")
+        else:
+            log("⚠️ Node 2 (positive prompt) not found in workflow")
+        
         if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
+            old_neg = workflow["3"]["inputs"].get("text", "")[:50]
             workflow["3"]["inputs"]["text"] = neg_prompt
+            log(f"✅ Updated negative prompt (was: {old_neg}...)")
+        else:
+            log("⚠️ Node 3 (negative prompt) not found in workflow")
+        
         if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
             workflow["4"]["inputs"]["image"] = uploaded_filename
+            log(f"✅ Updated image filename: {uploaded_filename}")
+        else:
+            log("⚠️ Node 4 (LoadImage) not found in workflow")
         
         log("✅ Workflow updated with prompts and image")
 
@@ -551,9 +564,17 @@ with st.sidebar:
     st.markdown("**Workflow Template**")
     workflow_files = [f for f in os.listdir(".") if f.startswith("ANIMATION_M1") and f.endswith(".json")]
     if workflow_files:
-        st.caption(f"Found: {', '.join(workflow_files[:2])}")
+        # Show priority order
+        priority_order = ["ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]
+        found_priority = [f for f in priority_order if f in workflow_files]
+        if found_priority:
+            st.caption(f"✅ Using: {found_priority[0]}")
+            if len(found_priority) > 1:
+                st.caption(f"Also found: {', '.join(found_priority[1:3])}")
+        else:
+            st.caption(f"Found: {', '.join(workflow_files[:2])}")
     else:
-        st.warning("No workflow template found. Place ANIMATION_M1 (10).json or (11).json in the project root.")
+        st.warning("No workflow template found. Place ANIMATION_M1.json in the project root.")
 
 # 1) Input & Upload
 st.header("Input & Upload")
