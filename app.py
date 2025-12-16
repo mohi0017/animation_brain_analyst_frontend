@@ -105,12 +105,12 @@ Strategy:
   * Skeleton: focus on posing and proportion; reduce volumes to simple construction and stick-figure lines; keep gesture and timing; DO NOT produce clean final shapes or perfect circles—embrace slightly rough structural lines. CRITICAL: explicitly add "line art only, no colors, no shading, no fills."
   * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes. CRITICAL: explicitly add "line art only, no colors, no shading, no fills."
   * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture. CRITICAL: explicitly add "black line art only, no colors, no color fills, no shading, no gradients, line art style."
-  * Cleanup: perfect smooth uniform linework on existing tie-down shapes. CRITICAL: explicitly add "pure black line art only, monochrome black lines, no colors whatsoever, no color fills, no shading, no gradients, no tints, no hues, no colored lines, line art style, black ink only, grayscale line art forbidden."
+  * Cleanup: perfect smooth uniform linework on existing tie-down shapes. CRITICAL: remove all construction lines, remove all placeholder lines, remove guide circles, remove breast circles, remove anatomical guide marks, remove all non-final lines, keep only final clean line art. Explicitly add "pure black line art only, monochrome black lines, no colors whatsoever, no color fills, no shading, no gradients, no tints, no hues, no colored lines, line art style, black ink only, grayscale line art forbidden."
   * Colors: fill character with colors inside all shapes, colorize entire character including skin tones on all visible skin areas, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill skin areas with natural skin tones, colorize all skin regions including arms, legs, face, torso, fill background with colors, colorize background area, complete colorization of character and background, ensure all areas are filled with colors including skin, no empty white spaces inside character, no uncolored skin areas, full color fill for entire character, preserve line art integrity.
 - Negative Prompt: removes + anything that would overshoot the phase.
   * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills, colored clothing, skin tones.
   * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, "perfect crisp ink lines", "ultra-clean lineart". CRITICAL: also block "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading."
-  * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged. CRITICAL: MUST aggressively block "any colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, colored lines, purple lines, pink lines, blue lines, red lines, any colored line art, grayscale lines, tinted lines, 3D rendering, photorealistic shading, realistic colors, colorized lines, non-black lines, any line color except pure black."
+  * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged. CRITICAL: MUST aggressively block "construction lines, placeholder lines, guide circles, breast circles, anatomical guide marks, guide lines, reference lines, building block lines, volumetric guide lines, non-final lines, temporary lines, any colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, colored lines, purple lines, pink lines, blue lines, red lines, any colored line art, grayscale lines, tinted lines, 3D rendering, photorealistic shading, realistic colors, colorized lines, non-black lines, any line color except pure black."
   * Colors: block rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, incomplete colorization, white spaces within character, transparent areas, uncolored regions, uncolored skin areas, white skin areas, uncolored body parts, uncolored arms, uncolored legs, uncolored face, uncolored torso, monochrome fill, grayscale fill.
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
 - Colour scheme:
@@ -248,7 +248,7 @@ def _generate_smart_fallback_prompts(
         "Skeleton": "simple construction lines, stick-figure structure, posing and proportion focus, line art only, no colors, no shading",
         "Roughs": "gestural movement capture, loose volumetric shapes, building blocks, line art only, no colors, no shading",
         "Tie Down": "on-model shapes, defined forms, clean single lines, preserve intended gesture, black line art only, no colors, no shading, line art style",
-        "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, pure black line art only, monochrome black lines, no colors whatsoever, no shading, line art style",
+        "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, remove all construction lines, remove all placeholder lines, remove guide circles, remove breast circles, remove anatomical guide marks, remove all non-final lines, keep only final clean line art, pure black line art only, monochrome black lines, no colors whatsoever, no shading, line art style",
         "Colors": "fill character with colors inside all shapes, colorize entire character including skin tones on all visible skin areas, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill skin areas with natural skin tones, colorize all skin regions including arms, legs, face, torso, fill background with colors, colorize background area, complete colorization of character and background, ensure all areas are filled with colors including skin, no empty white spaces inside character, no uncolored skin areas, full color fill for entire character",
     }
     
@@ -257,7 +257,7 @@ def _generate_smart_fallback_prompts(
         "Skeleton": "fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills",
         "Roughs": "perfect lineart, inked outlines, shading, colours, gradients, color fills",
         "Tie Down": "rough sketch, messy lines, double lines, fuzzy lines, construction lines, dense scribbles, perfect crisp ink lines, ultra-clean lineart, colors, color fills, shading, gradients, colored clothing, skin tones, 3D rendering, photorealistic shading",
-        "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, overlapping strokes, inconsistent line weight, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading",
+        "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, placeholder lines, guide circles, breast circles, anatomical guide marks, guide lines, reference lines, building block lines, volumetric guide lines, overlapping strokes, inconsistent line weight, non-final lines, temporary lines, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading",
         "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, monochrome fill, grayscale fill, incomplete colorization, white spaces within character, transparent areas, uncolored regions",
     }
     
@@ -371,14 +371,14 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
             "Skeleton": ["simplify to construction lines", "focus on posing and proportion"],
             "Roughs": ["capture gestural movement", "add volumetric building blocks"],
             "Tie Down": ["define on-model shapes", "clean up lines", "remove construction marks"],
-            "CleanUp": ["smooth all lines to uniform weight", "remove sketchiness", "refine line quality"],
+            "CleanUp": ["smooth all lines to uniform weight", "remove sketchiness", "refine line quality", "remove construction lines", "remove placeholder lines", "remove guide circles"],
             "Colors": ["add accurate color fills", "preserve line integrity"],
         }
         phase_removes = {
             "Skeleton": ["detailed volumetric rendering", "perfect lineart", "shading", "colours"],
             "Roughs": ["perfect lineart", "shading", "colours"],
             "Tie Down": ["rough sketch", "messy lines", "construction lines", "dense scribbles", "colors", "shading"],
-            "CleanUp": ["sketchy lines", "wobbly lines", "construction lines", "colors", "colored lines", "shading"],
+            "CleanUp": ["sketchy lines", "wobbly lines", "construction lines", "placeholder lines", "guide circles", "breast circles", "anatomical guide marks", "colors", "colored lines", "shading"],
             "Colors": ["rough sketch", "messy lines", "construction lines"],
         }
         return {
