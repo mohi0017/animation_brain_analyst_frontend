@@ -1,0 +1,19 @@
+[project]
+name = "ai-animation-studio"
+version = "0.1.0"
+description = "Streamlit control panel for AI Animation Studio (ComfyUI + Gemini)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "streamlit>=1.39",
+    "pillow>=10.4",
+    "requests>=2.32",
+    "google-genai>=0.3.0",  # official Gemini SDK (multimodal)
+    "langchain-core>=0.3.10",
+    "langchain-google-genai>=1.0.5",
+    "python-dotenv>=1.0.1",
+]
+
+[tool.uv]
+package = true
+

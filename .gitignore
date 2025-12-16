@@ -1,0 +1,13 @@
+# Bytecode / env
+__pycache__/
+.venv/
+.env
+
+# Build artifacts
+ai_animation_studio.egg-info/
+uv.lock
+
+# Large docs / data not needed for frontend repo
+*.pdf
+ANIMATION_M1*.json
+V1/
