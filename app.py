@@ -352,29 +352,119 @@ report: {report}
 
 def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str) -> Optional[bytes]:
     """
-    Placeholder ComfyUI call. Replace with your actual RunPod/ComfyUI HTTP call.
-    Expected: return image bytes on success.
+    Submit workflow to ComfyUI API (RunPod) and retrieve generated image.
+    Uses workflow template from ANIMATION_M1 (10).json or (11).json.
     """
-    base_url = os.getenv("COMFYUI_API_URL")
-    token = os.getenv("COMFYUI_AUTH_TOKEN")
+    base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
         return None
 
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    import json
+    import time
+    import uuid
+
     try:
-        resp = requests.post(
-            f"{base_url}/generate",
-            headers=headers,
+        # Step 1: Upload image to ComfyUI
+        upload_resp = requests.post(
+            f"{base_url}/upload/image",
             files={"image": ("input.png", image_bytes, "image/png")},
-            data={
-                "positive_prompt": pos_prompt,
-                "negative_prompt": neg_prompt,
-            },
-            timeout=120,
+            timeout=30,
         )
-        resp.raise_for_status()
-        return resp.content
-    except Exception as exc:  # pragma: no cover - network path
+        upload_resp.raise_for_status()
+        upload_data = upload_resp.json()
+        uploaded_filename = upload_data.get("name")  # e.g., "input_abc123.png"
+        if not uploaded_filename:
+            st.error("ComfyUI upload failed: no filename returned")
+            return None
+
+        # Step 2: Load workflow template (prefer v11 format, fallback to v10)
+        workflow_path = None
+        for path in ["ANIMATION_M1 (11).json", "ANIMATION_M1 (10).json"]:
+            if os.path.exists(path):
+                workflow_path = path
+                break
+        if not workflow_path:
+            st.error("ComfyUI workflow template not found")
+            return None
+
+        with open(workflow_path, "r") as f:
+            workflow = json.load(f)
+
+        # Step 3: Update workflow with dynamic prompts and image
+        # Find CLIPTextEncode nodes (positive=node "2", negative=node "3")
+        # Find LoadImage node (node "4")
+        if "nodes" in workflow:
+            # v11 format (newer)
+            for node in workflow["nodes"]:
+                if node.get("id") == 2 and node.get("type") == "CLIPTextEncode":
+                    node["widgets_values"][0] = pos_prompt
+                elif node.get("id") == 3 and node.get("type") == "CLIPTextEncode":
+                    node["widgets_values"][0] = neg_prompt
+                elif node.get("id") == 4 and node.get("type") == "LoadImage":
+                    node["widgets_values"][0] = uploaded_filename
+        else:
+            # v10 format (older, flat dict)
+            if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
+                workflow["2"]["inputs"]["text"] = pos_prompt
+            if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
+                workflow["3"]["inputs"]["text"] = neg_prompt
+            if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
+                workflow["4"]["inputs"]["image"] = uploaded_filename
+
+        # Step 4: Submit workflow
+        prompt_id = str(uuid.uuid4())
+        submit_resp = requests.post(
+            f"{base_url}/prompt",
+            json={"prompt": workflow, "client_id": prompt_id},
+            timeout=30,
+        )
+        submit_resp.raise_for_status()
+        submit_data = submit_resp.json()
+        actual_prompt_id = submit_data.get("prompt_id")
+        if not actual_prompt_id:
+            st.error("ComfyUI submission failed: no prompt_id returned")
+            return None
+
+        # Step 5: Poll for completion (max 2 minutes)
+        max_wait = 120
+        poll_interval = 2
+        elapsed = 0
+        while elapsed < max_wait:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            history_resp = requests.get(f"{base_url}/history/{actual_prompt_id}", timeout=10)
+            history_resp.raise_for_status()
+            history = history_resp.json()
+            if actual_prompt_id in history:
+                status = history[actual_prompt_id]
+                if status.get("status", {}).get("completed", False):
+                    # Find output image filename
+                    outputs = status.get("outputs", {})
+                    for node_id, node_output in outputs.items():
+                        if "images" in node_output:
+                            for img_info in node_output["images"]:
+                                filename = img_info.get("filename")
+                                subfolder = img_info.get("subfolder", "")
+                                if filename:
+                                    # Step 6: Download generated image
+                                    view_url = f"{base_url}/view"
+                                    params = {"filename": filename}
+                                    if subfolder:
+                                        params["subfolder"] = subfolder
+                                    img_resp = requests.get(view_url, params=params, timeout=30)
+                                    img_resp.raise_for_status()
+                                    return img_resp.content
+                elif status.get("status", {}).get("error"):
+                    st.error(f"ComfyUI generation error: {status['status']['error']}")
+                    return None
+
+        st.error("ComfyUI generation timeout (exceeded 2 minutes)")
+        return None
+
+    except requests.exceptions.RequestException as exc:
+        st.error(f"ComfyUI API error: {exc}")
+        return None
+    except Exception as exc:
         st.error(f"ComfyUI call failed: {exc}")
         return None
 
@@ -386,7 +476,15 @@ st.title("AI Animation Studio Control Panel")
 with st.sidebar:
     st.markdown("**Environment**")
     st.text_input("GOOGLE_GENAI_API_KEY", type="password", value=os.getenv("GOOGLE_GENAI_API_KEY", ""))
-    st.text_input("COMFYUI_API_URL", value=os.getenv("COMFYUI_API_URL", ""))
+    comfy_url = st.text_input("COMFYUI_API_URL", value=os.getenv("COMFYUI_API_URL", "https://j9z3h3awdbe4rf-8188.proxy.runpod.net"))
+    if comfy_url:
+        st.caption(f"Using: {comfy_url}")
+    st.markdown("**Workflow Template**")
+    workflow_files = [f for f in os.listdir(".") if f.startswith("ANIMATION_M1") and f.endswith(".json")]
+    if workflow_files:
+        st.caption(f"Found: {', '.join(workflow_files[:2])}")
+    else:
+        st.warning("No workflow template found. Place ANIMATION_M1 (10).json or (11).json in the project root.")
 
 # 1) Input & Upload
 st.header("Input & Upload")

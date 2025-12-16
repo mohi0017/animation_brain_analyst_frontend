@@ -9,5 +9,14 @@ uv.lock
 
 # Large docs / data not needed for frontend repo
 *.pdf
-ANIMATION_M1*.json
+ANIMATION_M1 (1).json
+ANIMATION_M1 (2).json
+ANIMATION_M1 (3).json
+ANIMATION_M1 (4).json
+ANIMATION_M1 (5).json
+ANIMATION_M1 (7).json
+ANIMATION_M1.json
+# Keep workflow templates for ComfyUI integration
+# ANIMATION_M1 (10).json
+# ANIMATION_M1 (11).json
 V1/
