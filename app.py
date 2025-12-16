@@ -53,6 +53,7 @@ Required analysis steps:
 A) Recognition: identify characters/objects (hands, sunglasses, steering wheel, etc.).
 B) Pose/Action analysis: find anatomical/pose issues (e.g., “left hand anatomically incorrect”).
 C) Phase comparison (SOURCE -> DEST):
+   - If Roughs -> Skeleton: simplify volumes into posing/proportion lines; keep gesture and timing, but REMOVE most volumetric detail. Prefer simple arcs, crosses, and stick-figure structure over clean single-line shapes.
    - If Roughs -> Tie Down: remove scribbles/construction clutter; fix shapes/proportions; DO NOT over-polish to Cleanup-level linework.
    - If Tie Down -> Cleanup: focus on line quality; keep shapes as-is; avoid changing pose/composition.
    - If Roughs -> Colors: conceptually perform cleanup first (as if Roughs -> Tie Down/Cleanup) and THEN apply colours.
@@ -84,15 +85,18 @@ DEFAULT_PROMPT_ENGINEER = """You are the Prompt Engineer (Strategist) for animat
 
 Input:
 - report JSON: fixes[], removes[], notes[]
-- dest_phase: Tie Down | CleanUp | Colors
+- dest_phase: Skeleton | Roughs | Tie Down | CleanUp | Colors
 - Locks: pose_lock (keep pose), style_lock (keep art style)
 
 Strategy:
 - Positive Prompt: turn fixes into high-weight, specific SD-friendly terms targeted to dest_phase fidelity.
+  * Skeleton: focus on posing and proportion; reduce volumes to simple construction and stick-figure lines; keep gesture and timing; DO NOT produce clean final shapes or perfect circles—embrace slightly rough structural lines.
+  * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes.
   * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture.
   * Cleanup: perfect smooth uniform linework on existing tie-down shapes.
   * Colors: accurate fills behind clean lines; keep line integrity; colour inside shapes while preserving existing line art.
 - Negative Prompt: removes + anything that would overshoot the phase.
+  * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients.
   * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, “perfect crisp ink lines”, “ultra-clean lineart”.
   * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged.
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
