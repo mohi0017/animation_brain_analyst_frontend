@@ -102,15 +102,15 @@ Input:
 
 Strategy:
 - Positive Prompt: turn fixes into high-weight, specific SD-friendly terms targeted to dest_phase fidelity.
-  * Skeleton: focus on posing and proportion; reduce volumes to simple construction and stick-figure lines; keep gesture and timing; DO NOT produce clean final shapes or perfect circles—embrace slightly rough structural lines.
-  * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes.
-  * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture.
-  * Cleanup: perfect smooth uniform linework on existing tie-down shapes.
+  * Skeleton: focus on posing and proportion; reduce volumes to simple construction and stick-figure lines; keep gesture and timing; DO NOT produce clean final shapes or perfect circles—embrace slightly rough structural lines. CRITICAL: explicitly add "line art only, no colors, no shading, no fills."
+  * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes. CRITICAL: explicitly add "line art only, no colors, no shading, no fills."
+  * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture. CRITICAL: explicitly add "black line art only, no colors, no color fills, no shading, no gradients, line art style."
+  * Cleanup: perfect smooth uniform linework on existing tie-down shapes. CRITICAL: explicitly add "black line art only, no colors, no color fills, no shading, line art style."
   * Colors: accurate fills behind clean lines; keep line integrity; colour inside shapes while preserving existing line art.
 - Negative Prompt: removes + anything that would overshoot the phase.
-  * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients.
-  * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, “perfect crisp ink lines”, “ultra-clean lineart”.
-  * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged.
+  * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills, colored clothing, skin tones.
+  * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, "perfect crisp ink lines", "ultra-clean lineart". CRITICAL: also block "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading."
+  * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged. CRITICAL: also block "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading."
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
 - Colour scheme:
   * Read from report.preserve/notes any mention of line colour and background colour.
@@ -118,7 +118,8 @@ Strategy:
   * You MUST add an explicit phrase like “preserve blue line art on a white background (canvas area outside character)” in POSITIVE_PROMPT when a colour scheme is present.
   * For WHITE backgrounds: explicitly say “pure white background (canvas/paper area outside character), solid white background, no shading in background area, no grayscale in background, no gray tones in background” to prevent SD from confusing character internal colors with background.
   * For BLACK line art: explicitly say “pure black lines, solid black line art, no grayscale lines, no gray tones in lines” to prevent SD from generating gray lines.
-  * If character has internal colors (clothing, skin tones, shading), preserve them separately: “preserve character internal colors (clothing, skin) as shown, keep background white separately.”
+  * CRITICAL: If dest_phase is NOT "Colors", then character internal colors (clothing, skin tones, shading) should be BLOCKED, not preserved. Only preserve line art color and background color. For non-Color phases, add to NEGATIVE_PROMPT: "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, 3D rendering, photorealistic shading."
+  * If dest_phase IS "Colors", then preserve character internal colors separately: "preserve character internal colors (clothing, skin) as shown, keep background white separately."
   * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
   * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
   * ALWAYS block in NEGATIVE_PROMPT: “grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background, gray shading in background area” when the original background is pure white/black. But DO NOT block character internal shading/colors if they exist in the original.
