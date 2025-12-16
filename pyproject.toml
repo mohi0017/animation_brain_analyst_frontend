@@ -12,6 +12,8 @@ dependencies = [
     "langchain-core>=0.3.10",
     "langchain-google-genai>=1.0.5",
     "python-dotenv>=1.0.1",
+    "markdown>=3.5.1",  # Markdown to HTML conversion
+    "weasyprint>=60.0",  # HTML to PDF conversion
 ]
 
 [tool.uv]
