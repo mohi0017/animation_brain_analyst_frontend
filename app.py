@@ -248,7 +248,7 @@ def _generate_smart_fallback_prompts(
         "Roughs": "gestural movement capture, loose volumetric shapes, building blocks, line art only, no colors, no shading",
         "Tie Down": "on-model shapes, defined forms, clean single lines, preserve intended gesture, black line art only, no colors, no shading, line art style",
         "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, pure black line art only, monochrome black lines, no colors whatsoever, no shading, line art style",
-        "Colors": "accurate color fills behind clean lines, preserve line integrity, color inside shapes, maintain existing line art",
+        "Colors": "accurate color fills behind clean lines, preserve line integrity, color inside shapes, maintain existing line art, vibrant colors, fill all shapes with appropriate colors, colorize character, add skin tones, clothing colors, accessory colors",
     }
     
     # Phase-specific negative prompts
@@ -257,7 +257,7 @@ def _generate_smart_fallback_prompts(
         "Roughs": "perfect lineart, inked outlines, shading, colours, gradients, color fills",
         "Tie Down": "rough sketch, messy lines, double lines, fuzzy lines, construction lines, dense scribbles, perfect crisp ink lines, ultra-clean lineart, colors, color fills, shading, gradients, colored clothing, skin tones, 3D rendering, photorealistic shading",
         "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, overlapping strokes, inconsistent line weight, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading",
-        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions",
+        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless, monochrome fill, grayscale fill",
     }
     
     # Build positive prompt
@@ -269,22 +269,35 @@ def _generate_smart_fallback_prompts(
     if style_lock:
         pos_parts.append("preserve art style and proportions")
     
-    # Always preserve color scheme (black lines, white background)
-    pos_parts.append("pure black line art only, pure white background (canvas area outside character), no colors, no shading, no fills")
+    # Preserve color scheme based on destination phase
+    if dest_phase == "Colors":
+        # Colors phase: preserve line art integrity, allow color fills
+        pos_parts.append("preserve existing black line art, maintain line integrity, color fills behind lines, pure white background (canvas area outside character)")
+    else:
+        # Non-Color phases: enforce black lines, white background, no colors
+        pos_parts.append("pure black line art only, pure white background (canvas area outside character), no colors, no shading, no fills")
     
     # Build negative prompt
     neg_parts = [phase_negatives.get(dest_phase, "rough sketch, messy lines, construction lines")]
     
-    # Block colors for non-Color phases
+    # Block colors for non-Color phases only
     if dest_phase != "Colors":
         neg_parts.append("colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading, purple lines, pink lines, blue lines, any colored line art")
+    else:
+        # Colors phase: block rough sketch quality but allow colors
+        neg_parts.append("rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines")
     
-    # Always block grayscale backgrounds
+    # Always block grayscale backgrounds (even for Colors phase, keep white background)
     neg_parts.append("grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background")
     
     pos = ", ".join(pos_parts)
     neg = ", ".join(neg_parts)
-    rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Focus on phase-appropriate cleanup while maintaining character structure."
+    
+    # Phase-specific rationale
+    if dest_phase == "Colors":
+        rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Add accurate color fills behind existing line art while maintaining line integrity and character structure."
+    else:
+        rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Focus on phase-appropriate cleanup while maintaining character structure."
     
     return pos, neg, rationale
 
