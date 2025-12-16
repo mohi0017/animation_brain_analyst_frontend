@@ -53,10 +53,18 @@ Required analysis steps:
 A) Recognition: identify characters/objects (hands, sunglasses, steering wheel, etc.).
 B) Pose/Action analysis: find anatomical/pose issues (e.g., “left hand anatomically incorrect”).
 C) Phase comparison (SOURCE -> DEST):
-   - If Roughs -> Skeleton: simplify volumes into posing/proportion lines; keep gesture and timing, but REMOVE most volumetric detail. Prefer simple arcs, crosses, and stick-figure structure over clean single-line shapes.
-   - If Roughs -> Tie Down: remove scribbles/construction clutter; fix shapes/proportions; DO NOT over-polish to Cleanup-level linework.
-   - If Tie Down -> Cleanup: focus on line quality; keep shapes as-is; avoid changing pose/composition.
-   - If Roughs -> Colors: conceptually perform cleanup first (as if Roughs -> Tie Down/Cleanup) and THEN apply colours.
+   - Moving EARLIER in the pipeline (e.g., Tie Down -> Roughs, Roughs -> Skeleton, Cleanup -> Roughs/Skeleton, Colors -> Roughs/Skeleton):
+       * Simplify detail; REMOVE non-essential volume and cleanup-quality lines.
+       * Preserve pose, timing, and overall composition.
+       * Skeleton DEST: reduce to posing/proportion lines and stick-figure / simple construction.
+       * Roughs DEST: keep gestural scribbles and movement, with some volumetric hints but not on-model shapes.
+   - Moving FORWARD in the pipeline (e.g., Skeleton -> Roughs/Tie Down/Cleanup/Colors, Roughs -> Tie Down/Cleanup/Colors, Tie Down -> Cleanup/Colors, Cleanup -> Colors):
+       * Increase clarity and fidelity appropriate to DEST_PHASE.
+       * Skeleton/Roughs -> Tie Down: remove scribbles and clutter; fix shapes/proportions; make the subject on-model, but do not produce ink-perfect lineart.
+       * Tie Down -> Cleanup: focus on line quality; keep shapes as-is; avoid changing pose/composition.
+       * Any -> Colors: conceptually perform cleanup first (as if -> Tie Down/Cleanup) and THEN apply colours while preserving existing line/background colours.
+   - Lateral moves at same “level” (e.g., Skeleton <-> Roughs, Tie Down <-> Cleanup when explicitly requested):
+       * Adjust cleanliness and structural emphasis to match DEST_PHASE definitions, keeping the same character, pose, and timing.
 D) Output a concise report: 3-4 critical FIXES and 3-4 REMOVES, plus NOTES if needed.
 E) PRESERVE: list 2-3 items/gestures/styles that must be kept (e.g., “preserve right-hand gesture”, “keep sunglasses angle”).
 F) Colour & background analysis: describe dominant line colour(s) and background (e.g., “blue line art on white background”) and whether they should be preserved.
