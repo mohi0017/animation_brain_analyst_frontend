@@ -75,11 +75,12 @@ Locks/levels:
 - Anatomical level (0-100): how strictly to correct anatomy.
 
 Colour & background rules:
-- Detect dominant line colour(s) and background colour.
+- Detect dominant line colour(s) and background colour. Be precise: distinguish pure white from light gray, pure black from dark gray.
 - By default, PRESERVE the existing colour scheme (line colours + background) across phases, unless explicitly instructed otherwise.
 - For phase upgrades, refine structure and cleanliness, not the colour scheme.
 - For Roughs -> Colors, assume the same line/background colours in the final result unless notes clearly say otherwise.
-- ALWAYS include at least one PRESERVE entry that explicitly states the colour scheme, e.g. “Preserve blue line art on a white background.”
+- ALWAYS include at least one PRESERVE entry that explicitly states the colour scheme, e.g. “Preserve black line art on a pure white background (no shading, no grayscale).”
+- If background is pure white, explicitly note “pure white background, solid white, no gray tones, no shading” to prevent SD from generating grayscale/shaded backgrounds.
 
 Output JSON ONLY:
 {
@@ -112,8 +113,11 @@ Strategy:
 - Colour scheme:
   * Read from report.preserve/notes any mention of line colour and background colour.
   * You MUST add an explicit phrase like “preserve blue line art on a white background” in POSITIVE_PROMPT when a colour scheme is present.
+  * For WHITE backgrounds: explicitly say “pure white background, solid white background, no shading, no grayscale, no gray tones” to prevent SD from generating light gray/shaded backgrounds.
+  * For BLACK line art: explicitly say “pure black lines, solid black line art, no grayscale lines, no gray tones in lines” to prevent SD from generating gray lines.
   * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
   * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
+  * ALWAYS block in NEGATIVE_PROMPT: “grayscale, gray background, shaded background, monochrome shading, light gray background, gray tones, gray shading” when the original is pure white/black.
 - Roughs -> Colors behaviour:
   * Treat this as a two-step process in one generation: first cleanup/define lines (as if doing Tie Down/Cleanup), then apply colours.
   * Encode this in the prompts: describe both the cleanup and the final coloured look, while preserving existing line/background colours.
