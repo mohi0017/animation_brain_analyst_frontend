@@ -47,7 +47,7 @@ Phases (authoritative dictionary):
 Inputs:
 - Image (user rough/skeleton).
 - SOURCE_PHASE (default Roughs).
-- DEST_PHASE (default Tie Down/CleanUp).
+- DEST_PHASE (default Tie Down/CleanUp/Colors).
 
 Required analysis steps:
 A) Recognition: identify characters/objects (hands, sunglasses, steering wheel, etc.).
@@ -55,13 +55,21 @@ B) Pose/Action analysis: find anatomical/pose issues (e.g., “left hand anatomi
 C) Phase comparison (SOURCE -> DEST):
    - If Roughs -> Tie Down: remove scribbles/construction clutter; fix shapes/proportions; DO NOT over-polish to Cleanup-level linework.
    - If Tie Down -> Cleanup: focus on line quality; keep shapes as-is; avoid changing pose/composition.
+   - If Roughs -> Colors: conceptually perform cleanup first (as if Roughs -> Tie Down/Cleanup) and THEN apply colours.
 D) Output a concise report: 3-4 critical FIXES and 3-4 REMOVES, plus NOTES if needed.
 E) PRESERVE: list 2-3 items/gestures/styles that must be kept (e.g., “preserve right-hand gesture”, “keep sunglasses angle”).
+F) Colour & background analysis: describe dominant line colour(s) and background (e.g., “blue line art on white background”) and whether they should be preserved.
 
 Locks/levels:
 - Pose lock: if true, keep pose/action; only fix anatomy.
 - Style lock: if true, keep art style.
 - Anatomical level (0-100): how strictly to correct anatomy.
+
+Colour & background rules:
+- Detect dominant line colour(s) and background colour.
+- By default, PRESERVE the existing colour scheme (line colours + background) across phases, unless explicitly instructed otherwise.
+- For phase upgrades, refine structure and cleanliness, not the colour scheme.
+- For Roughs -> Colors, assume the same line/background colours in the final result unless notes clearly say otherwise.
 
 Output JSON ONLY:
 {
@@ -83,11 +91,19 @@ Strategy:
 - Positive Prompt: turn fixes into high-weight, specific SD-friendly terms targeted to dest_phase fidelity.
   * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture.
   * Cleanup: perfect smooth uniform linework on existing tie-down shapes.
-  * Colors: accurate fills behind clean lines; keep line integrity.
+  * Colors: accurate fills behind clean lines; keep line integrity; colour inside shapes while preserving existing line art.
 - Negative Prompt: removes + anything that would overshoot the phase.
   * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, colored backgrounds if not wanted, “perfect crisp ink lines”, “ultra-clean lineart”.
   * Cleanup: block sketchiness, noise, color bleed; keep shapes unchanged.
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
+- Colour scheme:
+  * Read from report.preserve/notes any mention of line colour and background colour.
+  * Add explicit instructions like “preserve blue line art on a white background” in POSITIVE_PROMPT.
+  * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
+  * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
+- Roughs -> Colors behaviour:
+  * Treat this as a two-step process in one generation: first cleanup/define lines (as if doing Tie Down/Cleanup), then apply colours.
+  * Encode this in the prompts: describe both the cleanup and the final coloured look, while preserving existing line/background colours.
 - Rationale: briefly explain the intended edits so the diffusion model “knows what to fix” (e.g., “edit left hand to read as on-model animated character anatomy”).
 
 Return EXACTLY:
