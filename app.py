@@ -79,6 +79,7 @@ Colour & background rules:
 - By default, PRESERVE the existing colour scheme (line colours + background) across phases, unless explicitly instructed otherwise.
 - For phase upgrades, refine structure and cleanliness, not the colour scheme.
 - For Roughs -> Colors, assume the same line/background colours in the final result unless notes clearly say otherwise.
+- ALWAYS include at least one PRESERVE entry that explicitly states the colour scheme, e.g. “Preserve blue line art on a white background.”
 
 Output JSON ONLY:
 {
@@ -110,7 +111,7 @@ Strategy:
 - Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
 - Colour scheme:
   * Read from report.preserve/notes any mention of line colour and background colour.
-  * Add explicit instructions like “preserve blue line art on a white background” in POSITIVE_PROMPT.
+  * You MUST add an explicit phrase like “preserve blue line art on a white background” in POSITIVE_PROMPT when a colour scheme is present.
   * Do NOT recolour line art or background unless the notes clearly request a style/colour change.
   * In NEGATIVE_PROMPT, block unwanted recolouring such as “black ink lines, dark background” if they would change the original scheme.
 - Roughs -> Colors behaviour:
@@ -457,6 +458,17 @@ if generate:
             st.code("\n".join(report.get("removes", [])) or "N/A")
             st.write("**Preserve**")
             st.code("\n".join(report.get("preserve", [])) or "N/A")
+            # Highlight colour scheme if present in preserve/notes
+            colour_lines = []
+            for section in (report.get("preserve", []), report.get("notes", [])):
+                for line in section:
+                    if isinstance(line, str) and any(
+                        key in line.lower()
+                        for key in ["line art", "background", "colour", "color"]
+                    ):
+                        colour_lines.append(line)
+            st.write("**Colour Scheme**")
+            st.code("\n".join(colour_lines) or "N/A")
             st.write("**Notes**")
             st.code("\n".join(report.get("notes", [])) or "N/A")
 
