@@ -547,21 +547,83 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             return None
         log(f"✅ Image uploaded: {uploaded_filename}")
 
-        # Step 2: Load workflow template (check Complete first, then RunPod filename, then local versions)
+        # Step 2: Load workflow template
+        # Priority: 1) Server workflow URL, 2) Local files
         log("📋 Loading workflow template...")
-        workflow_path = None
-        # Check in order: Complete workflow, RunPod filename, then v10 (API-compatible), then v11
-        for path in ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
-            if os.path.exists(path):
-                workflow_path = path
-                break
-        if not workflow_path:
-            st.error("ComfyUI workflow template not found. Expected: ANIMATION_M1_Complete.json, ANIMATION_M1.json, or ANIMATION_M1 (10).json")
-            return None
-        log(f"✅ Using template: {workflow_path}")
-
-        with open(workflow_path, "r") as f:
-            workflow = json.load(f)
+        workflow = None
+        workflow_source = None
+        
+        # Option 1: Try to fetch from server URL if provided
+        workflow_url = os.getenv("COMFYUI_WORKFLOW_URL", "").strip()
+        if workflow_url:
+            log(f"🔍 Fetching workflow from URL: {workflow_url}")
+            try:
+                resp = requests.get(workflow_url, timeout=15)
+                resp.raise_for_status()
+                workflow = resp.json()
+                workflow_source = f"Server URL: {workflow_url}"
+                log(f"✅ Loaded workflow from server URL")
+            except Exception as e:
+                log(f"⚠️ Could not fetch from URL: {e}")
+                log("📁 Falling back to local files...")
+        
+        # Option 2: Try to fetch from server file path (if server allows file access)
+        if workflow is None:
+            workflow_path_server = os.getenv("COMFYUI_WORKFLOW_PATH", "").strip()
+            if workflow_path_server:
+                log(f"🔍 Trying to fetch workflow from server path: {workflow_path_server}")
+                try:
+                    # Try common ComfyUI workflow endpoints
+                    endpoints_to_try = [
+                        f"{base_url}/view?filename={workflow_path_server}&type=workflow",
+                        f"{base_url}/workflows/{workflow_path_server}",
+                        f"{base_url}/api/workflow?filename={workflow_path_server}",
+                    ]
+                    
+                    for endpoint in endpoints_to_try:
+                        try:
+                            resp = requests.get(endpoint, timeout=10)
+                            if resp.status_code == 200:
+                                content_type = resp.headers.get("content-type", "")
+                                if "application/json" in content_type:
+                                    workflow = resp.json()
+                                    workflow_source = f"Server Path: {workflow_path_server}"
+                                    log(f"✅ Loaded workflow from server path")
+                                    break
+                        except requests.exceptions.RequestException:
+                            continue
+                except Exception as e:
+                    log(f"⚠️ Could not fetch from server path: {e}")
+        
+        # Option 3: Load from local files
+        if workflow is None:
+            workflow_path = None
+            # Check in order: Complete workflow, RunPod filename, then v10 (API-compatible), then v11
+            for path in ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
+                if os.path.exists(path):
+                    workflow_path = path
+                    break
+            
+            if workflow_path:
+                log(f"📁 Loading from local file: {workflow_path}")
+                with open(workflow_path, "r") as f:
+                    workflow = json.load(f)
+                workflow_source = f"Local: {workflow_path}"
+            else:
+                error_msg = (
+                    "❌ ComfyUI workflow template not found.\n\n"
+                    "**Options to fix:**\n"
+                    "1. **Use server workflow URL**: Set `COMFYUI_WORKFLOW_URL` in .env\n"
+                    "   Example: `COMFYUI_WORKFLOW_URL=https://your-server.com/workflow.json`\n\n"
+                    "2. **Use server workflow path**: Set `COMFYUI_WORKFLOW_PATH` in .env\n"
+                    "   Example: `COMFYUI_WORKFLOW_PATH=ANIMATION_M1.json`\n\n"
+                    "3. **Use local file**: Place `ANIMATION_M1_Complete.json` in project root"
+                )
+                st.error(error_msg)
+                return None
+        
+        if workflow_source:
+            log(f"✅ Using template: {workflow_source}")
 
         # Step 3: Update workflow with prompts and image
         is_v11_format = "nodes" in workflow
@@ -878,19 +940,40 @@ with st.sidebar:
     if comfy_url:
         st.caption(f"Using: {comfy_url}")
     st.markdown("**Workflow Template**")
+    
+    # Server workflow options
+    with st.expander("🔧 Server Workflow (Optional)", expanded=False):
+        st.caption("Use workflow saved on ComfyUI server")
+        workflow_url_input = st.text_input(
+            "Workflow URL (COMFYUI_WORKFLOW_URL)",
+            value=os.getenv("COMFYUI_WORKFLOW_URL", ""),
+            help="Full URL to workflow JSON file on server"
+        )
+        workflow_path_input = st.text_input(
+            "Workflow Path (COMFYUI_WORKFLOW_PATH)",
+            value=os.getenv("COMFYUI_WORKFLOW_PATH", ""),
+            help="Filename/path of workflow on server (e.g., ANIMATION_M1.json)"
+        )
+        if workflow_url_input:
+            os.environ["COMFYUI_WORKFLOW_URL"] = workflow_url_input
+        if workflow_path_input:
+            os.environ["COMFYUI_WORKFLOW_PATH"] = workflow_path_input
+    
+    # Local workflow files
     workflow_files = [f for f in os.listdir(".") if f.startswith("ANIMATION_M1") and f.endswith(".json")]
     if workflow_files:
         # Show priority order
         priority_order = ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]
         found_priority = [f for f in priority_order if f in workflow_files]
         if found_priority:
-            st.caption(f"✅ Using: {found_priority[0]}")
+            st.caption(f"✅ Local: {found_priority[0]}")
             if len(found_priority) > 1:
-                st.caption(f"Also found: {', '.join(found_priority[1:4])}")
+                st.caption(f"Also: {', '.join(found_priority[1:4])}")
         else:
-            st.caption(f"Found: {', '.join(workflow_files[:2])}")
+            st.caption(f"Local files: {', '.join(workflow_files[:2])}")
     else:
-        st.warning("No workflow template found. Place ANIMATION_M1_Complete.json or ANIMATION_M1.json in the project root.")
+        if not os.getenv("COMFYUI_WORKFLOW_URL") and not os.getenv("COMFYUI_WORKFLOW_PATH"):
+            st.warning("No local workflow found. Use server workflow options above or place ANIMATION_M1_Complete.json in project root.")
 
 # 1) Input & Upload
 st.header("Input & Upload")
