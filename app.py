@@ -513,7 +513,7 @@ report: {report}
 def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_writer=None) -> Optional[bytes]:
     """
     Submit workflow to ComfyUI API (RunPod) and retrieve generated image.
-    Uses workflow template from ANIMATION_M1_Complete.json (preferred), ANIMATION_M1.json, or ANIMATION_M1 (10).json.
+    Uses workflow template from ANIMATION_M1_api_version.json (preferred, API format) or ANIMATION_M1.json (v11 format).
     """
     base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
@@ -598,8 +598,8 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
         # Option 3: Load from local files
         if workflow is None:
             workflow_path = None
-            # Check in order: Complete workflow, RunPod filename, then v10 (API-compatible), then v11
-            for path in ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
+            # Priority: API version (v10 format) first, then v11 format
+            for path in ["ANIMATION_M1_api_version.json", "ANIMATION_M1.json"]:
                 if os.path.exists(path):
                     workflow_path = path
                     break
@@ -617,7 +617,7 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                     "   Example: `COMFYUI_WORKFLOW_URL=https://your-server.com/workflow.json`\n\n"
                     "2. **Use server workflow path**: Set `COMFYUI_WORKFLOW_PATH` in .env\n"
                     "   Example: `COMFYUI_WORKFLOW_PATH=ANIMATION_M1.json`\n\n"
-                    "3. **Use local file**: Place `ANIMATION_M1_Complete.json` in project root"
+                    "3. **Use local file**: Place `ANIMATION_M1_api_version.json` or `ANIMATION_M1.json` in project root"
                 )
                 st.error(error_msg)
                 return None
@@ -962,18 +962,18 @@ with st.sidebar:
     # Local workflow files
     workflow_files = [f for f in os.listdir(".") if f.startswith("ANIMATION_M1") and f.endswith(".json")]
     if workflow_files:
-        # Show priority order
-        priority_order = ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]
+        # Show priority order (API version first, then v11 format)
+        priority_order = ["ANIMATION_M1_api_version.json", "ANIMATION_M1.json"]
         found_priority = [f for f in priority_order if f in workflow_files]
         if found_priority:
             st.caption(f"✅ Local: {found_priority[0]}")
             if len(found_priority) > 1:
-                st.caption(f"Also: {', '.join(found_priority[1:4])}")
+                st.caption(f"Also: {found_priority[1]}")
         else:
             st.caption(f"Local files: {', '.join(workflow_files[:2])}")
     else:
         if not os.getenv("COMFYUI_WORKFLOW_URL") and not os.getenv("COMFYUI_WORKFLOW_PATH"):
-            st.warning("No local workflow found. Use server workflow options above or place ANIMATION_M1_Complete.json in project root.")
+            st.warning("No local workflow found. Use server workflow options above or place ANIMATION_M1_api_version.json in project root.")
 
 # 1) Input & Upload
 st.header("Input & Upload")
