@@ -513,7 +513,7 @@ report: {report}
 def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_writer=None) -> Optional[bytes]:
     """
     Submit workflow to ComfyUI API (RunPod) and retrieve generated image.
-    Uses workflow template from ANIMATION_M1 (10).json or (11).json.
+    Uses workflow template from ANIMATION_M1_Complete.json (preferred), ANIMATION_M1.json, or ANIMATION_M1 (10).json.
     """
     base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
@@ -547,16 +547,16 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             return None
         log(f"✅ Image uploaded: {uploaded_filename}")
 
-        # Step 2: Load workflow template (check RunPod filename first, then local versions)
+        # Step 2: Load workflow template (check Complete first, then RunPod filename, then local versions)
         log("📋 Loading workflow template...")
         workflow_path = None
-        # Check in order: RunPod filename, then v10 (API-compatible), then v11
-        for path in ["ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
+        # Check in order: Complete workflow, RunPod filename, then v10 (API-compatible), then v11
+        for path in ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]:
             if os.path.exists(path):
                 workflow_path = path
                 break
         if not workflow_path:
-            st.error("ComfyUI workflow template not found. Expected: ANIMATION_M1.json or ANIMATION_M1 (10).json")
+            st.error("ComfyUI workflow template not found. Expected: ANIMATION_M1_Complete.json, ANIMATION_M1.json, or ANIMATION_M1 (10).json")
             return None
         log(f"✅ Using template: {workflow_path}")
 
@@ -564,65 +564,153 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             workflow = json.load(f)
 
         # Step 3: Update workflow with prompts and image
-        if "nodes" in workflow:
-            # v11 format - need conversion (complex, so prefer v10 template)
-            st.warning("⚠️ v11 format detected. For best results, use ANIMATION_M1 (10).json template.")
-            # Try simple conversion: extract nodes and rebuild v10 format
+        is_v11_format = "nodes" in workflow
+        
+        if is_v11_format:
+            # v11 format - update nodes directly by ID
+            log("📝 Updating v11 format workflow...")
+            node_2_found = False
+            node_3_found = False
+            node_4_found = False
+            
+            for node in workflow["nodes"]:
+                node_id = node.get("id")
+                node_type = node.get("type")
+                
+                # Node 2: Positive prompt (CLIPTextEncode)
+                if node_id == 2 and node_type == "CLIPTextEncode":
+                    if "widgets_values" in node and len(node["widgets_values"]) > 0:
+                        old_pos = node["widgets_values"][0][:50] if isinstance(node["widgets_values"][0], str) else ""
+                        node["widgets_values"][0] = pos_prompt
+                        log(f"✅ Updated positive prompt (was: {old_pos}...)")
+                        node_2_found = True
+                
+                # Node 3: Negative prompt (CLIPTextEncode)
+                elif node_id == 3 and node_type == "CLIPTextEncode":
+                    if "widgets_values" in node and len(node["widgets_values"]) > 0:
+                        old_neg = node["widgets_values"][0][:50] if isinstance(node["widgets_values"][0], str) else ""
+                        node["widgets_values"][0] = neg_prompt
+                        log(f"✅ Updated negative prompt (was: {old_neg}...)")
+                        node_3_found = True
+                
+                # Node 4: LoadImage
+                elif node_id == 4 and node_type == "LoadImage":
+                    if "widgets_values" in node and len(node["widgets_values"]) > 0:
+                        node["widgets_values"][0] = uploaded_filename
+                        log(f"✅ Updated image filename: {uploaded_filename}")
+                        node_4_found = True
+            
+            if not node_2_found:
+                log("⚠️ Node 2 (positive prompt) not found in workflow")
+            if not node_3_found:
+                log("⚠️ Node 3 (negative prompt) not found in workflow")
+            if not node_4_found:
+                log("⚠️ Node 4 (LoadImage) not found in workflow")
+            
+            # For v11 format, we need to convert to v10 for API submission
+            # ComfyUI API expects v10 format (flat dictionary)
+            log("🔄 Converting v11 to v10 format for API submission...")
             v10_workflow = {}
-            node_map = {}
+            
+            # Build node map from v11 nodes
             for node in workflow["nodes"]:
                 node_id = str(node.get("id"))
                 node_type = node.get("type")
-                node_map[node_id] = {
+                v10_node = {
                     "class_type": node_type,
                     "inputs": {}
                 }
-                # Copy widgets_values to inputs where applicable
+                
+                # Handle widgets_values -> inputs conversion
                 if "widgets_values" in node:
                     widgets = node["widgets_values"]
+                    
                     if node_type == "CLIPTextEncode" and len(widgets) > 0:
-                        node_map[node_id]["inputs"]["text"] = widgets[0]
-                        node_map[node_id]["inputs"]["clip"] = [node.get("inputs", [{}])[0].get("link", "1"), 1] if node.get("inputs") else ["1", 1]
+                        v10_node["inputs"]["text"] = widgets[0]
+                        # Find CLIP input from links
+                        clip_link = None
+                        if "inputs" in node:
+                            for inp in node["inputs"]:
+                                if inp.get("name") == "clip" and "link" in inp:
+                                    clip_link = inp["link"]
+                                    break
+                        if clip_link:
+                            v10_node["inputs"]["clip"] = [clip_link, 1]
+                    
                     elif node_type == "LoadImage" and len(widgets) > 0:
-                        node_map[node_id]["inputs"]["image"] = widgets[0]
+                        v10_node["inputs"]["image"] = widgets[0]
+                    
+                    # Copy other widget values as needed
+                    for i, widget_val in enumerate(widgets):
+                        if i == 0 and node_type in ["CLIPTextEncode", "LoadImage"]:
+                            continue  # Already handled
+                        # Map other widgets to inputs based on node type
+                        if node_type == "CheckpointLoaderSimple" and i == 0:
+                            v10_node["inputs"]["ckpt_name"] = widget_val
+                        elif node_type == "KSampler" and i < 7:
+                            # KSampler has multiple inputs
+                            ksampler_inputs = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
+                            if i < len(ksampler_inputs):
+                                v10_node["inputs"][ksampler_inputs[i]] = widget_val
+                
+                # Handle linked inputs
+                if "inputs" in node:
+                    for inp in node["inputs"]:
+                        inp_name = inp.get("name")
+                        if "link" in inp and inp_name:
+                            # For linked inputs, use [link_id, output_index]
+                            link_id = inp["link"]
+                            output_index = inp.get("output_index", 0)
+                            v10_node["inputs"][inp_name] = [link_id, output_index]
+                
+                v10_workflow[node_id] = v10_node
             
-            # Rebuild from links
+            # Rebuild links for v10 format
             if "links" in workflow:
                 for link in workflow["links"]:
                     if len(link) >= 6:
-                        target_id = str(link[3])
                         source_id = str(link[1])
-                        if target_id in node_map:
-                            # Map link to input (simplified)
-                            pass
-            
-            # Build final v10 workflow
-            for node_id, node_data in node_map.items():
-                v10_workflow[node_id] = node_data
+                        source_output = link[2]
+                        target_id = str(link[3])
+                        target_input = link[4]
+                        
+                        if target_id in v10_workflow:
+                            # Update the input to point to source
+                            if target_input == 0:  # First input
+                                # Find the input name from node structure
+                                target_node = next((n for n in workflow["nodes"] if str(n.get("id")) == target_id), None)
+                                if target_node and "inputs" in target_node:
+                                    for inp in target_node["inputs"]:
+                                        if inp.get("link") == link[1]:
+                                            inp_name = inp.get("name")
+                                            if inp_name:
+                                                v10_workflow[target_id]["inputs"][inp_name] = [source_id, source_output]
             
             workflow = v10_workflow
-            log("⚠️ Converted v11 to v10 (may have issues - prefer v10 template)")
+            log("✅ Converted v11 to v10 format")
         
-        # Update prompts and image (works for both formats after conversion)
-        if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
-            old_pos = workflow["2"]["inputs"].get("text", "")[:50]
-            workflow["2"]["inputs"]["text"] = pos_prompt
-            log(f"✅ Updated positive prompt (was: {old_pos}...)")
         else:
-            log("⚠️ Node 2 (positive prompt) not found in workflow")
-        
-        if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
-            old_neg = workflow["3"]["inputs"].get("text", "")[:50]
-            workflow["3"]["inputs"]["text"] = neg_prompt
-            log(f"✅ Updated negative prompt (was: {old_neg}...)")
-        else:
-            log("⚠️ Node 3 (negative prompt) not found in workflow")
-        
-        if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
-            workflow["4"]["inputs"]["image"] = uploaded_filename
-            log(f"✅ Updated image filename: {uploaded_filename}")
-        else:
-            log("⚠️ Node 4 (LoadImage) not found in workflow")
+            # v10 format - update directly
+            log("📝 Updating v10 format workflow...")
+            if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
+                old_pos = workflow["2"]["inputs"].get("text", "")[:50]
+                workflow["2"]["inputs"]["text"] = pos_prompt
+                log(f"✅ Updated positive prompt (was: {old_pos}...)")
+            else:
+                log("⚠️ Node 2 (positive prompt) not found in workflow")
+            
+            if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
+                old_neg = workflow["3"]["inputs"].get("text", "")[:50]
+                workflow["3"]["inputs"]["text"] = neg_prompt
+                log(f"✅ Updated negative prompt (was: {old_neg}...)")
+            else:
+                log("⚠️ Node 3 (negative prompt) not found in workflow")
+            
+            if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
+                workflow["4"]["inputs"]["image"] = uploaded_filename
+                log(f"✅ Updated image filename: {uploaded_filename}")
+            else:
+                log("⚠️ Node 4 (LoadImage) not found in workflow")
         
         log("✅ Workflow updated with prompts and image")
 
@@ -725,16 +813,16 @@ with st.sidebar:
     workflow_files = [f for f in os.listdir(".") if f.startswith("ANIMATION_M1") and f.endswith(".json")]
     if workflow_files:
         # Show priority order
-        priority_order = ["ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]
+        priority_order = ["ANIMATION_M1_Complete.json", "ANIMATION_M1.json", "ANIMATION_M1 (10).json", "ANIMATION_M1 (11).json"]
         found_priority = [f for f in priority_order if f in workflow_files]
         if found_priority:
             st.caption(f"✅ Using: {found_priority[0]}")
             if len(found_priority) > 1:
-                st.caption(f"Also found: {', '.join(found_priority[1:3])}")
+                st.caption(f"Also found: {', '.join(found_priority[1:4])}")
         else:
             st.caption(f"Found: {', '.join(workflow_files[:2])}")
     else:
-        st.warning("No workflow template found. Place ANIMATION_M1.json in the project root.")
+        st.warning("No workflow template found. Place ANIMATION_M1_Complete.json or ANIMATION_M1.json in the project root.")
 
 # 1) Input & Upload
 st.header("Input & Upload")
