@@ -612,7 +612,10 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
             log("🔄 Converting v11 to v10 format for API submission...")
             v10_workflow = {}
             
-            # Build node map from v11 nodes
+            # Create a map of node_id -> node for quick lookup
+            node_map = {str(node.get("id")): node for node in workflow["nodes"]}
+            
+            # Step 1: Create all nodes in v10 format (even if empty)
             for node in workflow["nodes"]:
                 node_id = str(node.get("id"))
                 node_type = node.get("type")
@@ -620,74 +623,139 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                     "class_type": node_type,
                     "inputs": {}
                 }
+                v10_workflow[node_id] = v10_node
+            
+            # Step 2: Process widgets_values to set static inputs
+            for node in workflow["nodes"]:
+                node_id = str(node.get("id"))
+                node_type = node.get("type")
+                v10_node = v10_workflow[node_id]
                 
-                # Handle widgets_values -> inputs conversion
                 if "widgets_values" in node:
                     widgets = node["widgets_values"]
                     
+                    # CLIPTextEncode: text is first widget
                     if node_type == "CLIPTextEncode" and len(widgets) > 0:
                         v10_node["inputs"]["text"] = widgets[0]
-                        # Find CLIP input from links
-                        clip_link = None
-                        if "inputs" in node:
-                            for inp in node["inputs"]:
-                                if inp.get("name") == "clip" and "link" in inp:
-                                    clip_link = inp["link"]
-                                    break
-                        if clip_link:
-                            v10_node["inputs"]["clip"] = [clip_link, 1]
                     
+                    # LoadImage: image filename is first widget
                     elif node_type == "LoadImage" and len(widgets) > 0:
                         v10_node["inputs"]["image"] = widgets[0]
                     
-                    # Copy other widget values as needed
-                    for i, widget_val in enumerate(widgets):
-                        if i == 0 and node_type in ["CLIPTextEncode", "LoadImage"]:
-                            continue  # Already handled
-                        # Map other widgets to inputs based on node type
-                        if node_type == "CheckpointLoaderSimple" and i == 0:
-                            v10_node["inputs"]["ckpt_name"] = widget_val
-                        elif node_type == "KSampler" and i < 7:
-                            # KSampler has multiple inputs
-                            ksampler_inputs = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
+                    # CheckpointLoaderSimple: ckpt_name is first widget
+                    elif node_type == "CheckpointLoaderSimple" and len(widgets) > 0:
+                        v10_node["inputs"]["ckpt_name"] = widgets[0]
+                    
+                    # KSampler: multiple inputs
+                    elif node_type == "KSampler" and len(widgets) >= 7:
+                        ksampler_inputs = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
+                        for i, widget_val in enumerate(widgets[:7]):
                             if i < len(ksampler_inputs):
                                 v10_node["inputs"][ksampler_inputs[i]] = widget_val
-                
-                # Handle linked inputs
-                if "inputs" in node:
-                    for inp in node["inputs"]:
-                        inp_name = inp.get("name")
-                        if "link" in inp and inp_name:
-                            # For linked inputs, use [link_id, output_index]
-                            link_id = inp["link"]
-                            output_index = inp.get("output_index", 0)
-                            v10_node["inputs"][inp_name] = [link_id, output_index]
-                
-                v10_workflow[node_id] = v10_node
+                    
+                    # LineArtPreprocessor: mode and resolution
+                    elif node_type == "LineArtPreprocessor" and len(widgets) >= 2:
+                        v10_node["inputs"]["mode"] = widgets[0]
+                        v10_node["inputs"]["resolution"] = widgets[1]
+                    
+                    # Canny: low_threshold and high_threshold
+                    elif node_type == "Canny" and len(widgets) >= 2:
+                        v10_node["inputs"]["low_threshold"] = widgets[0]
+                        v10_node["inputs"]["high_threshold"] = widgets[1]
+                    
+                    # RemBGSession+: model and device
+                    elif node_type == "RemBGSession+" and len(widgets) >= 2:
+                        v10_node["inputs"]["model"] = widgets[0]
+                        v10_node["inputs"]["device_mode"] = widgets[1]
+                    
+                    # SaveImage: filename_prefix
+                    elif node_type == "SaveImage" and len(widgets) > 0:
+                        v10_node["inputs"]["filename_prefix"] = widgets[0]
+                    
+                    # CR Multi-ControlNet Stack: complex widget handling
+                    elif node_type == "CR Multi-ControlNet Stack" and len(widgets) > 0:
+                        # This node has complex structure, handle basic case
+                        pass  # Will be handled by links
             
-            # Rebuild links for v10 format
+            # Step 3: Process links array to set up all connections
+            # Links format: [link_id, source_node_id, source_output, target_node_id, target_input, type]
             if "links" in workflow:
                 for link in workflow["links"]:
                     if len(link) >= 6:
+                        link_id = link[0]
                         source_id = str(link[1])
                         source_output = link[2]
                         target_id = str(link[3])
-                        target_input = link[4]
+                        target_input_index = link[4]
+                        link_type = link[5] if len(link) > 5 else None
                         
-                        if target_id in v10_workflow:
-                            # Update the input to point to source
-                            if target_input == 0:  # First input
-                                # Find the input name from node structure
-                                target_node = next((n for n in workflow["nodes"] if str(n.get("id")) == target_id), None)
-                                if target_node and "inputs" in target_node:
-                                    for inp in target_node["inputs"]:
-                                        if inp.get("link") == link[1]:
-                                            inp_name = inp.get("name")
-                                            if inp_name:
-                                                v10_workflow[target_id]["inputs"][inp_name] = [source_id, source_output]
+                        # Ensure both nodes exist
+                        if source_id not in v10_workflow:
+                            log(f"⚠️ Source node {source_id} not found in workflow")
+                            continue
+                        if target_id not in v10_workflow:
+                            log(f"⚠️ Target node {target_id} not found in workflow")
+                            continue
+                        
+                        # Find the target node's input name from the original v11 structure
+                        target_node = node_map.get(target_id)
+                        if target_node and "inputs" in target_node:
+                            # Find which input corresponds to this link
+                            # In v11, the "link" field in inputs is the link ID (link[0]), not source node ID
+                            for inp in target_node["inputs"]:
+                                if inp.get("link") == link_id:  # Match link ID (first element of link array)
+                                    inp_name = inp.get("name")
+                                    if inp_name:
+                                        v10_workflow[target_id]["inputs"][inp_name] = [source_id, source_output]
+                                        break
+                        else:
+                            # Fallback: try to infer input name from common patterns
+                            target_node_type = v10_workflow[target_id]["class_type"]
+                            # Try to get input name from the target node's structure
+                            target_node = node_map.get(target_id)
+                            if target_node and "inputs" in target_node:
+                                # Try to match by input index
+                                inputs_list = target_node["inputs"]
+                                if target_input_index < len(inputs_list):
+                                    inp = inputs_list[target_input_index]
+                                    inp_name = inp.get("name")
+                                    if inp_name:
+                                        v10_workflow[target_id]["inputs"][inp_name] = [source_id, source_output]
+                                        continue
+                            
+                            # Final fallback: common input names by node type and index
+                            input_name_maps = {
+                                "VAEEncode": {0: "pixels", 1: "vae"},
+                                "VAEDecode": {0: "samples", 1: "vae"},
+                                "KSampler": {0: "model", 1: "positive", 2: "negative", 3: "latent_image"},
+                                "CLIPTextEncode": {0: "clip"},
+                                "ImageRemoveBackground+": {0: "rembg_session", 1: "image"},
+                                "SaveImage": {0: "images"},
+                                "CR Apply Multi-ControlNet": {0: "base_positive", 1: "base_negative", 2: "controlnet_stack"},
+                                "CR Multi-ControlNet Stack": {0: "image_1", 1: "image_2", 2: "image_3", 3: "controlnet_stack"},
+                            }
+                            if target_node_type in input_name_maps:
+                                input_map = input_name_maps[target_node_type]
+                                if target_input_index in input_map:
+                                    v10_workflow[target_id]["inputs"][input_map[target_input_index]] = [source_id, source_output]
+            
+            # Step 4: Validate that all referenced nodes exist
+            all_node_ids = set(v10_workflow.keys())
+            referenced_node_ids = set()
+            if "links" in workflow:
+                for link in workflow["links"]:
+                    if len(link) >= 4:
+                        referenced_node_ids.add(str(link[1]))  # source
+                        referenced_node_ids.add(str(link[3]))  # target
+            
+            missing_nodes = referenced_node_ids - all_node_ids
+            if missing_nodes:
+                log(f"⚠️ Warning: Links reference missing nodes: {missing_nodes}")
+                # These might be link IDs, not node IDs - log for debugging
+                log(f"   All converted node IDs: {sorted([int(n) for n in all_node_ids if n.isdigit()])}")
             
             workflow = v10_workflow
-            log("✅ Converted v11 to v10 format")
+            log(f"✅ Converted v11 to v10 format ({len(v10_workflow)} nodes)")
         
         else:
             # v10 format - update directly
