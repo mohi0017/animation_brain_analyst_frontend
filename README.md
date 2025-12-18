@@ -19,7 +19,8 @@ A sophisticated AI-powered animation cleanup pipeline that converts rough sketch
 M1/
 ├── app.py                          # Main Streamlit application (entry point)
 ├── pages/                          # Streamlit multi-page app
-│   └── 2_🎛️_Parameters_Tuning.py  # Interactive parameter tuning interface
+│   ├── 2_🎛️_Parameters_Tuning.py  # Interactive parameter tuning interface
+│   └── 3_📚_Documentation.py       # Documentation viewer
 ├── modules/                        # Core modular components
 │   ├── __init__.py                 # Module exports
 │   ├── config.py                   # Configuration, constants, prompts
@@ -127,6 +128,16 @@ Access the Parameters Tuning page from the sidebar to:
 - Configure preprocessors (LineArt, Canny)
 - Use built-in presets (Gentle Cleanup, Aggressive Fix, etc.)
 - Export/import custom configurations
+
+#### Documentation Page
+
+View all project documentation within the Streamlit app:
+- **Parameters Guide**: Comprehensive parameter reference
+- **ControlNet Strategy**: "Timed Release" strategy explained
+- **ComfyUI Integration**: Complete integration guide
+- **Technical Report**: System architecture and design
+- Download any documentation as markdown file
+- Search within documents using browser's Ctrl+F
 
 #### Transparent Background Output
 
