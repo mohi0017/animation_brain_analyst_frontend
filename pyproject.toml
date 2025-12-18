@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [tool.uv]
-package = true
+package = false
 
 [tool.poetry]
 package-mode = false

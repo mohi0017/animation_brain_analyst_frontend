@@ -516,10 +516,32 @@ report: {report}
         return pos, neg, rationale
 
 
-def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_writer=None) -> Optional[Tuple[bytes, bytes]]:
+def call_comfyui(
+    image_bytes: bytes, 
+    pos_prompt: str, 
+    neg_prompt: str, 
+    dest_phase: str = "CleanUp",
+    cfg_scale: float = None,
+    lineart_end: float = None,
+    canny_end: float = None,
+    status_writer=None
+) -> Optional[Tuple[bytes, bytes]]:
     """
     Submit workflow to ComfyUI API (RunPod) and retrieve generated image.
     Uses workflow template from ANIMATION_M1_api_version.json (preferred, API format) or ANIMATION_M1.json (v11 format).
+    
+    Args:
+        image_bytes: Input image bytes
+        pos_prompt: Positive prompt text
+        neg_prompt: Negative prompt text
+        dest_phase: Destination phase (for automatic parameter tuning)
+        cfg_scale: Override CFG scale (default: phase-specific)
+        lineart_end: Override Lineart ending percent (default: phase-specific)
+        canny_end: Override Canny ending percent (default: phase-specific)
+        status_writer: Streamlit status widget for logging
+    
+    Returns:
+        Tuple of (transparent_image_bytes, original_image_bytes) or None if failed
     """
     base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
@@ -537,6 +559,22 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
         else:
             st.info(msg)
 
+    # Determine optimal parameters based on dest_phase if not explicitly provided
+    PHASE_PARAMS = {
+        "Skeleton": {"cfg": 7.5, "lineart_end": 0.7, "canny_end": 0.6},
+        "Roughs": {"cfg": 7.0, "lineart_end": 0.6, "canny_end": 0.5},
+        "Tie Down": {"cfg": 7.5, "lineart_end": 0.7, "canny_end": 0.6},
+        "CleanUp": {"cfg": 7.5, "lineart_end": 0.7, "canny_end": 0.6},  # Standard cleanup
+        "Colors": {"cfg": 7.5, "lineart_end": 0.8, "canny_end": 0.7},  # More structure for colors
+    }
+    
+    phase_params = PHASE_PARAMS.get(dest_phase, PHASE_PARAMS["CleanUp"])
+    final_cfg = cfg_scale if cfg_scale is not None else phase_params["cfg"]
+    final_lineart_end = lineart_end if lineart_end is not None else phase_params["lineart_end"]
+    final_canny_end = canny_end if canny_end is not None else phase_params["canny_end"]
+    
+    log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end}")
+    
     try:
         # Step 1: Upload image to ComfyUI
         log("📤 Uploading image to ComfyUI...")
@@ -667,6 +705,26 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                         node["widgets_values"][0] = uploaded_filename
                         log(f"✅ Updated image filename: {uploaded_filename}")
                         node_4_found = True
+                
+                # Node 5: KSampler - Update CFG
+                elif node_id == 5 and node_type == "KSampler":
+                    if "widgets_values" in node and len(node["widgets_values"]) >= 4:
+                        old_cfg = node["widgets_values"][3]
+                        node["widgets_values"][3] = final_cfg
+                        log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+                
+                # Node 39: CR Multi-ControlNet Stack - Update Ending Steps
+                elif node_id == 39 and node_type == "CR Multi-ControlNet Stack":
+                    if "widgets_values" in node and len(node["widgets_values"]) >= 15:
+                        # Widget indices: 
+                        # 4 = lineart end_percent_1
+                        # 9 = canny end_percent_2
+                        old_lineart_end = node["widgets_values"][4]
+                        old_canny_end = node["widgets_values"][9]
+                        node["widgets_values"][4] = final_lineart_end
+                        node["widgets_values"][9] = final_canny_end
+                        log(f"✅ Updated Lineart End: {old_lineart_end} → {final_lineart_end}")
+                        log(f"✅ Updated Canny End: {old_canny_end} → {final_canny_end}")
             
             if not node_2_found:
                 log("⚠️ Node 2 (positive prompt) not found in workflow")
@@ -719,7 +777,11 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                         ksampler_inputs = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
                         for i, widget_val in enumerate(widgets[:7]):
                             if i < len(ksampler_inputs):
-                                v10_node["inputs"][ksampler_inputs[i]] = widget_val
+                                # Use updated CFG value if this is the cfg parameter
+                                if ksampler_inputs[i] == "cfg" and node_id == "5":
+                                    v10_node["inputs"]["cfg"] = final_cfg
+                                else:
+                                    v10_node["inputs"][ksampler_inputs[i]] = widget_val
                     
                     # LineArtPreprocessor: mode and resolution
                     elif node_type == "LineArtPreprocessor" and len(widgets) >= 2:
@@ -741,9 +803,25 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                         v10_node["inputs"]["filename_prefix"] = widgets[0]
                     
                     # CR Multi-ControlNet Stack: complex widget handling
-                    elif node_type == "CR Multi-ControlNet Stack" and len(widgets) > 0:
-                        # This node has complex structure, handle basic case
-                        pass  # Will be handled by links
+                    elif node_type == "CR Multi-ControlNet Stack" and len(widgets) >= 15 and node_id == "39":
+                        # Widget structure: [switch_1, controlnet_1, strength_1, start_1, end_1, 
+                        #                    switch_2, controlnet_2, strength_2, start_2, end_2,
+                        #                    switch_3, controlnet_3, strength_3, start_3, end_3]
+                        v10_node["inputs"]["switch_1"] = widgets[0]
+                        v10_node["inputs"]["controlnet_1"] = widgets[1]
+                        v10_node["inputs"]["controlnet_strength_1"] = widgets[2]
+                        v10_node["inputs"]["start_percent_1"] = widgets[3]
+                        v10_node["inputs"]["end_percent_1"] = final_lineart_end  # Use updated value
+                        v10_node["inputs"]["switch_2"] = widgets[5]
+                        v10_node["inputs"]["controlnet_2"] = widgets[6]
+                        v10_node["inputs"]["controlnet_strength_2"] = widgets[7]
+                        v10_node["inputs"]["start_percent_2"] = widgets[8]
+                        v10_node["inputs"]["end_percent_2"] = final_canny_end  # Use updated value
+                        v10_node["inputs"]["switch_3"] = widgets[10]
+                        v10_node["inputs"]["controlnet_3"] = widgets[11]
+                        v10_node["inputs"]["controlnet_strength_3"] = widgets[12]
+                        v10_node["inputs"]["start_percent_3"] = widgets[13]
+                        v10_node["inputs"]["end_percent_3"] = widgets[14]
             
             # Step 3: Process links array to set up all connections
             # Links format: [link_id, source_node_id, source_output, target_node_id, target_input, type]
@@ -847,8 +925,23 @@ def call_comfyui(image_bytes: bytes, pos_prompt: str, neg_prompt: str, status_wr
                 log(f"✅ Updated image filename: {uploaded_filename}")
             else:
                 log("⚠️ Node 4 (LoadImage) not found in workflow")
+            
+            # Update KSampler CFG (Node 5)
+            if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
+                old_cfg = workflow["5"]["inputs"].get("cfg", "N/A")
+                workflow["5"]["inputs"]["cfg"] = final_cfg
+                log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+            
+            # Update ControlNet Ending Steps (Node 39)
+            if "39" in workflow and workflow["39"].get("class_type") == "CR Multi-ControlNet Stack":
+                old_lineart_end = workflow["39"]["inputs"].get("end_percent_1", "N/A")
+                old_canny_end = workflow["39"]["inputs"].get("end_percent_2", "N/A")
+                workflow["39"]["inputs"]["end_percent_1"] = final_lineart_end
+                workflow["39"]["inputs"]["end_percent_2"] = final_canny_end
+                log(f"✅ Updated Lineart End: {old_lineart_end} → {final_lineart_end}")
+                log(f"✅ Updated Canny End: {old_canny_end} → {final_canny_end}")
         
-        log("✅ Workflow updated with prompts and image")
+        log("✅ Workflow updated with prompts, image, and parameters")
 
         # Step 4: Submit workflow
         log("🚀 Submitting workflow to ComfyUI...")
@@ -1102,7 +1195,13 @@ if generate:
             )
 
             status.write("3) Calling ComfyUI / KSampler...")
-            generated_image = call_comfyui(image_bytes, pos_prompt, neg_prompt, status)
+            generated_image = call_comfyui(
+                image_bytes, 
+                pos_prompt, 
+                neg_prompt, 
+                dest_phase=dest_phase,
+                status_writer=status
+            )
 
             status.update(label="Done", state="complete")
 
