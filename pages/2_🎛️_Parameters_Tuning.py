@@ -123,9 +123,9 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 📖 Documentation")
-    st.markdown("- [Parameters Guide](../docs/PARAMETERS_GUIDE.md)")
-    st.markdown("- [ControlNet Strategy](../docs/CONTROLNET_ANATOMY_STRATEGY.md)")
-    st.markdown("- [Technical Report](../docs/TECHNICAL_REPORT.md)")
+    st.info("📚 View all documentation in the **Documentation** page (sidebar)")
+    if st.button("📚 Open Documentation", use_container_width=True):
+        st.switch_page("pages/3_📚_Documentation.py")
 
 # Main content: Parameter sections
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -636,5 +636,5 @@ Canny High:       {canny_high}
 # Footer
 st.markdown("---")
 st.caption("💡 **Tip:** Start with 'Standard Cleanup' preset, then adjust one parameter at a time")
-st.caption("📖 **Documentation:** See [PARAMETERS_GUIDE.md](../docs/PARAMETERS_GUIDE.md) for detailed explanations")
+st.caption("📖 **Documentation:** See the Documentation page (sidebar) for detailed explanations")
 
