@@ -1,535 +1,483 @@
-# 🎛️ ComfyUI Parameters Tuning Guide
-## Complete Reference for AI Animation Studio
+# 🎛️ Settings Guide for AI Animation Studio
+## Easy-to-Understand Guide for All Users
 
 ---
 
-## 📋 Table of Contents
+## 📋 What's In This Guide
 
-1. [KSampler Parameters](#ksampler-parameters)
-2. [ControlNet Parameters](#controlnet-parameters)
-3. [Preprocessor Parameters](#preprocessor-parameters)
-4. [Model Parameters](#model-parameters)
-5. [Quick Reference Tables](#quick-reference-tables)
-6. [Recommended Presets](#recommended-presets)
-7. [Troubleshooting](#troubleshooting)
-
----
-
-## 🎯 KSampler Parameters
-
-### **1. Steps**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `30`  
-**Range:** `1-150` (recommended: `20-50`)
-
-**What it does:**
-- Number of denoising iterations
-- More steps = more detail, but diminishing returns after 30-40
-- Each step refines the image progressively
-
-**Effect:**
-- **Low (10-20):** Fast but rough/incomplete generation
-- **Medium (20-35):** ✅ Best balance (recommended)
-- **High (40+):** Slower, minimal quality improvement
-
-**Recommendation:**
-- **Cleanup/Tie Down:** 25-30 steps
-- **Colors:** 30-35 steps
-- **Skeleton/Roughs:** 20-25 steps
+1. [Basic Generation Settings](#basic-generation-settings)
+2. [Structure Control Settings](#structure-control-settings)
+3. [Image Processing Settings](#image-processing-settings)
+4. [AI Model Settings](#ai-model-settings)
+5. [Quick Help Tables](#quick-help-tables)
+6. [Ready-to-Use Presets](#ready-to-use-presets)
+7. [Common Problems & Solutions](#common-problems--solutions)
 
 ---
 
-### **2. CFG Scale (Classifier Free Guidance)**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `7.5`  
-**Range:** `1.0-30.0` (recommended: `6.0-9.0`)
+## 🎯 Basic Generation Settings
 
-**What it does:**
-- Controls how strictly AI follows your prompt
-- Higher = more prompt adherence, but can be "overcooked"
-- Lower = more creative freedom, but may ignore prompt
+These control how the AI creates your image.
 
-**Effect:**
-| CFG Value | Prompt Adherence | Creativity | Quality | Best For |
-|-----------|------------------|------------|---------|----------|
-| 3.0-5.0 | Low | Very High | Artistic | Experimental |
-| 6.0-7.0 | Medium-Low | High | Balanced | Natural looks |
-| **7.5-8.5** | **Medium** ✅ | **Medium** | **Best** | **Most cases** |
-| 9.0-12.0 | High | Low | Sharp | Strict requirements |
-| 13.0+ | Very High | Very Low | Over-saturated | Not recommended |
+### **1. Steps (How Many Times to Process)**
+**Where to find:** Basic Settings tab  
+**Current setting:** `30`  
+**What you can use:** `10-50` (we recommend `20-35`)
 
-**With ControlNet (Our Case):**
-- **6.5-7.5:** ✅ Best range when using ControlNet
-- **Reason:** ControlNet already provides structural guidance, so lower CFG prevents conflict
+**What this does:**
+- This is how many times the AI processes your image to make it better
+- More steps = more detail, but it takes longer
+- After about 30 steps, you don't get much improvement
 
-**Recommendation:**
-- **Cleanup Phase:** 7.5 (current) ✅
-- **With weak ControlNet:** 8.0-8.5
-- **With strong ControlNet:** 7.0-7.5
+**How it affects your image:**
+- **Low (10-20):** Fast but image quality isn't great
+- **Medium (20-35):** ✅ Best choice for most people
+- **High (35-50):** Slower, but doesn't look much better
+
+**Our recommendations:**
+- **For CleanUp/Tie Down phase:** 25-30 steps
+- **For adding Colors:** 30-35 steps
+- **For Skeleton/Roughs:** 20-25 steps
 
 ---
 
-### **3. Denoise**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `1.0`  
-**Range:** `0.0-1.0`
+### **2. How Strictly to Follow Instructions**
+**Where to find:** Basic Settings tab  
+**Current setting:** `7.5`  
+**What you can use:** `3.0-15.0` (we recommend `6.0-9.0`)
 
-**What it does:**
-- How much AI "re-imagines" vs "refines" the input
-- 1.0 = complete regeneration from noise
-- 0.0 = no change to input
+**What this does:**
+- Controls how closely the AI follows your instructions
+- Higher number = AI follows instructions exactly, but can look overdone
+- Lower number = AI is more creative, but might ignore some instructions
 
-**Effect:**
-| Denoise | Behavior | Use Case |
-|---------|----------|----------|
-| 0.0-0.3 | Minor tweaks only | Color correction, tiny fixes |
-| 0.4-0.6 | Moderate changes | Img2img refinement |
-| 0.7-0.9 | Major changes | Significant cleanup |
-| **1.0** ✅ | **Full generation** | **Complete transformation** |
+**How it affects your image:**
 
-**With ControlNet:**
-- **1.0 is ideal** for rough→clean transformation
-- ControlNet structure prevents total chaos
-- Allows maximum cleanup while keeping pose
-
-**Recommendation:**
-- **Cleanup/Tie Down:** 1.0 (current) ✅
-- **Minor fixes only:** 0.6-0.8
-
----
-
-### **4. Sampler Name**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `euler`  
-**Options:** `euler`, `euler_a`, `dpm_2`, `dpm_2_ancestral`, `heun`, `dpm_fast`, `lms`, `ddim`, `plms`, `uni_pc`, `dpm_adaptive`
-
-**What it does:**
-- Algorithm for noise reduction
-- Different samplers produce different styles
-
-**Comparison:**
-| Sampler | Speed | Quality | Stability | Character | Best For |
-|---------|-------|---------|-----------|-----------|----------|
-| **euler** ✅ | Fast | Good | Stable | Clean, precise | **Line art** |
-| euler_a | Fast | Good | Less stable | More varied | Artistic |
-| dpm_2 | Medium | Better | Stable | Smooth | Paintings |
-| dpm_2_ancestral | Medium | Good | Less stable | Creative | Colors |
-| heun | Slow | Excellent | Very stable | Precise | Details |
-| dpm_fast | Very fast | OK | Stable | Quick drafts | Testing |
-| ddim | Medium | Good | Stable | Smooth | General |
-
-**Recommendation:**
-- **Cleanup:** `euler` (current) ✅ or `heun` (slower but better)
-- **Colors:** `euler_a` or `dpm_2_ancestral`
-- **Testing:** `dpm_fast`
-
----
-
-### **5. Scheduler**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `simple`  
-**Options:** `normal`, `karras`, `exponential`, `simple`, `ddim_uniform`
-
-**What it does:**
-- Controls step timing/spacing during denoising
-- Affects how noise is removed across steps
-
-**Effect:**
-| Scheduler | Character | Best For |
-|-----------|-----------|----------|
-| **simple** ✅ | Uniform, predictable | **Stable results** |
-| normal | Standard timing | General use |
-| karras | More detail in early steps | Complex images |
-| exponential | Smooth transitions | Gradients |
-| ddim_uniform | Specific to DDIM sampler | DDIM only |
-
-**Recommendation:**
-- **Keep `simple`** ✅ for predictable, stable results
-- Experiment with `karras` for more detail
-
----
-
-### **6. Seed**
-**Location:** Node 5 (KSampler)  
-**Current Value:** `153563715982370`  
-**Range:** Any integer
-
-**What it does:**
-- Random number generator seed
-- Same seed + same settings = identical output
-- Different seed = variation
-
-**Effect:**
-- **Fixed seed:** Reproducible results for testing
-- **Random seed:** Variation for each generation
-
-**Recommendation:**
-- **Production:** Use fixed seed for consistency
-- **Exploration:** Use random/increment seed
-
----
-
-## 🎮 ControlNet Parameters
-
-### **1. ControlNet Strength (Weight)**
-**Location:** Node 39 (CR Multi-ControlNet Stack)  
-**Current Values:** 
-- Lineart: `0.8`
-- Canny: `0.6`
-
-**Range:** `0.0-2.0` (recommended: `0.5-1.0`)
-
-**What it does:**
-- How strongly ControlNet influences generation
-- Higher = more structural control
-- Lower = more creative freedom
-
-**Effect:**
-| Strength | Control | Freedom | Use Case |
-|----------|---------|---------|----------|
-| 0.3-0.5 | Weak | High | Loose interpretation |
-| **0.6-0.8** ✅ | **Medium** | **Medium** | **Balanced** |
-| 0.9-1.0 | Strong | Low | Strict following |
-| 1.1-1.5 | Very Strong | Very Low | Exact copy |
-| 1.6+ | Extreme | None | Not recommended |
-
-**Lineart vs Canny:**
-- **Lineart (0.8):** Stronger control for pose/gesture
-- **Canny (0.6):** Weaker for edge refinement
-
-**Recommendation:**
-- **Clean rough sketches:** Lineart 0.7-0.8, Canny 0.5-0.6 ✅
-- **Messy rough sketches:** Lineart 0.6-0.7, Canny 0.4-0.5
-- **Perfect pose preservation:** Lineart 0.9-1.0, Canny 0.7-0.8
-
----
-
-### **2. Start Percent**
-**Location:** Node 39 (CR Multi-ControlNet Stack)  
-**Current Value:** `0` (both)  
-**Range:** `0.0-1.0`
-
-**What it does:**
-- When ControlNet starts influencing generation
-- 0.0 = from beginning
-- 0.2 = after 20% of steps
-
-**Effect:**
-- **0.0:** ✅ Standard, control from start
-- **0.1-0.3:** Allow initial creative freedom
-- **0.4+:** Not recommended (too late)
-
-**Recommendation:**
-- **Keep at 0.0** ✅ for consistent control
-
----
-
-### **3. End Percent (The "Timed Release" 🔥)**
-**Location:** Node 39 (CR Multi-ControlNet Stack)  
-**Current Values:**
-- Lineart: `0.7` ✅
-- Canny: `0.6` ✅
-
-**Range:** `0.0-1.0`
-
-**What it does:**
-- **CRITICAL PARAMETER** for anatomy correction
-- When ControlNet stops influencing generation
-- 1.0 = active entire process
-- 0.7 = releases at 70%, AI fixes anatomy in last 30%
-
-**Effect (30 Steps Total):**
-| End % | Release Point | AI Freedom Window | Anatomy Fix Ability |
-|-------|---------------|-------------------|---------------------|
-| 1.0 | Never | None | ❌ None |
-| 0.9 | Step 27 | 3 steps | ⚠️ Minimal |
-| 0.8 | Step 24 | 6 steps | ⚠️ Limited |
-| **0.7** ✅ | **Step 21** | **9 steps** | **✅ Good** |
-| **0.6** ✅ | **Step 18** | **12 steps** | **✅ Better** |
-| 0.5 | Step 15 | 15 steps | ⚠️ May lose pose |
-| 0.4- | Step 12- | 18+ steps | ❌ Too much freedom |
-
-**Lineart 0.7 vs Canny 0.6 Strategy:**
-```
-Steps 1-18:  Canny + Lineart BOTH ACTIVE
-             → Lock shapes and pose
-
-Steps 19-21: Canny RELEASED, Lineart ACTIVE
-             → Smooth edges, refine shapes
-
-Steps 22-30: BOTH RELEASED
-             → Fix face, hands, anatomy
-```
-
-**Recommendation:**
-- **Balanced (current):** Lineart 0.7, Canny 0.6 ✅
-- **More anatomy freedom:** Lineart 0.6, Canny 0.5
-- **Strict pose preservation:** Lineart 0.8, Canny 0.7
-- **Maximum anatomy fix:** Lineart 0.5, Canny 0.4
-
----
-
-## 🔧 Preprocessor Parameters
-
-### **1. LineArt Preprocessor**
-**Location:** Node 19 (LineArtPreprocessor)  
-**Current Settings:**
-- `coarse`: `disable`
-- `resolution`: `1920`
-
-#### **Coarse Mode**
-**Options:** `disable`, `enable`
-
-**What it does:**
-- Simplifies line detection
-- `disable` = detailed lines (current) ✅
-- `enable` = simplified/coarse lines
-
-**Recommendation:**
-- **Cleanup/Tie Down:** `disable` ✅
-- **Sketch/Roughs:** `enable`
-
-#### **Resolution**
-**Range:** `512-2048`
-
-**What it does:**
-- Processing resolution for line detection
-- Higher = more detail but slower
-
-**Recommendation:**
-- **Standard:** 1024-1536
-- **High quality (current):** 1920 ✅
-- **Fast testing:** 512-1024
-
----
-
-### **2. Canny Preprocessor**
-**Location:** Node 20 (Canny)  
-**Current Settings:**
-- `low_threshold`: `0.4`
-- `high_threshold`: `0.8`
-
-**Range:** `0.0-1.0`
-
-**What it does:**
-- Edge detection sensitivity
-- Low threshold: weak edges
-- High threshold: strong edges
-
-**Effect:**
-| Setting | Edges Detected | Best For |
+| Setting | How AI Behaves | Best For |
 |---------|----------------|----------|
-| Low: 0.2, High: 0.6 | Many (even faint) | Messy sketches |
-| **Low: 0.4, High: 0.8** ✅ | **Medium** | **Clean sketches** |
-| Low: 0.6, High: 0.9 | Few (only strong) | Final artwork |
+| 3.0-5.0 | Very creative, might not follow instructions | Experimental art |
+| 6.0-7.0 | Natural and balanced | Most situations |
+| **7.5-8.5** ✅ | **Good balance** | **Best for most cases** |
+| 9.0-12.0 | Follows instructions strictly | When you need exact results |
+| 13.0+ | Too strict, can look "cooked" | Not recommended |
 
-**Recommendation:**
-- **Rough sketches:** Low 0.3-0.4, High 0.7-0.8
-- **Clean sketches (current):** Low 0.4, High 0.8 ✅
-- **Very clean:** Low 0.5, High 0.9
+**Special note for our app:**
+- **6.5-7.5:** ✅ Best range when the app is helping you keep your pose
+- **Why:** The app already helps keep your character's structure, so you don't need a high setting
 
----
-
-## 🎨 Model Parameters
-
-### **1. Checkpoint Model**
-**Location:** Node 1 (CheckpointLoaderSimple)  
-**Current Value:** `Realistic_Vision_V5.1.safetensors`
-
-**What it does:**
-- Base AI model for generation
-- Different models have different strengths
-
-**Recommendations by Phase:**
-- **Cleanup/Tie Down:** Realistic Vision ✅, AnythingV5
-- **Colors:** DreamShaper, Deliberate
-- **Anime Style:** AnythingV5, CounterfeitV3
+**Our recommendations:**
+- **For CleanUp phase:** 7.5 (current setting) ✅
+- **If you want more creativity:** 7.0
+- **If AI isn't following instructions:** 8.0-8.5
 
 ---
 
-## 📊 Quick Reference Tables
+### **3. How Much to Change**
+**Where to find:** Basic Settings tab  
+**Current setting:** `1.0` (100%)  
+**What you can use:** `0.0-1.0` (0%-100%)
 
-### **Common Scenarios**
+**What this does:**
+- How much the AI should change your image
+- 1.0 = completely transform it
+- 0.0 = don't change anything
 
-| Scenario | CFG | Denoise | Lineart Strength | Lineart End | Canny End |
-|----------|-----|---------|------------------|-------------|-----------|
-| **Standard Cleanup** ✅ | 7.5 | 1.0 | 0.8 | 0.7 | 0.6 |
-| Messy Rough Sketch | 7.0 | 1.0 | 0.7 | 0.6 | 0.5 |
-| Perfect Pose Lock | 8.0 | 1.0 | 0.9 | 0.8 | 0.7 |
-| Maximum Anatomy Fix | 7.0 | 1.0 | 0.6 | 0.5 | 0.4 |
-| Fast Testing | 8.0 | 0.8 | 0.8 | 0.7 | 0.6 |
-| Color Phase | 7.5 | 1.0 | 0.7 | 0.8 | 0.7 |
+**How it affects your image:**
+
+| Setting | What Happens | Good For |
+|---------|--------------|----------|
+| 0.0-0.3 | Very tiny changes only | Just fixing colors |
+| 0.4-0.6 | Medium changes | Refining details |
+| 0.7-0.9 | Big changes | Major cleanup |
+| **1.0** ✅ | **Complete transformation** | **Rough to clean drawings** |
+
+**Special note:**
+- **1.0 is perfect** for turning rough sketches into clean art
+- The app keeps your character's pose safe, so you can use the maximum setting
+
+**Our recommendations:**
+- **For CleanUp/Tie Down:** 1.0 (current setting) ✅
+- **For small fixes only:** 0.6-0.8
+
+---
+
+### **4. Processing Method**
+**Where to find:** Basic Settings tab  
+**Current setting:** `euler`  
+**Other options:** `euler_a`, `heun`, `dpm_2`, `dpm_fast`, and more
+
+**What this does:**
+- This is the algorithm (computer method) the AI uses
+- Different methods create slightly different styles
+
+**Which one to use:**
+
+| Method | Speed | Quality | Character | Best For |
+|--------|-------|---------|-----------|----------|
+| **euler** ✅ | Fast | Good | Clean, precise lines | **Line art (use this!)** |
+| euler_a | Fast | Good | More varied | Artistic styles |
+| heun | Slow | Excellent | Very precise | When you need perfect details |
+| dpm_2 | Medium | Better | Smooth | Paintings |
+| dpm_fast | Very fast | OK | Quick drafts | Testing things quickly |
+
+**Our recommendations:**
+- **For CleanUp:** `euler` (current) ✅ or `heun` (slower but better quality)
+- **For Colors:** `euler_a` or `dpm_2`
+- **For quick tests:** `dpm_fast`
+
+---
+
+### **5. Step Timing**
+**Where to find:** Basic Settings tab  
+**Current setting:** `simple`  
+**Other options:** `normal`, `karras`, `exponential`
+
+**What this does:**
+- Controls the timing of how the AI processes each step
+- Think of it like the rhythm of the processing
+
+**Which one to use:**
+
+| Timing | What It Does | Best For |
+|--------|--------------|----------|
+| **simple** ✅ | Predictable, steady | **Most reliable (use this!)** |
+| normal | Standard timing | General use |
+| karras | More detail early on | Complex images |
+| exponential | Smooth blending | Gradients and soft transitions |
+
+**Our recommendations:**
+- **Keep it on `simple`** ✅ for reliable, consistent results
+- Try `karras` if you need extra detail
+
+---
+
+### **6. Random Seed Number**
+**Where to find:** Basic Settings tab  
+**Current setting:** `153563715982370` (a random number)  
+
+**What this does:**
+- This is like a "recipe number" for the AI
+- Same number + same settings = exact same image every time
+- Different number = different variation
+
+**When to use what:**
+- **Fixed number (same each time):** When you want consistent results for testing
+- **Random number (changes each time):** When you want to see different variations
+
+---
+
+## 🎮 Structure Control Settings
+
+These settings control how the AI keeps your character's pose and structure.
+
+### **1. Line Following Strength**
+**Where to find:** Structure Control tab  
+**Current settings:** 
+- Line Detection: `0.8` (80%)
+- Edge Detection: `0.6` (60%)
+
+**What you can use:** `0.0-1.5` (we recommend `0.5-1.0`)
+
+**What this does:**
+- Controls how strictly the AI follows the lines in your drawing
+- Higher = AI sticks to your lines more
+- Lower = AI has more freedom to fix problems
+
+**How it affects your image:**
+
+| Strength | How AI Follows Lines | Freedom to Fix Problems | Good For |
+|----------|---------------------|------------------------|----------|
+| 0.3-0.5 | Loosely | High | Very rough sketches |
+| **0.6-0.8** ✅ | **Medium** | **Medium** | **Most situations** |
+| 0.9-1.0 | Strictly | Low | Keeping pose exactly the same |
+| 1.1-1.5 | Very strictly | Very low | Making exact copies |
+
+**Why we use two values:**
+- **Line Detection (0.8):** Stronger control to keep your pose
+- **Edge Detection (0.6):** Weaker to allow edge smoothing
+
+**Our recommendations:**
+- **For clean rough sketches:** Line 0.7-0.8, Edge 0.5-0.6 ✅
+- **For very messy sketches:** Line 0.6-0.7, Edge 0.4-0.5
+- **To keep pose exactly:** Line 0.9-1.0, Edge 0.7-0.8
+
+---
+
+### **2. When to Stop Following Lines (MOST IMPORTANT!)**
+**Where to find:** Structure Control tab  
+**Current settings:**
+- Line Detection stops at: `70%` (step 21 out of 30)
+- Edge Detection stops at: `60%` (step 18 out of 30)
+
+**What you can use:** `0.4-1.0` (40%-100%)
+
+**What this does:**
+- **THIS IS THE MOST IMPORTANT SETTING!**
+- Controls when the AI stops following your lines and can freely fix anatomy problems
+- Lower number = AI gets freedom earlier = more anatomy fixes
+- Higher number = AI follows lines longer = keeps pose more exactly
+
+**How it works (with 30 steps total):**
+
+| Stop At | AI Stops Following At | Time to Fix Anatomy | Can Fix Anatomy? |
+|---------|----------------------|---------------------|------------------|
+| 100% (1.0) | Never stops | 0 steps | ❌ No fixes possible |
+| 90% (0.9) | Step 27 | 3 steps | ⚠️ Very minimal fixes |
+| 80% (0.8) | Step 24 | 6 steps | ⚠️ Limited fixes |
+| **70% (0.7)** ✅ | **Step 21** | **9 steps** | **✅ Good fixes** |
+| **60% (0.6)** ✅ | **Step 18** | **12 steps** | **✅ Better fixes** |
+| 50% (0.5) | Step 15 | 15 steps | ⚠️ Might lose pose |
+| 40% (0.4) | Step 12 | 18 steps | ❌ Too much freedom |
+
+**Why this works (The "Timed Release" Strategy):**
+```
+Steps 1-18:  Both controls ACTIVE
+             → Your character's shape and pose are locked in
+
+Steps 19-21: Edge control STOPS, Line control still ACTIVE
+             → AI can smooth edges, shape still safe
+
+Steps 22-30: Both controls STOPPED
+             → AI can fix face, hands, and anatomy problems
+```
+
+**Our recommendations:**
+- **Balanced (current):** Line 0.7, Edge 0.6 ✅ (works for most cases)
+- **Need more anatomy fixes:** Line 0.6, Edge 0.5
+- **Need to keep pose exactly:** Line 0.8, Edge 0.7
+- **Maximum anatomy fixing:** Line 0.5, Edge 0.4
+
+---
+
+## 🔧 Image Processing Settings
+
+These control how your image is analyzed before generation.
+
+### **1. Line Detection Detail Level**
+**Where to find:** Image Processing tab  
+**Current setting:** `High detail` (1920 pixels)
+
+**What this does:**
+- How much detail the AI looks for when detecting lines in your drawing
+- Higher = sees more details but takes longer
+- Lower = faster but might miss small details
+
+**Our recommendations:**
+- **Standard quality:** 1024-1536 pixels
+- **High quality (current):** 1920 pixels ✅
+- **Fast testing:** 512-1024 pixels
+
+---
+
+### **2. Edge Detection Sensitivity**
+**Where to find:** Image Processing tab  
+**Current settings:**
+- Weak edge detection: `0.4`
+- Strong edge detection: `0.8`
+
+**What this does:**
+- How sensitive the AI is when finding edges in your drawing
+- Lower numbers = finds even faint lines
+- Higher numbers = only finds strong, dark lines
+
+**How it affects detection:**
+
+| Settings | What Gets Detected | Best For |
+|----------|-------------------|----------|
+| Low: 0.2, High: 0.6 | Everything (even faint lines) | Very messy, light sketches |
+| **Low: 0.4, High: 0.8** ✅ | **Medium edges** | **Most sketches** |
+| Low: 0.6, High: 0.9 | Only strong lines | Clean, dark line art |
+
+**Our recommendations:**
+- **For rough sketches:** Low 0.3-0.4, High 0.7-0.8
+- **For most sketches (current):** Low 0.4, High 0.8 ✅
+- **For very clean art:** Low 0.5, High 0.9
+
+---
+
+## 🎨 AI Model Settings
+
+### **Which AI Model to Use**
+**Where to find:** Basic Settings tab  
+**Current model:** `Realistic_Vision_V5.1`
+
+**What this does:**
+- This is the base AI brain that creates your images
+- Different AI models are better at different things
+
+**Which model for which task:**
+- **For CleanUp/Tie Down:** Realistic Vision ✅ or AnythingV5
+- **For adding Colors:** DreamShaper or Deliberate
+- **For Anime style:** AnythingV5 or CounterfeitV3
+
+---
+
+## 📊 Quick Help Tables
+
+### **What Settings to Use for Different Situations**
+
+| What You're Doing | Follow Instructions | How Much to Change | Line Strength | Line Stop At | Edge Stop At |
+|-------------------|--------------------|--------------------|---------------|-------------|-------------|
+| **Standard cleanup** ✅ | 7.5 | 100% | 0.8 | 70% | 60% |
+| Very messy sketch | 7.0 | 100% | 0.7 | 60% | 50% |
+| Keep pose exactly | 8.0 | 100% | 0.9 | 80% | 70% |
+| Fix anatomy problems | 7.0 | 100% | 0.6 | 50% | 40% |
+| Quick test | 8.0 | 80% | 0.8 | 70% | 60% |
+| Add colors | 7.5 | 100% | 0.7 | 80% | 70% |
 
 ### **Problem → Solution**
 
-| Problem | Likely Cause | Solution |
-|---------|--------------|----------|
-| Face still unclear | End % too high | Lower Lineart end to 0.6 |
-| Hands wrong | End % too high | Lower Lineart end to 0.6 |
-| Pose changed too much | End % too low | Raise Lineart end to 0.8 |
-| Lines too stiff/robotic | CFG too high | Lower CFG to 7.0 |
-| Not following prompt | CFG too low | Raise CFG to 8.0 |
-| Over-saturated/dirty | CFG too high | Lower CFG to 7.0 |
-| Incomplete generation | Steps too low | Increase steps to 30 |
-| Too slow | Steps/resolution too high | Reduce to 25 steps, 1024 res |
+| Problem You're Having | What's Causing It | How to Fix It |
+|-----------------------|-------------------|---------------|
+| Face still unclear | Stops following lines too late | Lower "Line Stop At" to 60% |
+| Hands still wrong | Stops following lines too late | Lower "Line Stop At" to 60% |
+| Pose changed too much | Stops following lines too early | Raise "Line Stop At" to 80% |
+| Lines look too stiff | Following instructions too strictly | Lower "Follow Instructions" to 7.0 |
+| Not following instructions | Not following strictly enough | Raise "Follow Instructions" to 8.0 |
+| Image looks overdone | Following instructions too strictly | Lower "Follow Instructions" to 7.0 |
+| Image looks incomplete | Not enough processing steps | Increase steps to 30 |
+| Takes too long | Too many steps | Reduce to 25 steps |
 
 ---
 
-## 🎯 Recommended Presets
+## 🎯 Ready-to-Use Presets
 
-### **Preset 1: Standard Cleanup (Current) ✅**
-```json
-{
-  "steps": 30,
-  "cfg": 7.5,
-  "denoise": 1.0,
-  "sampler": "euler",
-  "scheduler": "simple",
-  "lineart_strength": 0.8,
-  "lineart_end": 0.7,
-  "canny_strength": 0.6,
-  "canny_end": 0.6
-}
-```
-**Use:** Clean rough sketches with minor anatomy issues
+### **Preset 1: Standard Cleanup (Current Settings) ✅**
+**Use this when:** You have a clean rough sketch with minor problems
 
-### **Preset 2: Messy Sketch Fix**
-```json
-{
-  "steps": 30,
-  "cfg": 7.0,
-  "denoise": 1.0,
-  "sampler": "euler",
-  "scheduler": "simple",
-  "lineart_strength": 0.7,
-  "lineart_end": 0.6,
-  "canny_strength": 0.5,
-  "canny_end": 0.5
-}
-```
-**Use:** Very rough sketches with major anatomy problems
+Settings:
+- Steps: 30
+- Follow Instructions: 7.5
+- How Much to Change: 100%
+- Processing Method: euler
+- Line Strength: 0.8
+- Line Stop At: 70%
+- Edge Strength: 0.6
+- Edge Stop At: 60%
 
-### **Preset 3: Pose Preservation**
-```json
-{
-  "steps": 30,
-  "cfg": 8.0,
-  "denoise": 1.0,
-  "sampler": "euler",
-  "scheduler": "simple",
-  "lineart_strength": 0.9,
-  "lineart_end": 0.8,
-  "canny_strength": 0.7,
-  "canny_end": 0.7
-}
-```
-**Use:** When pose/gesture must stay exactly the same
+### **Preset 2: Fix Messy Sketch**
+**Use this when:** Your sketch is very rough with major anatomy problems
 
-### **Preset 4: Maximum Anatomy Freedom**
-```json
-{
-  "steps": 35,
-  "cfg": 7.0,
-  "denoise": 1.0,
-  "sampler": "heun",
-  "scheduler": "simple",
-  "lineart_strength": 0.6,
-  "lineart_end": 0.5,
-  "canny_strength": 0.5,
-  "canny_end": 0.4
-}
-```
-**Use:** Extreme anatomy corrections needed
+Settings:
+- Steps: 30
+- Follow Instructions: 7.0
+- How Much to Change: 100%
+- Processing Method: euler
+- Line Strength: 0.7
+- Line Stop At: 60%
+- Edge Strength: 0.5
+- Edge Stop At: 50%
 
-### **Preset 5: Fast Testing**
-```json
-{
-  "steps": 20,
-  "cfg": 8.0,
-  "denoise": 0.8,
-  "sampler": "dpm_fast",
-  "scheduler": "simple",
-  "lineart_strength": 0.8,
-  "lineart_end": 0.7,
-  "canny_strength": 0.6,
-  "canny_end": 0.6
-}
-```
-**Use:** Quick iterations during testing
+### **Preset 3: Keep Pose Exactly**
+**Use this when:** The pose must stay exactly the same, only fix details
+
+Settings:
+- Steps: 30
+- Follow Instructions: 8.0
+- How Much to Change: 100%
+- Processing Method: euler
+- Line Strength: 0.9
+- Line Stop At: 80%
+- Edge Strength: 0.7
+- Edge Stop At: 70%
+
+### **Preset 4: Maximum Anatomy Fixes**
+**Use this when:** You need extreme anatomy corrections
+
+Settings:
+- Steps: 35
+- Follow Instructions: 7.0
+- How Much to Change: 100%
+- Processing Method: heun
+- Line Strength: 0.6
+- Line Stop At: 50%
+- Edge Strength: 0.5
+- Edge Stop At: 40%
+
+### **Preset 5: Quick Testing**
+**Use this when:** You want to test quickly
+
+Settings:
+- Steps: 20
+- Follow Instructions: 8.0
+- How Much to Change: 80%
+- Processing Method: dpm_fast
+- Line Strength: 0.8
+- Line Stop At: 70%
+- Edge Strength: 0.6
+- Edge Stop At: 60%
 
 ---
 
-## 🔬 Advanced Tuning Tips
+## 💡 Advanced Tips for Power Users
 
-### **1. CFG + ControlNet Strength Relationship**
+### **1. How Settings Work Together**
 ```
-High CFG + High ControlNet = Over-constrained (stiff/robotic)
-High CFG + Low ControlNet = Prompt-driven (may lose structure)
-Low CFG + High ControlNet = Structure-driven (natural but controlled) ✅
-Low CFG + Low ControlNet = Too much freedom (may diverge)
+High "Follow Instructions" + High "Line Strength" = Too stiff/robotic
+High "Follow Instructions" + Low "Line Strength" = Follows text, might lose structure
+Low "Follow Instructions" + High "Line Strength" = Natural but controlled ✅
+Low "Follow Instructions" + Low "Line Strength" = Too much freedom
 ```
 
-**Optimal:** `CFG 7.0-7.5` + `ControlNet 0.7-0.8` ✅
+**Best combination:** `Follow Instructions: 7.0-7.5` + `Line Strength: 0.7-0.8` ✅
 
 ### **2. Steps vs Quality**
 ```
 10 steps  = 40% quality
 20 steps  = 75% quality
 30 steps  = 95% quality ✅
-40 steps  = 98% quality (diminishing returns)
-50+ steps = 99% quality (not worth the time)
+40 steps  = 98% quality (not much better, takes longer)
+50+ steps = 99% quality (not worth the extra time)
 ```
 
 **Sweet spot:** 25-35 steps
 
-### **3. Ending Step Fine-Tuning**
+### **3. Fine-Tuning the "Stop Following" Setting**
 ```
-If face unclear but pose good:
-  → Lineart end OK, lower Canny end by 0.1
+If face is unclear but pose is good:
+  → Lower Edge "Stop At" by 10%
 
-If hands wrong but face OK:
-  → Both ends too high, lower by 0.1
+If hands are wrong but face is OK:
+  → Lower both "Stop At" settings by 10%
 
-If pose drifting significantly:
-  → Ends too low, raise Lineart by 0.1
+If pose is changing too much:
+  → Raise Line "Stop At" by 10%
 
-If nothing fixing:
-  → Prompt weights too low, increase to (keyword:1.4)
+If nothing is fixing:
+  → Lower "Stop At" settings more, or increase instruction weights
 ```
 
 ---
 
-## 📝 Parameter Change Log
+## 🎓 How to Learn
 
-| Date | Parameter | Old | New | Reason |
-|------|-----------|-----|-----|--------|
-| 2025-12-18 | CFG | 8.9 | 7.5 | Balance ControlNet + prompt |
-| 2025-12-18 | Lineart End | 1.0 | 0.7 | Enable anatomy correction |
-| 2025-12-18 | Canny End | 1.0 | 0.6 | Enable anatomy correction |
-
----
-
-## 🎓 Learning Path
-
-1. **Start:** Use Standard Preset (current settings) ✅
-2. **Experiment:** Change one parameter at a time
-3. **Document:** Note which changes improve results
-4. **Iterate:** Build your custom preset
-5. **Share:** Document what works for your use case
+1. **Start here:** Use the Standard Preset (current settings) ✅
+2. **Experiment:** Change only ONE setting at a time
+3. **Take notes:** Write down which changes make things better
+4. **Build your own:** Create your own preset based on what works
+5. **Share:** Help others by sharing what you learned
 
 ---
 
-## 📞 Support
+## 📞 Need Help?
 
-**Need help tuning?**
-1. Check [Troubleshooting](#troubleshooting) section
-2. Review [Quick Reference Tables](#quick-reference-tables)
-3. Try recommended presets
-4. Document your test results
+**Can't find the answer?**
+1. Check the [Problem → Solution](#problem--solution) table above
+2. Try one of our [Ready-to-Use Presets](#ready-to-use-presets)
+3. Ask for help in the community
+
+---
+
+## 🔄 Change History
+
+| Date | What Changed | Old Value | New Value | Why |
+|------|--------------|-----------|-----------|-----|
+| Dec 18, 2025 | Follow Instructions | 8.9 | 7.5 | Better balance with structure control |
+| Dec 18, 2025 | Line Stop At | 100% | 70% | Allow anatomy fixes |
+| Dec 18, 2025 | Edge Stop At | 100% | 60% | Allow anatomy fixes |
 
 ---
 
 **Last Updated:** Dec 18, 2025  
-**Version:** 1.0  
-**Status:** Production-ready ✅
-
+**Version:** 2.0 (Simplified for Everyone)  
+**Status:** Ready to use ✅
