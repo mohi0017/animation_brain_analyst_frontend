@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # Load workflow templates
-WORKFLOW_PATH = Path(__file__).parent.parent / "ANIMATION_M1_api_version.json"
+WORKFLOW_PATH = Path(__file__).parent.parent / "workflows" / "ANIMATION_M1_api_version.json"
 
 def load_workflow():
     """Load current workflow configuration"""
@@ -99,7 +99,7 @@ st.markdown("---")
 # Load current workflow
 workflow = load_workflow()
 if not workflow:
-    st.error("⚠️ Could not load workflow file. Please check ANIMATION_M1_api_version.json exists.")
+    st.error("⚠️ Could not load workflow file. Please check workflows/ANIMATION_M1_api_version.json exists.")
     st.stop()
 
 # Sidebar: Presets
@@ -599,7 +599,7 @@ Canny High:       {canny_high}
             workflow["20"]["inputs"]["high_threshold"] = canny_high
             
             save_workflow(workflow)
-            st.success("✅ Saved to ANIMATION_M1_api_version.json")
+            st.success("✅ Saved to workflows/ANIMATION_M1_api_version.json")
     
     with col2:
         if st.button("📋 Copy as JSON"):
