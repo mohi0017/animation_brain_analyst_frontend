@@ -92,7 +92,7 @@
         "Node name for S&R": "CheckpointLoaderSimple"
       },
       "widgets_values": [
-        "Realistic_Vision_V5.1.safetensors"
+        "anything-v5-PrtRE.safetensors"
       ]
     },
     {
