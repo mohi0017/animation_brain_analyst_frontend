@@ -44,9 +44,15 @@ Inputs:
 - DEST_PHASE (default Tie Down/CleanUp/Colors).
 
 Required analysis steps:
-A) Recognition: identify characters/objects (hands, sunglasses, steering wheel, etc.).
-B) Pose/Action analysis: find anatomical/pose issues (e.g., "left hand anatomically incorrect").
-C) Phase comparison (SOURCE -> DEST):
+A) Subject Recognition (MANDATORY - MUST be first step):
+   - Count subjects: How many characters/objects? (1girl, 2girls, 1boy, 1girl and 1boy, etc.)
+   - Identify type: human character, animal, object/prop, vehicle, etc.
+   - Key features: gender, age, distinctive features (sunglasses, long hair, uniform, etc.)
+   - Examples: "1girl with sunglasses and long legs", "2girls sitting", "1boy standing", "bouncing ball"
+   - CRITICAL: This subject identification MUST appear in your "preserve" output so Prompt Engineer can use it
+B) Object/Detail Recognition: identify all visible elements (hands, clothing, accessories, props like steering wheel, etc.).
+C) Pose/Action analysis: find anatomical/pose issues (e.g., "left hand anatomically incorrect").
+D) Phase comparison (SOURCE -> DEST):
    - Moving EARLIER in the pipeline (e.g., Tie Down -> Roughs, Roughs -> Skeleton, Cleanup -> Roughs/Skeleton, Colors -> Roughs/Skeleton):
        * Simplify detail; REMOVE non-essential volume and cleanup-quality lines.
        * Preserve pose, timing, and overall composition.
@@ -60,14 +66,15 @@ C) Phase comparison (SOURCE -> DEST):
        * Any -> Colors: conceptually perform cleanup first (as if -> Tie Down/Cleanup) and THEN apply colours while preserving existing line/background colours.
    - Lateral moves at same "level" (e.g., Skeleton <-> Roughs, Tie Down <-> Cleanup when explicitly requested):
        * Adjust cleanliness and structural emphasis to match DEST_PHASE definitions, keeping the same character, pose, and timing.
-D) Output a concise report: 3-4 critical FIXES and 3-4 REMOVES, plus NOTES if needed.
+E) Output a concise report: 3-4 critical FIXES and 3-4 REMOVES, plus NOTES if needed.
    - For Cleanup phase (especially from Roughs): CRITICALLY analyze and report:
      * Missing anatomical details: Are hands properly defined with clear fingers and palm? Is face properly defined with eyes, nose, mouth? Are body parts precise with clear joints?
      * Missing body volume: Is torso showing proper volume? Are limbs showing proper thickness and muscle structure? Are shoulders, hips, joints properly defined?
      * Construction elements to remove: Are there construction lines, guide circles, scribbles, rough marks that need removal?
      * Line quality issues: Are lines rough, inconsistent, or need refinement to final quality?
-E) PRESERVE: list 2-3 items/gestures/styles that must be kept (e.g., "preserve right-hand gesture", "keep sunglasses angle").
-F) Colour & background analysis: describe dominant line colour(s) and background (e.g., "blue line art on white background") and whether they should be preserved.
+F) PRESERVE: list 2-3 items/gestures/styles that must be kept (e.g., "preserve right-hand gesture", "keep sunglasses angle").
+   - CRITICAL: MUST include subject identification from step A) as the FIRST preserve item (e.g., "Preserve: 1girl with sunglasses and long legs", "Preserve: 2girls sitting together", "Preserve: bouncing ball")
+G) Colour & background analysis: describe dominant line colour(s) and background (e.g., "blue line art on white background") and whether they should be preserved.
 
 Locks/levels:
 - Pose lock: if true, keep pose/action; only fix anatomy.
@@ -88,9 +95,11 @@ Output JSON ONLY:
 {
   "fixes": ["..."],
   "removes": ["..."],
-  "preserve": ["..."],
+  "preserve": ["Subject: [your subject identification from step A]", "...", "..."],
   "notes": ["..."]
 }
+
+CRITICAL: The FIRST item in "preserve" array MUST be the subject identification (e.g., "Subject: 1girl with sunglasses", "Subject: 2girls", "Subject: bouncing ball").
 Keep it short, SD-friendly, and specific."""
 
 
@@ -100,6 +109,38 @@ Input:
 - report JSON: fixes[], removes[], notes[]
 - dest_phase: Skeleton | Roughs | Tie Down | CleanUp | Colors
 - Locks: pose_lock (keep pose), style_lock (keep art style)
+
+STEP 1: MANDATORY SUBJECT ANALYSIS
+Before generating prompts, you MUST analyze the Visual Analyst report and identify:
+1. The SUBJECT(S) in the image (e.g., "1girl", "1boy", "2girls", "character", "animal", "object")
+2. Key identifying features (e.g., "long hair", "sunglasses", "school uniform")
+3. Count: How many subjects? (Use "1girl", "2girls", "1boy and 1girl", etc.)
+
+Examples:
+- Single female character → "1girl"
+- Two female characters → "2girls"
+- Male character → "1boy"
+- Character with sunglasses → "1girl, sunglasses"
+- Animal → "cat" or "dog" etc.
+- Object/prop → "ball", "car", etc.
+
+STEP 2: EXTRACT SUBJECT FROM REPORT
+Look for the subject in the report's "preserve" array. It will be formatted as:
+- "Subject: 1girl with sunglasses" → Extract "1girl, sunglasses"
+- "Subject: 2girls sitting together" → Extract "2girls, sitting together"
+- "Subject: bouncing ball" → Extract "ball"
+
+If no "Subject:" entry is found in preserve, analyze the report's fixes/removes/notes to identify the subject.
+
+STEP 3: REPLACE PLACEHOLDERS
+In the prompt patterns below, replace ALL placeholders:
+- [subject] → Your extracted subject (e.g., "1girl, sunglasses, long legs")
+- [action/pose] → Pose from report (e.g., "sitting", "standing", "dynamic pose")
+- [preserved pose] → Specific pose to maintain
+- [ink color] → "black" (default for line art)
+
+NEVER leave placeholders like [subject] or [action/pose] in the final output!
+If you find a placeholder, replace it with appropriate content from the report.
 
 CRITICAL RULES - Stable Diffusion Prompting Syntax:
 1. Use COMMA-SEPARATED KEYWORDS, not sentences

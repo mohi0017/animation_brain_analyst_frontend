@@ -5,6 +5,7 @@ Prompt Engineer Agent - Generate SD prompts from analysis report.
 from __future__ import annotations
 from typing import Tuple
 import streamlit as st
+import re
 
 try:
     from google.genai import types as genai_types
@@ -13,6 +14,48 @@ except Exception:
 
 from .config import DEFAULT_PROMPT_ENGINEER
 from .gemini_client import get_genai_client, get_thinking_config, get_model_name
+
+
+def clean_prompt_placeholders(prompt: str) -> str:
+    """
+    Clean up placeholder brackets that Gemini sometimes outputs.
+    
+    Replaces placeholders like [subject], [preserved pose], [ink color] etc.
+    with proper SD-compatible terms.
+    
+    Args:
+        prompt: The prompt string with potential placeholders
+        
+    Returns:
+        Cleaned prompt with placeholders replaced
+    """
+    if not prompt:
+        return prompt
+    
+    # Common placeholder replacements
+    replacements = {
+        r'\[subject\]': '1girl',  # Default to 1girl for most anime/animation cases
+        r'\[preserved pose\]': 'dynamic pose',
+        r'\[action/pose\]': 'dynamic pose',
+        r'\[simple pose\]': 'simple pose',
+        r'\[ink color\] lines': 'black lines',
+        r'\[ink color\]': 'black',
+        r'animated character': 'character',
+        r'\[character\]': 'character',
+    }
+    
+    cleaned = prompt
+    for pattern, replacement in replacements.items():
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
+    
+    # Remove any remaining brackets that look like placeholders
+    cleaned = re.sub(r'\[([^\]]+)\]', r'\1', cleaned)
+    
+    # Clean up multiple commas or spaces
+    cleaned = re.sub(r',\s*,', ',', cleaned)
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    return cleaned.strip()
 
 
 def generate_smart_fallback_prompts(
@@ -204,6 +247,12 @@ report: {report}
         pos = pos.strip() if pos else ""
         neg = neg.strip() if neg else ""
         rationale = rationale.strip() if rationale else ""
+        
+        # Safety check: warn if placeholders remain
+        placeholder_pattern = r'\[(subject|action|pose|preserved pose|ink color)\]'
+        if re.search(placeholder_pattern, pos, re.IGNORECASE):
+            st.warning("⚠️ Warning: Prompt Engineer left placeholders in output. This may affect image quality.")
+            st.code(f"Positive prompt with placeholders: {pos[:200]}...", language="text")
         
         return pos or text.strip(), neg, rationale
         
