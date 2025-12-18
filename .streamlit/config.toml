@@ -1,0 +1,28 @@
+# Streamlit Configuration
+# This file configures Streamlit app behavior
+
+[server]
+# Disable file watcher for better stability on Streamlit Cloud
+fileWatcherType = "none"
+
+# Max upload size (200 MB for large images)
+maxUploadSize = 200
+
+# Enable CORS for API calls
+enableCORS = false
+
+# Enable XSRF protection
+enableXsrfProtection = true
+
+[browser]
+# Don't automatically open browser (for cloud deployment)
+gatherUsageStats = false
+
+[theme]
+# Default theme (users can override)
+base = "light"
+
+[logger]
+# Logging level
+level = "info"
+
