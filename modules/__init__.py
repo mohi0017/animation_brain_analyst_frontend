@@ -15,6 +15,8 @@ __all__ = [
     # Config
     "AnalysisConfig",
     "PHASE_PARAMS",
+    "SD_MODELS",
+    "DEFAULT_LINE_ART_MODEL",
     "DEFAULT_ANALYST_PROMPT",
     "DEFAULT_PROMPT_ENGINEER",
     # Utils
@@ -37,8 +39,8 @@ def __getattr__(name):
     """Lazy import to avoid circular dependencies and streamlit hot-reload issues."""
     if name in __all__:
         # Import on-demand to avoid module initialization issues
-        if name in ("AnalysisConfig", "PHASE_PARAMS", "DEFAULT_ANALYST_PROMPT", "DEFAULT_PROMPT_ENGINEER"):
-            from .config import AnalysisConfig, PHASE_PARAMS, DEFAULT_ANALYST_PROMPT, DEFAULT_PROMPT_ENGINEER
+        if name in ("AnalysisConfig", "PHASE_PARAMS", "SD_MODELS", "DEFAULT_LINE_ART_MODEL", "DEFAULT_ANALYST_PROMPT", "DEFAULT_PROMPT_ENGINEER"):
+            from .config import AnalysisConfig, PHASE_PARAMS, SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_ANALYST_PROMPT, DEFAULT_PROMPT_ENGINEER
             return locals()[name]
         elif name in ("load_image_bytes", "normalize_report"):
             from .utils import load_image_bytes, normalize_report

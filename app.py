@@ -154,6 +154,43 @@ anat_level = st.slider(
     0, 100, 70,
     help="0 = Don't fix anatomy issues, 100 = Fix all anatomy problems strictly"
 )
+
+# Model Selection
+from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL
+
+st.markdown("**🎨 Stable Diffusion Model**")
+model_choice = st.radio(
+    "Choose how to select the model:",
+    ["✨ AI Auto-Select (Recommended)", "🎯 Manual Selection"],
+    help="AI will analyze your image and choose the best model, or you can choose manually"
+)
+
+if model_choice == "🎯 Manual Selection":
+    # Manual selection
+    model_options = list(SD_MODELS.keys())
+    model_labels = [f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" for m in model_options]
+    
+    selected_model_idx = st.selectbox(
+        "Select Model:",
+        range(len(model_options)),
+        format_func=lambda i: model_labels[i],
+        index=model_options.index(DEFAULT_LINE_ART_MODEL),
+        help="Choose a specific Stable Diffusion model for generation"
+    )
+    selected_model = model_options[selected_model_idx]
+    
+    # Show model description
+    model_info = SD_MODELS[selected_model]
+    with st.expander("ℹ️ About This Model", expanded=False):
+        st.markdown(f"**{model_info['name']}** ({model_info['category']})")
+        st.markdown(f"**Description:** {model_info['description']}")
+        st.markdown(f"**Best for:** {', '.join(model_info['best_for'])}")
+        st.markdown(f"**Strengths:** {model_info['strengths']}")
+        st.markdown(f"**Use when:** {model_info['use_when']}")
+else:
+    selected_model = None  # AI will decide
+    st.info("💡 The AI will analyze your image and automatically choose the best model!")
+
 master_instruction = st.text_area(
     "Custom Instructions (Optional - for advanced users)",
     value="",
@@ -197,6 +234,22 @@ if generate:
             raw_report = run_visual_analyst(image_bytes, mime, cfg)
             report = normalize_report(raw_report)
 
+            # Determine which model to use
+            if selected_model:
+                # User manually selected a model
+                final_model = selected_model
+                model_source = "user selection"
+            else:
+                # Use AI recommendation
+                ai_recommended = report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
+                final_model = ai_recommended
+                model_source = "AI recommendation"
+            
+            # Log model choice
+            model_info = SD_MODELS.get(final_model, {})
+            model_name = model_info.get("name", final_model)
+            status.write(f"🎨 Using model: {model_name} ({model_source})")
+
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
             pos_prompt, neg_prompt, rationale = run_prompt_engineer(
@@ -213,6 +266,7 @@ if generate:
                 pos_prompt, 
                 neg_prompt, 
                 dest_phase=dest_phase,
+                model_name=final_model,  # Pass the chosen model
                 status_writer=status
             )
 
@@ -244,6 +298,23 @@ if generate:
             st.write("**Color Scheme**")
             st.caption("Information about colors and background")
             st.code("\n".join(colour_lines) or "None")
+            
+            # Show AI model recommendation
+            if "recommended_model" in report:
+                st.write("**🎨 AI Recommended Model**")
+                rec_model = report["recommended_model"]
+                rec_model_info = SD_MODELS.get(rec_model, {})
+                rec_model_name = rec_model_info.get("name", rec_model)
+                reasoning = report.get("model_reasoning", "No reasoning provided")
+                
+                if selected_model == rec_model:
+                    st.success(f"✅ {rec_model_name} (Matches your selection!)")
+                elif selected_model:
+                    st.info(f"💡 AI suggested: {rec_model_name} (You chose: {SD_MODELS[selected_model]['name']})")
+                else:
+                    st.success(f"✅ {rec_model_name} (Auto-selected by AI)")
+                
+                st.caption(f"**Why:** {reasoning}")
             
             st.write("**Additional Notes**")
             st.caption("Extra information and context")

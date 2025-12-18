@@ -19,6 +19,7 @@ def call_comfyui(
     pos_prompt: str, 
     neg_prompt: str, 
     dest_phase: str = "CleanUp",
+    model_name: str = None,
     cfg_scale: float = None,
     lineart_end: float = None,
     canny_end: float = None,
@@ -33,6 +34,7 @@ def call_comfyui(
         pos_prompt: Positive prompt text
         neg_prompt: Negative prompt text
         dest_phase: Destination phase (for automatic parameter tuning)
+        model_name: Stable Diffusion model filename (default: anything-v5-PrtRE.safetensors)
         cfg_scale: Override CFG scale (default: phase-specific)
         lineart_end: Override Lineart ending percent (default: phase-specific)
         canny_end: Override Canny ending percent (default: phase-specific)
@@ -54,10 +56,15 @@ def call_comfyui(
             st.info(msg)
 
     # Determine optimal parameters based on dest_phase if not explicitly provided
+    from .config import DEFAULT_LINE_ART_MODEL
     phase_params = PHASE_PARAMS.get(dest_phase, PHASE_PARAMS["CleanUp"])
     final_cfg = cfg_scale if cfg_scale is not None else phase_params["cfg"]
     final_lineart_end = lineart_end if lineart_end is not None else phase_params["lineart_end"]
     final_canny_end = canny_end if canny_end is not None else phase_params["canny_end"]
+    
+    # Use default model if none specified
+    if not model_name:
+        model_name = DEFAULT_LINE_ART_MODEL
     
     log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end}")
     
@@ -85,7 +92,7 @@ def call_comfyui(
         # Step 3: Update workflow with prompts and image
         workflow = _update_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, log
+            final_cfg, final_lineart_end, final_canny_end, model_name, log
         )
         
         log("✅ Workflow updated with prompts, image, and parameters")
@@ -220,7 +227,7 @@ def _load_workflow(base_url: str, log) -> Optional[dict]:
 
 def _update_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
 ) -> dict:
     """Update workflow with prompts, image, and parameters."""
     is_v11_format = "nodes" in workflow
@@ -229,13 +236,13 @@ def _update_workflow(
         # v11 format - update nodes directly by ID, then convert to v10
         workflow = _update_v11_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, log
+            final_cfg, final_lineart_end, final_canny_end, model_name, log
         )
     else:
         # v10 format - update directly
         workflow = _update_v10_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, log
+            final_cfg, final_lineart_end, final_canny_end, model_name, log
         )
     
     return workflow
@@ -243,7 +250,7 @@ def _update_workflow(
 
 def _update_v11_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
 ) -> dict:
     """Update v11 format workflow and convert to v10 for API submission."""
     log("📝 Updating v11 format workflow...")
@@ -255,8 +262,15 @@ def _update_v11_workflow(
         node_id = node.get("id")
         node_type = node.get("type")
         
+        # Node 1: Checkpoint model (CheckpointLoaderSimple)
+        if node_id == 1 and node_type == "CheckpointLoaderSimple":
+            if model_name and "widgets_values" in node and len(node["widgets_values"]) > 0:
+                old_model = node["widgets_values"][0]
+                node["widgets_values"][0] = model_name
+                log(f"🎨 Updated SD Model: {old_model} → {model_name}")
+        
         # Node 2: Positive prompt (CLIPTextEncode)
-        if node_id == 2 and node_type == "CLIPTextEncode":
+        elif node_id == 2 and node_type == "CLIPTextEncode":
             if "widgets_values" in node and len(node["widgets_values"]) > 0:
                 old_pos = node["widgets_values"][0][:50] if isinstance(node["widgets_values"][0], str) else ""
                 node["widgets_values"][0] = pos_prompt
@@ -446,10 +460,16 @@ def _convert_v11_to_v10(
 
 def _update_v10_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
 ) -> dict:
     """Update v10 format workflow directly."""
     log("📝 Updating v10 format workflow...")
+    
+    # Update checkpoint model (Node 1)
+    if model_name and "1" in workflow and workflow["1"].get("class_type") == "CheckpointLoaderSimple":
+        old_model = workflow["1"]["inputs"].get("ckpt_name", "N/A")
+        workflow["1"]["inputs"]["ckpt_name"] = model_name
+        log(f"🎨 Updated SD Model: {old_model} → {model_name}")
     
     if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
         old_pos = workflow["2"]["inputs"].get("text", "")[:50]

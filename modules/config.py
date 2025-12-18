@@ -28,6 +28,59 @@ PHASE_PARAMS = {
 }
 
 
+# ---------- Stable Diffusion Models ----------
+SD_MODELS = {
+    "anything-v5-PrtRE.safetensors": {
+        "name": "AnythingXL Ink Base",
+        "category": "Line Art",
+        "description": "Best for pure line art and ink drawings. Perfect for animation cleanup phases.",
+        "best_for": ["Skeleton", "Roughs", "Tie Down", "CleanUp"],
+        "strengths": "Clean lines, no unwanted shading, preserves ink color, transparent backgrounds",
+        "use_when": "Input is sketches, line art, or needs clean outlines without fills",
+        "keywords": ["line art", "sketch", "outline", "ink", "drawing", "clean lines"]
+    },
+    "Counterfeit-V3.0.safetensors": {
+        "name": "Counterfeit V3",
+        "category": "Anime",
+        "description": "High-quality anime style. Great for character-focused work with vibrant colors.",
+        "best_for": ["CleanUp", "Colors"],
+        "strengths": "Anime aesthetics, vibrant colors, detailed characters, smooth gradients",
+        "use_when": "Input has anime characters or needs anime-style coloring",
+        "keywords": ["anime", "character", "girl", "boy", "manga", "face", "eyes"]
+    },
+    "GhostMix-v2.0.safetensors": {
+        "name": "GhostMix V2",
+        "category": "Anime/Fantasy",
+        "description": "Ethereal anime style with soft lighting. Good for fantasy and atmospheric scenes.",
+        "best_for": ["Colors"],
+        "strengths": "Soft lighting, atmospheric effects, fantasy aesthetics, detailed backgrounds",
+        "use_when": "Input has fantasy elements, magical scenes, or needs atmospheric coloring",
+        "keywords": ["fantasy", "magic", "ethereal", "atmospheric", "ghost", "spirit"]
+    },
+    "Lyriel-v1.6.safetensors": {
+        "name": "Lyriel V1.6",
+        "category": "Illustration",
+        "description": "Versatile illustration model. Works for both line art and coloring with artistic flair.",
+        "best_for": ["Tie Down", "CleanUp", "Colors"],
+        "strengths": "Artistic style, versatile, good for illustrations, balanced detail",
+        "use_when": "Input needs artistic illustration style or book/concept art quality",
+        "keywords": ["illustration", "art", "artistic", "book", "concept", "versatile"]
+    },
+    "Realistic_Vision_V5.1.safetensors": {
+        "name": "Realistic Vision V5.1",
+        "category": "Photorealistic",
+        "description": "Photorealistic rendering. ⚠️ NOT recommended for line art (adds unwanted shading).",
+        "best_for": ["Colors"],
+        "strengths": "Photorealistic quality, 3D-like rendering, realistic lighting and shadows",
+        "use_when": "Input is photo or needs realistic rendering (NOT for line art phases)",
+        "keywords": ["photo", "realistic", "3d", "render", "real", "portrait"]
+    }
+}
+
+# Default model for line art phases
+DEFAULT_LINE_ART_MODEL = "anything-v5-PrtRE.safetensors"
+
+
 # ---------- Default Master Prompts ----------
 DEFAULT_ANALYST_PROMPT = """You are a Multi-Modal Visual Analyst ("Brain") for animation cleanup.
 
@@ -178,7 +231,54 @@ Locks/levels:
     "...",
     "..."
   ],
-  "notes": ["..."]
+  "notes": ["..."],
+  "recommended_model": "model_filename.safetensors",
+  "model_reasoning": "Brief explanation why this model is best"
+}
+
+STEP 6: RECOMMEND STABLE DIFFUSION MODEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Based on your image analysis, recommend the BEST Stable Diffusion model:
+
+Available Models:
+1. "anything-v5-PrtRE.safetensors" (AnythingXL Ink Base)
+   - Best for: Line art, sketches, ink drawings, animation cleanup
+   - Use when: Input is sketch/line art OR dest_phase is Skeleton/Roughs/Tie Down/CleanUp
+   - Keywords: line art, sketch, outline, ink, drawing, clean lines
+
+2. "Counterfeit-V3.0.safetensors" (Anime)
+   - Best for: Anime characters, vibrant colors
+   - Use when: Input has anime characters OR dest_phase is CleanUp/Colors
+   - Keywords: anime, character, girl, boy, manga, face
+
+3. "GhostMix-v2.0.safetensors" (Fantasy Anime)
+   - Best for: Fantasy scenes, atmospheric effects
+   - Use when: Input has fantasy/magical elements OR needs atmospheric colors
+   - Keywords: fantasy, magic, ethereal, atmospheric
+
+4. "Lyriel-v1.6.safetensors" (Illustration)
+   - Best for: Artistic illustrations, concept art
+   - Use when: Input needs artistic style OR book/concept art quality
+   - Keywords: illustration, art, artistic, book, concept
+
+5. "Realistic_Vision_V5.1.safetensors" (Photorealistic)
+   - Best for: Photorealistic rendering
+   - Use when: Input is photo OR needs realistic rendering
+   - ⚠️ NEVER use for line art phases (will add unwanted shading!)
+
+Recommendation Logic:
+- If dest_phase is Skeleton, Roughs, Tie Down, or CleanUp → Recommend "anything-v5-PrtRE.safetensors"
+- If dest_phase is Colors:
+  • If subject contains "anime", "character", "girl", "boy" → "Counterfeit-V3.0.safetensors"
+  • If subject contains "fantasy", "magic", "ethereal" → "GhostMix-v2.0.safetensors"
+  • If subject contains "illustration", "art", "book" → "Lyriel-v1.6.safetensors"
+  • If subject contains "photo", "realistic", "portrait" → "Realistic_Vision_V5.1.safetensors"
+  • Default for Colors → "Counterfeit-V3.0.safetensors"
+
+Example:
+{
+  "recommended_model": "anything-v5-PrtRE.safetensors",
+  "model_reasoning": "Line art phase (Tie Down) requires clean lines without shading. AnythingXL Ink Base is specifically trained for pure line art."
 }
 
 CONCRETE EXAMPLE:
@@ -201,7 +301,9 @@ If image shows a girl with sunglasses sitting (with black lines on white backgro
   ],
   "notes": [
     "Transition to Tie Down requires cleanup of lines while maintaining stylized proportions"
-  ]
+  ],
+  "recommended_model": "anything-v5-PrtRE.safetensors",
+  "model_reasoning": "Tie Down phase requires clean line art without fills or shading. AnythingXL Ink Base specializes in pure line art output."
 }
 
 ⚠️ CRITICAL PRESERVE ARRAY ORDER (ALWAYS FOLLOW):
