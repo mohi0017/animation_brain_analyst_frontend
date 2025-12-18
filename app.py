@@ -269,13 +269,13 @@ if generate:
                     st.image(
                         transparent_img, 
                         caption="✨ With Transparent Background (Perfect for compositing)", 
-                        use_container_width=True
+                        width='stretch'
                     )
                 with col2:
                     st.image(
                         original_img, 
                         caption="📄 With White Background (Ready to use)", 
-                        use_container_width=True
+                        width='stretch'
                     )
             else:
                 # Fallback for single image (backward compatibility)
