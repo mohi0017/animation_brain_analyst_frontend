@@ -99,50 +99,65 @@ Output JSON ONLY:
 }
 Keep it short, SD-friendly, and specific."""
 
-DEFAULT_PROMPT_ENGINEER = """You are the Prompt Engineer (Strategist) for animation cleanup.
+DEFAULT_PROMPT_ENGINEER = """You are the Prompt Engineer (Strategist) for animation cleanup using Stable Diffusion.
 
 Input:
 - report JSON: fixes[], removes[], notes[]
 - dest_phase: Skeleton | Roughs | Tie Down | CleanUp | Colors
 - Locks: pose_lock (keep pose), style_lock (keep art style)
 
-Strategy:
-- Positive Prompt: turn fixes into high-weight, specific SD-friendly terms targeted to dest_phase fidelity.
-  * Skeleton: focus on posing and proportion; reduce volumes to simple construction and stick-figure lines; keep gesture and timing; DO NOT produce clean final shapes or perfect circles—embrace slightly rough structural lines. CRITICAL: explicitly add "line art only, no colors, no shading, no fills, transparent background, no canvas, no background, only character shapes with original ink color."
-  * Roughs: gestural movement capture with some volumetric cues; looser than Skeleton but not fully on-model shapes. CRITICAL: explicitly add "line art only, no colors, no shading, no fills, transparent background, no canvas, no background, only character shapes with original ink color."
-  * Tie Down: on-model shapes, defined forms, clean single lines (not ink-perfect), preserve intended gesture. CRITICAL: explicitly add "preserve original ink color, transparent background, no canvas, no background, only character shapes, line art style, no color fills, no shading, no gradients."
-  * Cleanup: perfect smooth uniform linework on existing tie-down shapes. CRITICAL REQUIREMENTS: (1) Define proper anatomical shapes for all body parts - hands must have clear finger definition with proper palm structure, defined joints, and anatomically correct proportions; (2) Add proper face definition - clearly defined eyes, nose, mouth placement, facial structure, head shape, and facial features; (3) Add proper body volume - torso volume with defined chest and waist, limb thickness showing proper muscle structure, shoulders, hips, and joints properly defined; (4) Make all body parts precise - shoulders, elbows, wrists, knees, ankles, all joints clearly defined with proper anatomical structure; (5) Remove all construction lines, placeholder lines, guide circles, breast circles, anatomical guide marks, scribbles, rough marks, and all non-final lines; (6) Create smooth, uniform, final line art quality with consistent line weight. Explicitly add "preserve original ink color, transparent background, no canvas, no background, only character shapes, no colors whatsoever except original ink color, no color fills, no shading, no gradients, no tints, no hues, defined hands with clear fingers and palm structure, proper face definition with eyes nose mouth, proper body volume with defined torso and limbs, precise anatomical body parts with clear joints, smooth uniform final line art quality."
-  * Colors: fill character with colors inside all shapes, colorize entire character including skin tones on all visible skin areas, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill skin areas with natural skin tones, colorize all skin regions including arms, legs, face, torso, transparent background, no canvas, no background, only character shapes with colors, ensure all character areas are filled with colors including skin, no empty white spaces inside character, no uncolored skin areas, full color fill for entire character, preserve line art integrity.
-- Negative Prompt: removes + anything that would overshoot the phase.
-  * Skeleton: block fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills, colored clothing, skin tones, white background, gray background, colored background, canvas, paper background, any background, solid background.
-  * Tie Down: block rough sketch, messy/double/fuzzy lines, construction lines, dense scribbles, off-model anatomy, warped proportions, "perfect crisp ink lines", "ultra-clean lineart". CRITICAL: also block "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading, white background, gray background, colored background, canvas, paper background, any background, solid background."
-  * Cleanup: block sketchiness, noise, color bleed, undefined body parts, missing anatomical details. CRITICAL: MUST aggressively block "construction lines, placeholder lines, guide circles, breast circles, anatomical guide marks, guide lines, reference lines, building block lines, volumetric guide lines, non-final lines, temporary lines, rough sketch quality, undefined hands, undefined fingers, missing palm structure, undefined face, missing facial features, undefined eyes, missing nose, missing mouth, undefined body volume, flat body parts, undefined joints, missing anatomical structure, undefined shoulders, undefined elbows, undefined wrists, undefined knees, undefined ankles, any colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, colored lines, purple lines, pink lines, blue lines, red lines, any colored line art, grayscale lines, tinted lines, 3D rendering, photorealistic shading, realistic colors, colorized lines, non-black lines, any line color except pure black, scribbles, messy lines, rough lines, incomplete line art, unfinished drawing, white background, gray background, colored background, canvas, paper background, any background, solid background, shaded background."
-  * Colors: block rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, incomplete colorization, white spaces within character, uncolored regions, uncolored skin areas, white skin areas, uncolored body parts, uncolored arms, uncolored legs, uncolored face, uncolored torso, monochrome fill, grayscale fill, white background, gray background, colored background, canvas, paper background, any background, solid background.
-- Respect locks: if pose_lock, do not change pose/action except minimal anatomical correction; if style_lock, preserve art style.
-- Colour scheme:
-  * CRITICAL: ALL phases must generate TRANSPARENT BACKGROUND. No canvas, no background, only character shapes.
-  * Read from report.preserve/notes any mention of line colour (ink color).
-  * You MUST add an explicit phrase like "preserve original ink color, transparent background, no canvas, no background, only character shapes" in POSITIVE_PROMPT.
-  * For line art color: preserve the original ink color (e.g., "preserve blue ink color" or "preserve black ink color").
-  * CRITICAL: If dest_phase is NOT "Colors", then character internal colors (clothing, skin tones, shading) should be BLOCKED, not preserved. Only preserve line art ink color. For non-Color phases, add to NEGATIVE_PROMPT: "colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, 3D rendering, photorealistic shading, white background, gray background, colored background, canvas, paper background, any background, solid background."
-  * If dest_phase IS "Colors", then fill character with colors but keep transparent background: "fill character with colors inside all shapes, colorize entire character including skin tones on all visible skin areas, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, fill skin areas with natural skin tones, colorize all skin regions including arms, legs, face, torso, transparent background, no canvas, no background, only character shapes with colors, ensure all character areas are filled with colors including skin, no empty white spaces inside character, no uncolored skin areas, full color fill for entire character."
-  * Do NOT recolour line art ink color unless the notes clearly request a style/colour change.
-  * ALWAYS block in NEGATIVE_PROMPT: "white background, gray background, colored background, canvas, paper background, solid background, any background, shaded background, monochrome background, light gray background, gray tones in background, gray shading in background area" for ALL phases. Background must be transparent.
-- Roughs -> Colors behaviour:
-  * Treat this as a two-step process in one generation: first cleanup/define lines (as if doing Tie Down/Cleanup), then apply colours.
-  * Encode this in the prompts: describe both the cleanup and the final coloured look, while preserving existing line/background colours.
-- Rationale: briefly explain the intended edits so the diffusion model “knows what to fix” (e.g., “edit left hand to read as on-model animated character anatomy”).
+CRITICAL RULES - Stable Diffusion Prompting Syntax:
+1. Use COMMA-SEPARATED KEYWORDS, not sentences
+2. Apply WEIGHTING SYNTAX for emphasis: (keyword:weight) where 1.0=normal, 1.1-1.4=strong, 0.5-0.9=weak
+3. Follow HIERARCHICAL STRUCTURE: [Subject] + [Action/Pose] + [Style/Detail] + [Environment] + [Quality Modifiers]
+4. Use TECHNICAL TERMS for cleanup work, not creative descriptions
+5. NEGATIVE PROMPTS are MORE IMPORTANT than positive for cleanup work
 
-Return EXACTLY in this format (one section per line, no extra prefixes):
-POSITIVE_PROMPT: [your positive prompt text here, can be multiple lines]
-NEGATIVE_PROMPT: [your negative prompt text here, can be multiple lines]
-RATIONALE: [your rationale text here]
+Phase-Specific Prompt Patterns (Use these comma-separated keyword structures):
+
+** SKELETON PHASE **
+Positive Pattern: [subject], [simple pose], (stick figure:1.2), (construction lines:1.1), gesture drawing, proportions study, (line art only:1.3), transparent background, (no colors:1.2), (no shading:1.2), simple forms, rough structural lines
+Quality: best quality, high resolution
+Negative Pattern: (detailed anatomy:1.3), (perfect lineart:1.3), (clean lines:1.2), (inked outlines:1.2), (shading:1.3), (colors:1.3), (gradients:1.2), white background, gray background, colored background, (canvas:1.2), (paper texture:1.2), volumetric rendering
+
+** ROUGHS PHASE **
+Positive Pattern: [subject], [action/pose], (gestural drawing:1.2), (movement lines:1.1), rough shapes, volumetric forms, (line art only:1.3), transparent background, (no colors:1.2), (no shading:1.2), loose sketch, dynamic motion
+Quality: best quality, high resolution
+Negative Pattern: (perfect lineart:1.3), (clean edges:1.2), (polished:1.2), (inked:1.2), (shading:1.3), (colors:1.3), white background, gray background, (canvas:1.2), detailed rendering
+
+** TIE DOWN PHASE **
+Positive Pattern: [subject], [preserved pose], (clean lineart:1.2), (defined shapes:1.2), on-model character, (single lines:1.1), consistent proportions, [ink color] lines, transparent background, (no color fills:1.3), (no shading:1.2), animation frame, professional line art
+Quality: (masterpiece:1.1), best quality, (high resolution:1.1), (crisp edges:1.1)
+Negative Pattern: (rough sketch:1.3), (messy lines:1.3), (double lines:1.2), (fuzzy lines:1.2), (construction lines:1.3), (scribbles:1.2), (perfect ink:1.1), (ultra-clean:1.1), (colors:1.3), (shading:1.3), (gradients:1.2), white background, (canvas:1.2), 3D rendering
+
+** CLEANUP PHASE **
+Positive Pattern: [subject], [preserved pose], (clean lineart:1.3), (vector style:1.2), (solid black lines:1.2), (professional inking:1.2), (crisp edges:1.2), (uniform line weight:1.2), (defined hands:1.2), (proper fingers:1.1), (palm structure:1.1), (defined face:1.2), (clear eyes:1.1), (nose:1.1), (mouth:1.1), (body volume:1.2), (defined torso:1.1), (muscle structure:1.1), (clear joints:1.2), transparent background, (no colors:1.3), (no shading:1.3), (minimalist:1.1), animation cel, final line art
+Quality: (masterpiece:1.2), best quality, (high resolution:1.2), (professional animation:1.1)
+Negative Pattern: worst quality, low quality, (blurry:1.3), (noise:1.3), (artifacts:1.2), (sketchy:1.3), (rough lines:1.3), (messy:1.3), (construction lines:1.4), (placeholder lines:1.3), (guide circles:1.3), (breast circles:1.3), (guide marks:1.3), (double lines:1.2), (fuzzy:1.2), (undefined hands:1.3), (undefined fingers:1.2), (missing palm:1.2), (undefined face:1.3), (missing eyes:1.2), (missing nose:1.2), (flat body:1.2), (undefined joints:1.2), (colors:1.4), (shading:1.4), (gradients:1.3), (colored lines:1.3), (purple lines:1.2), (pink lines:1.2), (blue lines:1.2), white background, gray background, (canvas:1.3), (paper:1.2), text, watermark, signature
+
+** COLORS PHASE **
+Positive Pattern: [subject], [preserved pose], (flat color:1.2), (vibrant anime palette:1.2), (detailed cel shading:1.2), (full character colorization:1.3), (skin tones:1.2), (colored clothing:1.2), (hair color:1.1), (filled shapes:1.2), (complete coloring:1.2), (no empty areas:1.1), transparent background, (clean line art:1.1), digital art, animation cel
+Quality: (masterpiece:1.2), best quality, (high quality render:1.1), (8k:1.1)
+Negative Pattern: (rough sketch:1.3), (messy lines:1.2), (construction lines:1.3), (incomplete coloring:1.4), (colorless areas:1.3), (white spaces:1.3), (unfilled areas:1.3), (uncolored skin:1.3), (monochrome:1.3), (grayscale:1.2), (missing colors:1.3), white background, colored background, (canvas:1.2), (line degradation:1.2), broken lines
+
+General Rules:
+- ALWAYS use weighting (keyword:weight) for critical features
+- Add quality modifiers: (masterpiece:1.1-1.2), best quality, high resolution
+- For pose_lock: add (preserve pose:1.2), (maintain gesture:1.1)
+- For style_lock: add (preserve art style:1.2), (consistent design:1.1)
+- Transparent background: ALWAYS add "transparent background" in positive and block "white background, gray background, colored background, canvas, paper" with (keyword:1.2-1.3) in negative
+- Use anatomical terms from report.fixes with (keyword:1.1-1.2) weighting
+
+Return EXACTLY in this format (comma-separated keywords, NOT sentences):
+POSITIVE_PROMPT: [comma-separated keywords with weights]
+NEGATIVE_PROMPT: [comma-separated keywords with weights]
+RATIONALE: [brief technical explanation]
 
 IMPORTANT: 
-- Start each section with "POSITIVE_PROMPT:", "NEGATIVE_PROMPT:", or "RATIONALE:" followed by a colon and space
-- The text after the colon is the actual prompt/rationale (can span multiple lines)
-- Do NOT include "POSITIVE_PROMPT:" or "NEGATIVE_PROMPT:" prefix in the actual prompt text sent to ComfyUI
-- Keep the structure consistent regardless of source/destination phase transition
+- Use comma-separated keywords, NOT full sentences
+- Apply weighting syntax: (keyword:weight) appropriately
+- Start each section with the label followed by colon
+- Keep keywords technical and specific
 """
 
 
@@ -246,68 +261,46 @@ def normalize_report(report: dict) -> dict:
 def _generate_smart_fallback_prompts(
     source_phase: str, dest_phase: str, pose_lock: bool, style_lock: bool
 ) -> Tuple[str, str, str]:
-    """Generate smart fallback prompts based on phase transition and locks."""
-    # Phase-specific positive prompts
+    """Generate smart fallback prompts with proper SD weighting syntax."""
+    # Phase-specific positive prompts with SD weighting
     phase_positives = {
-        "Skeleton": "simple construction lines, stick-figure structure, posing and proportion focus, line art only, no colors, no shading, transparent background, no canvas, no background, only character shapes with original ink color",
-        "Roughs": "gestural movement capture, loose volumetric shapes, building blocks, line art only, no colors, no shading, transparent background, no canvas, no background, only character shapes with original ink color",
-        "Tie Down": "on-model shapes, defined forms, clean single lines, preserve intended gesture, preserve original ink color, transparent background, no canvas, no background, only character shapes, line art style, no color fills, no shading",
-        "CleanUp": "perfect smooth uniform linework, clean precise outlines, uniform line weight, defined hands with clear fingers and proper palm structure, proper face definition with eyes nose mouth and facial structure, proper body volume with defined torso and limb thickness showing muscle structure, precise anatomical body parts with clear joints including shoulders elbows wrists knees ankles, remove all construction lines, remove all placeholder lines, remove guide circles, remove breast circles, remove anatomical guide marks, remove all non-final lines, keep only final clean line art, preserve original ink color, transparent background, no canvas, no background, only character shapes, no colors whatsoever except original ink color, no shading, line art style",
-        "Colors": "fill character with colors inside all shapes, colorize entire character including skin tones on all visible skin areas, hair colors, clothing colors, accessory colors, fill all enclosed areas with appropriate colors, add vibrant colors to character body, fill skin areas with natural skin tones, colorize all skin regions including arms, legs, face, torso, transparent background, no canvas, no background, only character shapes with colors, ensure all character areas are filled with colors including skin, no empty white spaces inside character, no uncolored skin areas, full color fill for entire character",
+        "Skeleton": "1girl, (stick figure:1.2), (construction lines:1.1), gesture drawing, proportions study, (line art only:1.3), transparent background, (no colors:1.2), (no shading:1.2), simple forms, rough structural lines, best quality, high resolution",
+        "Roughs": "1girl, (gestural drawing:1.2), (movement lines:1.1), rough shapes, volumetric forms, (line art only:1.3), transparent background, (no colors:1.2), (no shading:1.2), loose sketch, dynamic motion, best quality, high resolution",
+        "Tie Down": "1girl, (clean lineart:1.2), (defined shapes:1.2), on-model character, (single lines:1.1), consistent proportions, transparent background, (no color fills:1.3), (no shading:1.2), animation frame, professional line art, (masterpiece:1.1), best quality, (high resolution:1.1), (crisp edges:1.1)",
+        "CleanUp": "1girl, (clean lineart:1.3), (vector style:1.2), (professional inking:1.2), (crisp edges:1.2), (uniform line weight:1.2), (defined hands:1.2), (proper fingers:1.1), (palm structure:1.1), (defined face:1.2), (clear eyes:1.1), nose, mouth, (body volume:1.2), (defined torso:1.1), (muscle structure:1.1), (clear joints:1.2), transparent background, (no colors:1.3), (no shading:1.3), (minimalist:1.1), animation cel, final line art, (masterpiece:1.2), best quality, (high resolution:1.2), (professional animation:1.1)",
+        "Colors": "1girl, (flat color:1.2), (vibrant anime palette:1.2), (detailed cel shading:1.2), (full character colorization:1.3), (skin tones:1.2), (colored clothing:1.2), hair color, (filled shapes:1.2), (complete coloring:1.2), (no empty areas:1.1), transparent background, (clean line art:1.1), digital art, animation cel, (masterpiece:1.2), best quality, (high quality render:1.1), (8k:1.1)",
     }
     
-    # Phase-specific negative prompts
+    # Phase-specific negative prompts with SD weighting
     phase_negatives = {
-        "Skeleton": "fully on-model final shapes, detailed volumetric rendering, perfect lineart, inked outlines, shading, colours, gradients, color fills, white background, gray background, colored background, canvas, paper background, any background, solid background",
-        "Roughs": "perfect lineart, inked outlines, shading, colours, gradients, color fills, white background, gray background, colored background, canvas, paper background, any background, solid background",
-        "Tie Down": "rough sketch, messy lines, double lines, fuzzy lines, construction lines, dense scribbles, perfect crisp ink lines, ultra-clean lineart, colors, color fills, shading, gradients, colored clothing, skin tones, 3D rendering, photorealistic shading, white background, gray background, colored background, canvas, paper background, any background, solid background",
-        "CleanUp": "sketchy lines, wobbly lines, rough lines, fuzzy lines, construction lines, placeholder lines, guide circles, breast circles, anatomical guide marks, guide lines, reference lines, building block lines, volumetric guide lines, overlapping strokes, inconsistent line weight, non-final lines, temporary lines, undefined hands, undefined fingers, missing palm structure, undefined face, missing facial features, undefined eyes, missing nose, missing mouth, undefined body volume, flat body parts, undefined joints, missing anatomical structure, undefined shoulders, undefined elbows, undefined wrists, undefined knees, undefined ankles, incomplete line art, unfinished drawing, colors, color fills, shading, gradients, colored clothing, skin tones, purple lines, pink lines, blue lines, any colored line art, non-black lines, 3D rendering, photorealistic shading, white background, gray background, colored background, canvas, paper background, any background, solid background, shaded background",
-        "Colors": "rough sketch, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, monochrome fill, grayscale fill, incomplete colorization, white spaces within character, uncolored regions, white background, gray background, colored background, canvas, paper background, any background, solid background",
+        "Skeleton": "(detailed anatomy:1.3), (perfect lineart:1.3), (clean lines:1.2), (inked outlines:1.2), (shading:1.3), (colors:1.3), (gradients:1.2), white background, gray background, colored background, (canvas:1.2), (paper texture:1.2), volumetric rendering",
+        "Roughs": "(perfect lineart:1.3), (clean edges:1.2), (polished:1.2), (inked:1.2), (shading:1.3), (colors:1.3), white background, gray background, (canvas:1.2), detailed rendering",
+        "Tie Down": "(rough sketch:1.3), (messy lines:1.3), (double lines:1.2), (fuzzy lines:1.2), (construction lines:1.3), (scribbles:1.2), (perfect ink:1.1), (ultra-clean:1.1), (colors:1.3), (shading:1.3), (gradients:1.2), white background, (canvas:1.2), 3D rendering",
+        "CleanUp": "worst quality, low quality, (blurry:1.3), (noise:1.3), (artifacts:1.2), (sketchy:1.3), (rough lines:1.3), (messy:1.3), (construction lines:1.4), (placeholder lines:1.3), (guide circles:1.3), (breast circles:1.3), (guide marks:1.3), (double lines:1.2), (fuzzy:1.2), (undefined hands:1.3), (undefined fingers:1.2), (missing palm:1.2), (undefined face:1.3), (missing eyes:1.2), (missing nose:1.2), (flat body:1.2), (undefined joints:1.2), (colors:1.4), (shading:1.4), (gradients:1.3), (colored lines:1.3), (purple lines:1.2), (pink lines:1.2), (blue lines:1.2), white background, gray background, (canvas:1.3), (paper:1.2), text, watermark, signature",
+        "Colors": "(rough sketch:1.3), (messy lines:1.2), (construction lines:1.3), (incomplete coloring:1.4), (colorless areas:1.3), (white spaces:1.3), (unfilled areas:1.3), (uncolored skin:1.3), (monochrome:1.3), (grayscale:1.2), (missing colors:1.3), white background, colored background, (canvas:1.2), (line degradation:1.2), broken lines",
     }
     
     # Build positive prompt
-    pos_parts = [phase_positives.get(dest_phase, "clean line art, defined forms")]
+    pos_parts = [phase_positives.get(dest_phase, "(clean line art:1.2), (defined forms:1.1)")]
     
-    # Add preservation based on locks
+    # Add preservation based on locks with weighting
     if pose_lock:
-        pos_parts.append("preserve character pose and motion, maintain gesture")
+        pos_parts.append("(preserve pose:1.2), (maintain gesture:1.1)")
     if style_lock:
-        pos_parts.append("preserve art style and proportions")
-    
-    # Preserve color scheme based on destination phase
-    if dest_phase == "Colors":
-        # Colors phase: preserve line art integrity, allow color fills for character AND background
-        pos_parts.append("preserve existing line art, maintain line integrity, fill character with colors inside all shapes including skin tones on all visible skin areas, fill all skin regions with natural skin colors, fill background with colors, colorize entire image including character and background, ensure complete colorization of all areas including skin, no empty white spaces, no uncolored skin areas")
-    else:
-        # Non-Color phases: enforce black lines, white background, no colors
-        pos_parts.append("pure black line art only, pure white background (canvas area outside character), no colors, no shading, no fills")
+        pos_parts.append("(preserve art style:1.2), (consistent design:1.1)")
     
     # Build negative prompt
-    neg_parts = [phase_negatives.get(dest_phase, "rough sketch, messy lines, construction lines")]
+    neg_parts = [phase_negatives.get(dest_phase, "(rough sketch:1.2), (messy lines:1.2), (construction lines:1.3)")]
     
-    # Block colors for non-Color phases only
+    # Additional phase-specific negative blocks with weighting
     if dest_phase != "Colors":
-        neg_parts.append("colors, color fills, shading, gradients, colored clothing, skin tones, fills inside lines, any colors except line art, 3D rendering, photorealistic shading, purple lines, pink lines, blue lines, any colored line art")
-    else:
-        # Colors phase: block rough sketch quality, empty spaces, incomplete colorization, uncolored skin
-        neg_parts.append("rough sketch quality, messy lines, construction lines, off-model anatomy, warped proportions, line art degradation, broken lines, missing colors, colorless areas, empty white spaces inside character, unfilled areas, incomplete colorization, white spaces within character, transparent areas, uncolored regions, uncolored skin areas, white skin areas, uncolored body parts, uncolored arms, uncolored legs, uncolored face, uncolored torso")
-    
-    # Background handling: for Colors phase, allow colored backgrounds; for others, block grayscale
-    if dest_phase == "Colors":
-        # Colors phase: allow colored backgrounds, but block grayscale/monochrome backgrounds
-        neg_parts.append("grayscale background, monochrome background, colorless background, empty background")
-    else:
-        # Non-Color phases: always block grayscale backgrounds
-        neg_parts.append("grayscale background, gray background, shaded background, monochrome background, light gray background, gray tones in background")
+        neg_parts.append("(colors:1.3), (color fills:1.3), (shading:1.3), (gradients:1.2), (colored clothing:1.2), (skin tones:1.2), (fills inside lines:1.2), (3D rendering:1.2), (photorealistic shading:1.2)")
     
     pos = ", ".join(pos_parts)
     neg = ", ".join(neg_parts)
     
     # Phase-specific rationale
-    if dest_phase == "Colors":
-        rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Add accurate color fills behind existing line art while maintaining line integrity and character structure."
-    else:
-        rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition. Preserve pose: {pose_lock}, preserve style: {style_lock}. Focus on phase-appropriate cleanup while maintaining character structure."
+    rationale = f"Fallback prompts for {source_phase} → {dest_phase} transition using SD weighting syntax. Preserve pose: {pose_lock}, preserve style: {style_lock}."
     
     return pos, neg, rationale
 
