@@ -19,6 +19,10 @@ uv sync          # install dependencies from pyproject.toml
 uv run streamlit run app.py
 ```
 
+The app automatically includes multiple pages:
+- **🎬 Main Generator** (`app.py`) - Main image generation interface
+- **🎛️ Parameters Tuning** (`pages/2_🎛️_Parameters_Tuning.py`) - Interactive parameter adjustment with live explanations and presets
+
 ## ⚙️ Environment Variables
 
 Set in `.env` file or paste into the sidebar:
@@ -75,9 +79,12 @@ For rough sketches with anatomy issues (distorted face, messy hands), we use an 
 
 ## 📚 Technical Documentation
 
-- **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)** - Complete system architecture and design
-- **[COMFYUI_INTEGRATION.md](COMFYUI_INTEGRATION.md)** - ComfyUI integration details and challenges
-- **[CONTROLNET_ANATOMY_STRATEGY.md](CONTROLNET_ANATOMY_STRATEGY.md)** - ControlNet optimization strategy
+All documentation moved to `docs/` directory:
+
+- **[docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md)** - Complete system architecture and design
+- **[docs/COMFYUI_INTEGRATION.md](docs/COMFYUI_INTEGRATION.md)** - ComfyUI integration details and challenges
+- **[docs/CONTROLNET_ANATOMY_STRATEGY.md](docs/CONTROLNET_ANATOMY_STRATEGY.md)** - ControlNet optimization strategy
+- **[docs/PARAMETERS_GUIDE.md](docs/PARAMETERS_GUIDE.md)** - ⭐ **NEW** Comprehensive parameters tuning guide
 - **[convert_md_to_pdf.py](convert_md_to_pdf.py)** - Convert documentation to PDF
 
 ## 🎯 Prompt Engineering Rules
@@ -116,6 +123,7 @@ Push to GitHub `main` branch triggers auto-deployment.
 - **v1.2:** Transparent background generation, dual output display
 - **v1.3:** Stable Diffusion prompting rules with weighting syntax
 - **v1.4:** ControlNet "Timed Release" strategy for anatomy correction
+- **v1.5:** ⭐ **NEW** Parameters Tuning page, comprehensive PARAMETERS_GUIDE.md, workflow JSON synchronization, documentation reorganization
 
 ## 🛠️ Tech Stack
 
