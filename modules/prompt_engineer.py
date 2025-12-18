@@ -34,7 +34,7 @@ def clean_prompt_placeholders(prompt: str) -> str:
     
     # Common placeholder replacements
     replacements = {
-        r'\[subject\]': '1girl',  # Default to 1girl for most anime/animation cases
+        r'\[subject\]': 'subject',  # Generic subject (no character assumptions)
         r'\[preserved pose\]': 'dynamic pose',
         r'\[action/pose\]': 'dynamic pose',
         r'\[simple pose\]': 'simple pose',
@@ -73,13 +73,13 @@ def generate_smart_fallback_prompts(
     Returns:
         Tuple of (positive_prompt, negative_prompt, rationale)
     """
-    # Phase-specific positive prompts with SD weighting
+    # Phase-specific positive prompts with SD weighting (GENERIC - no character assumptions)
     phase_positives = {
-        "Skeleton": "1girl, (stick figure:1.2), (construction lines:1.1), gesture drawing, proportions study, (line art only:1.4), (outline only:1.3), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), simple forms, rough structural lines, pure linework, best quality, high resolution",
-        "Roughs": "1girl, (gestural drawing:1.2), (movement lines:1.1), rough shapes, volumetric forms, (line art only:1.4), (outline only:1.3), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), loose sketch, dynamic motion, pure linework, best quality, high resolution",
-        "Tie Down": "1girl, (clean lineart:1.3), (defined shapes:1.2), on-model character, (single lines:1.2), consistent proportions, (line art only:1.4), (outline only:1.3), transparent background, (no color fills:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), animation frame, professional line art, pure linework, (masterpiece:1.1), best quality, (high resolution:1.1), (crisp edges:1.1)",
-        "CleanUp": "1girl, (clean lineart:1.4), (vector style:1.2), (professional inking:1.2), (crisp edges:1.2), (uniform line weight:1.2), (line art only:1.4), (outline only:1.4), (pure linework:1.3), (perfectly drawn face:1.3), (beautiful clear face:1.3), (sharp anime eyes:1.3), (anatomically correct hands:1.3), (clear facial features:1.2), (proper fingers:1.2), (five fingers:1.2), (palm structure:1.2), (defined face:1.2), (visible eyes:1.2), (visible nose:1.1), (visible mouth:1.1), (body volume:1.2), (defined torso:1.1), (muscle structure:1.1), (clear joints:1.2), (hand-drawn feel:1.1), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.4), (no gradients:1.4), (minimalist:1.1), animation cel, final line art, black ink on transparent, (masterpiece:1.2), best quality, (high resolution:1.2), (professional animation:1.1)",
-        "Colors": "1girl, (flat color:1.2), (vibrant anime palette:1.2), (detailed cel shading:1.2), (full character colorization:1.3), (skin tones:1.2), (colored clothing:1.2), hair color, (filled shapes:1.2), (complete coloring:1.2), (no empty areas:1.1), transparent background, (clean line art:1.1), digital art, animation cel, (masterpiece:1.2), best quality, (high quality render:1.1), (8k:1.1)",
+        "Skeleton": "(stick figure:1.2), (construction lines:1.1), gesture drawing, proportions study, (line art only:1.4), (outline only:1.3), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), simple forms, rough structural lines, pure linework, best quality, high resolution",
+        "Roughs": "(gestural drawing:1.2), (movement lines:1.1), rough shapes, volumetric forms, (line art only:1.4), (outline only:1.3), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), loose sketch, dynamic motion, pure linework, best quality, high resolution",
+        "Tie Down": "(clean lineart:1.3), (defined shapes:1.2), on-model character, (single lines:1.2), consistent proportions, (line art only:1.4), (outline only:1.3), transparent background, (no color fills:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.3), animation frame, professional line art, pure linework, (masterpiece:1.1), best quality, (high resolution:1.1), (crisp edges:1.1)",
+        "CleanUp": "(clean lineart:1.4), (vector style:1.2), (professional inking:1.2), (crisp edges:1.2), (uniform line weight:1.2), (line art only:1.4), (outline only:1.4), (pure linework:1.3), (anatomically correct:1.3), (clear features:1.2), (proper proportions:1.2), (defined structure:1.2), (body volume:1.2), (defined form:1.1), (clear joints:1.2), (hand-drawn feel:1.1), transparent background, (no colors:1.4), (no shading:1.4), (no fills:1.4), (no rendering:1.4), (no gradients:1.4), (minimalist:1.1), animation cel, final line art, black ink on transparent, (masterpiece:1.2), best quality, (high resolution:1.2), (professional animation:1.1)",
+        "Colors": "(flat color:1.2), (vibrant palette:1.2), (detailed cel shading:1.2), (full colorization:1.3), (colored elements:1.2), (filled shapes:1.2), (complete coloring:1.2), (no empty areas:1.1), transparent background, (clean line art:1.1), digital art, animation cel, (masterpiece:1.2), best quality, (high quality render:1.1), (8k:1.1)",
     }
     
     # Phase-specific negative prompts with SD weighting
