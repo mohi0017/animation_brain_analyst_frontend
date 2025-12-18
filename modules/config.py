@@ -43,15 +43,35 @@ Inputs:
 - SOURCE_PHASE (default Roughs).
 - DEST_PHASE (default Tie Down/CleanUp/Colors).
 
-Required analysis steps:
-A) Subject Recognition (MANDATORY - MUST be first step):
-   - Count subjects: How many characters/objects? (1girl, 2girls, 1boy, 1girl and 1boy, etc.)
-   - Identify type: human character, animal, object/prop, vehicle, etc.
-   - Key features: gender, age, distinctive features (sunglasses, long hair, uniform, etc.)
-   - Examples: "1girl with sunglasses and long legs", "2girls sitting", "1boy standing", "bouncing ball"
-   - CRITICAL: This subject identification MUST appear in your "preserve" output so Prompt Engineer can use it
+⚠️ CRITICAL EXECUTION ORDER - FOLLOW EXACTLY:
+
+STEP 1 (DO THIS FIRST - MANDATORY!):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A) Subject Recognition (MUST BE DONE BEFORE ALL OTHER ANALYSIS):
+   When you see the image, IMMEDIATELY identify:
+   1. Count: How many subjects? (1girl, 2girls, 1boy, 1girl and 1boy, 2boys, etc.)
+   2. Type: human/animal/object/vehicle/prop
+   3. Key features: gender, clothing, accessories, distinctive features
+   
+   EXAMPLES:
+   • Image shows one female → Write: "1girl, sunglasses, long legs, crop top"
+   • Image shows two females → Write: "2girls, holding hands, school uniforms"
+   • Image shows one male → Write: "1boy, standing, casual wear"
+   • Image shows ball → Write: "ball, bouncing, round object"
+   • Image shows cat → Write: "cat, sitting, furry animal"
+   
+   ⚠️ YOU MUST WRITE THIS IN "preserve" ARRAY AS FIRST ITEM!
+   ⚠️ Format: "Subject: [your analysis]"
+   ⚠️ Example: "Subject: 1girl, sunglasses, long legs, sitting pose"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 2 (Do after Step 1):
 B) Object/Detail Recognition: identify all visible elements (hands, clothing, accessories, props like steering wheel, etc.).
+
+STEP 3 (Do after Step 2):
 C) Pose/Action analysis: find anatomical/pose issues (e.g., "left hand anatomically incorrect").
+
+STEP 4 (Do after Step 3):
 D) Phase comparison (SOURCE -> DEST):
    - Moving EARLIER in the pipeline (e.g., Tie Down -> Roughs, Roughs -> Skeleton, Cleanup -> Roughs/Skeleton, Colors -> Roughs/Skeleton):
        * Simplify detail; REMOVE non-essential volume and cleanup-quality lines.
@@ -66,14 +86,22 @@ D) Phase comparison (SOURCE -> DEST):
        * Any -> Colors: conceptually perform cleanup first (as if -> Tie Down/Cleanup) and THEN apply colours while preserving existing line/background colours.
    - Lateral moves at same "level" (e.g., Skeleton <-> Roughs, Tie Down <-> Cleanup when explicitly requested):
        * Adjust cleanliness and structural emphasis to match DEST_PHASE definitions, keeping the same character, pose, and timing.
+
+STEP 5 (Do after Step 4):
 E) Output a concise report: 3-4 critical FIXES and 3-4 REMOVES, plus NOTES if needed.
    - For Cleanup phase (especially from Roughs): CRITICALLY analyze and report:
      * Missing anatomical details: Are hands properly defined with clear fingers and palm? Is face properly defined with eyes, nose, mouth? Are body parts precise with clear joints?
      * Missing body volume: Is torso showing proper volume? Are limbs showing proper thickness and muscle structure? Are shoulders, hips, joints properly defined?
      * Construction elements to remove: Are there construction lines, guide circles, scribbles, rough marks that need removal?
      * Line quality issues: Are lines rough, inconsistent, or need refinement to final quality?
+
+STEP 6 (Do after Step 5):
 F) PRESERVE: list 2-3 items/gestures/styles that must be kept (e.g., "preserve right-hand gesture", "keep sunglasses angle").
-   - CRITICAL: MUST include subject identification from step A) as the FIRST preserve item (e.g., "Preserve: 1girl with sunglasses and long legs", "Preserve: 2girls sitting together", "Preserve: bouncing ball")
+   ⚠️ CRITICAL: The FIRST preserve item MUST be the subject from STEP 1!
+   ⚠️ Format: "Subject: [your subject from Step 1]"
+   ⚠️ Example: "Subject: 1girl, sunglasses, long legs, sitting pose"
+
+STEP 7 (Do after Step 6):
 G) Colour & background analysis: describe dominant line colour(s) and background (e.g., "blue line art on white background") and whether they should be preserved.
 
 Locks/levels:
@@ -91,15 +119,44 @@ Colour & background rules:
 - ALWAYS include at least one PRESERVE entry that explicitly states: "Preserve original ink color, transparent background, no canvas, no background, only character shapes."
 - Background must be completely transparent - no white, no gray, no colored backgrounds, only transparent alpha channel.
 
-Output JSON ONLY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ OUTPUT FORMAT (JSON ONLY - NO OTHER TEXT):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {
-  "fixes": ["..."],
-  "removes": ["..."],
-  "preserve": ["Subject: [your subject identification from step A]", "...", "..."],
+  "fixes": ["...", "...", "..."],
+  "removes": ["...", "...", "..."],
+  "preserve": [
+    "Subject: [MANDATORY - your subject from STEP 1]",
+    "...",
+    "..."
+  ],
   "notes": ["..."]
 }
 
-CRITICAL: The FIRST item in "preserve" array MUST be the subject identification (e.g., "Subject: 1girl with sunglasses", "Subject: 2girls", "Subject: bouncing ball").
+CONCRETE EXAMPLE:
+If image shows a girl with sunglasses sitting:
+{
+  "fixes": [
+    "Refine left hand fingers and palm structure",
+    "Define facial features clearly",
+    "Clean up torso and clothing lines"
+  ],
+  "removes": [
+    "Remove construction lines from body",
+    "Remove overlapping scribbles",
+    "Remove guide circles"
+  ],
+  "preserve": [
+    "Subject: 1girl, sunglasses, long legs, sitting pose with raised arm",
+    "Preserve dynamic pose with wide-spread legs",
+    "Preserve original black ink color, transparent background, no canvas"
+  ],
+  "notes": [
+    "Transition to Tie Down requires cleanup of lines while maintaining stylized proportions"
+  ]
+}
+
+⚠️ REMEMBER: First preserve item MUST start with "Subject: " followed by your STEP 1 analysis!
 Keep it short, SD-friendly, and specific."""
 
 
