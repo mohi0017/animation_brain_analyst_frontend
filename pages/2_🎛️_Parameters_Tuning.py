@@ -92,8 +92,9 @@ PRESETS = {
     }
 }
 
-st.title("🎛️ Parameters Tuning Studio")
-st.markdown("**Interactive parameter adjustment with real-time explanations**")
+st.title("🎛️ Advanced Settings & Fine-Tuning")
+st.markdown("_Adjust how the AI processes your images. These are advanced settings for experienced users._")
+st.info("💡 **New to this page?** Start with the **Presets** in the sidebar. They work great for most cases!")
 st.markdown("---")
 
 # Load current workflow
@@ -104,56 +105,61 @@ if not workflow:
 
 # Sidebar: Presets
 with st.sidebar:
-    st.header("📋 Presets")
+    st.header("📋 Ready-to-Use Presets")
+    st.caption("Pick a preset that matches your needs")
+    
     selected_preset = st.selectbox(
-        "Load Preset",
+        "Choose a Preset",
         options=["Custom"] + list(PRESETS.keys()),
-        index=1  # Default to "Standard Cleanup"
+        index=1,  # Default to "Standard Cleanup"
+        help="These presets are pre-configured settings for common animation tasks"
     )
     
     if selected_preset != "Custom":
         preset = PRESETS[selected_preset]
         st.info(f"**{selected_preset}**\n\n{preset['description']}")
         
-        if st.button("Apply Preset"):
+        if st.button("✨ Apply This Preset", use_container_width=True):
             # Apply preset values
             st.session_state.update(preset)
             st.success(f"✅ Applied: {selected_preset}")
             st.rerun()
+    else:
+        st.caption("You're using custom settings. Adjust parameters below.")
     
     st.markdown("---")
-    st.markdown("### 📖 Documentation")
-    st.info("📚 View all documentation in the **Documentation** page (sidebar)")
-    if st.button("📚 Open Documentation", use_container_width=True):
+    st.markdown("### 📚 Need Help?")
+    st.caption("View detailed guides and explanations")
+    if st.button("📖 Open Documentation", use_container_width=True, type="secondary"):
         st.switch_page("pages/3_📚_Documentation.py")
 
 # Main content: Parameter sections
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🎯 KSampler", 
-    "🎮 ControlNet", 
-    "🔧 Preprocessors", 
+    "🎯 Basic Settings", 
+    "🎮 Structure Control", 
+    "🔧 Image Processing", 
     "📊 Summary"
 ])
 
 # ====================
-# TAB 1: KSampler Parameters
+# TAB 1: KSampler Parameters (Basic Settings)
 # ====================
 with tab1:
-    st.header("🎯 KSampler Parameters")
-    st.markdown("Core parameters controlling the generation process")
+    st.header("🎯 Basic Generation Settings")
+    st.markdown("_These control how the AI creates your image_")
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
         # Steps
-        st.subheader("1️⃣ Steps")
+        st.subheader("1️⃣ Steps (How Many Times to Process)")
         steps = st.slider(
-            "Number of denoising iterations",
+            "Number of processing steps",
             min_value=10,
             max_value=50,
             value=workflow["5"]["inputs"].get("steps", 30),
             step=5,
-            help="More steps = more detail, but diminishing returns after 30"
+            help="Higher values = more detailed results, but takes longer. 30 is usually perfect."
         )
         
         st.markdown(f"""
@@ -170,14 +176,14 @@ with tab1:
         st.markdown("---")
         
         # CFG Scale
-        st.subheader("2️⃣ CFG Scale (Classifier Free Guidance)")
+        st.subheader("2️⃣ CFG Scale (How Strictly to Follow Instructions)")
         cfg = st.slider(
-            "Prompt adherence strength",
+            "How closely the AI should follow your instructions",
             min_value=3.0,
             max_value=15.0,
             value=float(workflow["5"]["inputs"].get("cfg", 7.5)),
             step=0.5,
-            help="How strictly AI follows your prompt"
+            help="Lower = more creative and flexible. Higher = follows instructions exactly but can look overdone."
         )
         
         if cfg < 6.0:
@@ -203,9 +209,9 @@ with tab1:
         st.markdown("---")
         
         # Denoise
-        st.subheader("3️⃣ Denoise")
+        st.subheader("3️⃣ Denoise (How Much to Change)")
         denoise = st.slider(
-            "Generation vs refinement amount",
+            "How much the AI should change your image",
             min_value=0.0,
             max_value=1.0,
             value=float(workflow["5"]["inputs"].get("denoise", 1.0)),
@@ -295,25 +301,27 @@ with tab1:
             st.success("✨ Full generation")
 
 # ====================
-# TAB 2: ControlNet Parameters
+# TAB 2: ControlNet Parameters (Structure Control)
 # ====================
 with tab2:
-    st.header("🎮 ControlNet Parameters")
-    st.markdown("**The 'Timed Release' Strategy** - Critical for anatomy correction")
+    st.header("🎮 Structure Control Settings")
+    st.markdown("_These settings control how the AI keeps the pose and anatomy of your character_")
+    st.info("💡 **What is this?** These settings help the AI understand your character's pose while still being able to fix anatomy problems.")
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("📍 Lineart ControlNet")
+        st.subheader("📍 Line Detection Control")
+        st.caption("Controls how strictly the AI follows the lines in your drawing")
         
         # Lineart Strength
         lineart_strength = st.slider(
-            "Lineart Strength",
+            "Line Following Strength",
             min_value=0.0,
             max_value=1.5,
             value=float(workflow["39"]["inputs"].get("controlnet_strength_1", 0.8)),
             step=0.1,
-            help="How strongly lineart influences pose/gesture"
+            help="Higher values = AI follows your lines more closely. Lower = more freedom to fix problems."
         )
         
         st.markdown(f"""
@@ -327,9 +335,10 @@ with tab2:
         """)
         
         # Lineart End Percent (CRITICAL)
-        st.markdown("### 🔥 End Percent - **CRITICAL PARAMETER**")
+        st.markdown("### 🔥 When to Stop Following Lines")
+        st.caption("**This is the most important setting!** It controls when the AI stops following your lines and can freely fix anatomy.")
         lineart_end = st.slider(
-            "Lineart End Percent (When to release control)",
+            "Stop following lines at this percentage",
             min_value=0.4,
             max_value=1.0,
             value=float(workflow["39"]["inputs"].get("end_percent_1", 0.7)),

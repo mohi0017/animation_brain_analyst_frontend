@@ -38,37 +38,40 @@ st.set_page_config(
 )
 
 # ---------- Main UI ----------
-st.title("AI Animation Studio Control Panel")
+st.title("🎬 AI Animation Studio")
+st.markdown("_Transform rough sketches into polished animation frames_")
 
 # ---------- Sidebar: Environment Configuration ----------
 with st.sidebar:
-    st.markdown("**Environment**")
+    st.markdown("**API Keys & Settings**")
     st.text_input(
-        "GOOGLE_GENAI_API_KEY", 
+        "Google AI API Key", 
         type="password", 
-        value=os.getenv("GOOGLE_GENAI_API_KEY", "")
+        value=os.getenv("GOOGLE_GENAI_API_KEY", ""),
+        help="Your API key from Google AI Studio (ai.google.dev)"
     )
     comfy_url = st.text_input(
-        "COMFYUI_API_URL", 
-        value=os.getenv("COMFYUI_API_URL", "https://j9z3h3awdbe4rf-8188.proxy.runpod.net")
+        "ComfyUI Server URL", 
+        value=os.getenv("COMFYUI_API_URL", "https://j9z3h3awdbe4rf-8188.proxy.runpod.net"),
+        help="The web address where your ComfyUI server is running"
     )
     if comfy_url:
-        st.caption(f"Using: {comfy_url}")
+        st.caption(f"✅ Connected to: {comfy_url}")
     
-    st.markdown("**Workflow Template**")
+    st.markdown("**Workflow Settings**")
     
     # Server workflow options
-    with st.expander("🔧 Server Workflow (Optional)", expanded=False):
-        st.caption("Use workflow saved on ComfyUI server")
+    with st.expander("🔧 Advanced: Use Workflow from Server (Optional)", expanded=False):
+        st.caption("Only change these if your workflow file is on a remote server")
         workflow_url_input = st.text_input(
-            "Workflow URL (COMFYUI_WORKFLOW_URL)",
+            "Workflow File URL",
             value=os.getenv("COMFYUI_WORKFLOW_URL", ""),
-            help="Full URL to workflow JSON file on server"
+            help="Example: https://your-server.com/workflow.json"
         )
         workflow_path_input = st.text_input(
-            "Workflow Path (COMFYUI_WORKFLOW_PATH)",
+            "Workflow File Name on Server",
             value=os.getenv("COMFYUI_WORKFLOW_PATH", ""),
-            help="Filename/path of workflow on server (e.g., ANIMATION_M1.json)"
+            help="Example: ANIMATION_M1.json"
         )
         if workflow_url_input:
             os.environ["COMFYUI_WORKFLOW_URL"] = workflow_url_input
@@ -97,46 +100,71 @@ with st.sidebar:
             st.caption(f"Local files: {', '.join(workflow_files[:2])}")
     else:
         if not os.getenv("COMFYUI_WORKFLOW_URL") and not os.getenv("COMFYUI_WORKFLOW_PATH"):
-            st.warning("No local workflow found. Use server workflow options above or place ANIMATION_M1_api_version.json in workflows/ directory.")
+            st.warning("⚠️ No workflow file found. Please either:\n- Add ANIMATION_M1_api_version.json to the workflows/ folder, OR\n- Use the server workflow settings above")
 
 # ---------- Section 1: Input & Upload ----------
-st.header("Input & Upload")
-uploaded = st.file_uploader("Upload Rough Image", type=["png", "jpg", "jpeg"])
+st.header("1️⃣ Upload Your Image")
+st.markdown("_Upload the animation frame you want to transform_")
+
+uploaded = st.file_uploader(
+    "Choose an image file", 
+    type=["png", "jpg", "jpeg"],
+    help="Supported formats: PNG, JPG, JPEG"
+)
 if uploaded:
-    st.image(uploaded, caption="Preview")
+    st.markdown("**Your Image Preview**")
+    st.image(uploaded, caption="This is the image that will be processed")
 
 col_src, col_dst = st.columns(2)
 with col_src:
     source_phase = st.selectbox(
-        "Source Phase",
+        "What stage is your image now?",
         ["Skeleton", "Roughs", "Tie Down", "CleanUp", "Colors"],
         index=1,  # Default: Roughs
+        help="Select the current animation phase of your drawing"
     )
 with col_dst:
     dest_phase = st.selectbox(
-        "Destination Phase",
+        "What stage do you want to reach?",
         ["Skeleton", "Roughs", "Tie Down", "CleanUp", "Colors"],
         index=2,  # Default: Tie Down
+        help="Select the target animation phase you want to create"
     )
 
 # ---------- Section 2: Phase Configuration ----------
-st.header("Phase Configuration (LLM Analyst Control)")
+st.header("2️⃣ Settings & Options")
+st.markdown("_Configure how the AI should process your image_")
+
 col_lock1, col_lock2 = st.columns(2)
 with col_lock1:
-    pose_lock = st.checkbox("Motion / Pose Lock", value=True)
+    pose_lock = st.checkbox(
+        "Keep Same Pose", 
+        value=True,
+        help="If checked, the character's pose and motion will stay the same. Only fixes anatomy issues."
+    )
 with col_lock2:
-    style_lock = st.checkbox("Style / Artistic Lock", value=True)
+    style_lock = st.checkbox(
+        "Keep Same Style", 
+        value=True,
+        help="If checked, the art style and proportions will be preserved."
+    )
 
-anat_level = st.slider("Anatomical Correction Level", 0, 100, 70)
+anat_level = st.slider(
+    "How Much to Fix Anatomy", 
+    0, 100, 70,
+    help="0 = Don't fix anatomy issues, 100 = Fix all anatomy problems strictly"
+)
 master_instruction = st.text_area(
-    "LLM Master Instruction (advanced override)",
+    "Custom Instructions (Optional - for advanced users)",
     value="",
-    placeholder="Leave blank to use the default Master Prompt.",
+    placeholder="Leave this empty to use the default settings. Only fill this if you know what you're doing.",
 )
 
 # ---------- Section 3: Generation Control & Output ----------
-st.header("Generation")
-generate = st.button("Generate Phase")
+st.header("3️⃣ Generate Your Animation Frame")
+st.markdown("_Click the button below to start processing_")
+
+generate = st.button("🚀 Start Generation", type="primary", use_container_width=True)
 status_placeholder = st.empty()
 img_placeholder = st.empty()
 
@@ -147,7 +175,7 @@ with st.expander("View Generated Prompts"):
 # ---------- Generation Logic ----------
 if generate:
     if not uploaded:
-        st.warning("Please upload an image first.")
+        st.warning("⚠️ Please upload an image first before generating.")
     else:
         # Load image
         image_bytes, mime = load_image_bytes(uploaded)
@@ -163,14 +191,14 @@ if generate:
         )
 
         # Execute workflow with status updates
-        with st.status("Processing...", expanded=True) as status:
+        with st.status("Processing your image...", expanded=True) as status:
             # Step 1: Visual Analyst
-            status.write("1) Running Visual Analyst (Gemini multimodal)...")
+            status.write("🔍 Step 1: Analyzing your image with AI...")
             raw_report = run_visual_analyst(image_bytes, mime, cfg)
             report = normalize_report(raw_report)
 
             # Step 2: Prompt Engineer
-            status.write("2) Running Prompt Engineer (Gemini text)...")
+            status.write("✍️ Step 2: Creating instructions for image generation...")
             pos_prompt, neg_prompt, rationale = run_prompt_engineer(
                 report, dest_phase, master_instruction, 
                 source_phase=source_phase, 
@@ -179,7 +207,7 @@ if generate:
             )
 
             # Step 3: ComfyUI Generation
-            status.write("3) Calling ComfyUI / KSampler...")
+            status.write("🎨 Step 3: Generating your new image (this may take 30-60 seconds)...")
             generated_image = call_comfyui(
                 image_bytes, 
                 pos_prompt, 
@@ -188,16 +216,21 @@ if generate:
                 status_writer=status
             )
 
-            status.update(label="Done", state="complete")
+            status.update(label="✅ Complete! Your image is ready.", state="complete")
 
         # Display results
-        with st.expander("Visual Analyst Report"):
-            st.write("**Fixes**")
-            st.code("\n".join(report.get("fixes", [])) or "N/A")
-            st.write("**Removes**")
-            st.code("\n".join(report.get("removes", [])) or "N/A")
-            st.write("**Preserve**")
-            st.code("\n".join(report.get("preserve", [])) or "N/A")
+        with st.expander("📊 AI Analysis Report (What the AI Found)"):
+            st.write("**Things to Fix**")
+            st.caption("These are anatomy or quality issues that need correction")
+            st.code("\n".join(report.get("fixes", [])) or "None")
+            
+            st.write("**Things to Remove**")
+            st.caption("These elements should be removed from the image")
+            st.code("\n".join(report.get("removes", [])) or "None")
+            
+            st.write("**Things to Keep the Same**")
+            st.caption("These elements should be preserved and not changed")
+            st.code("\n".join(report.get("preserve", [])) or "None")
             
             # Highlight colour scheme if present in preserve/notes
             colour_lines = []
@@ -208,15 +241,20 @@ if generate:
                         for key in ["line art", "background", "colour", "color"]
                     ):
                         colour_lines.append(line)
-            st.write("**Colour Scheme**")
-            st.code("\n".join(colour_lines) or "N/A")
-            st.write("**Notes**")
-            st.code("\n".join(report.get("notes", [])) or "N/A")
+            st.write("**Color Scheme**")
+            st.caption("Information about colors and background")
+            st.code("\n".join(colour_lines) or "None")
+            
+            st.write("**Additional Notes**")
+            st.caption("Extra information and context")
+            st.code("\n".join(report.get("notes", [])) or "None")
 
-        pos_box.code(pos_prompt or "N/A")
-        neg_box.code(neg_prompt or "N/A")
-        st.markdown("**Prompt Engineer Rationale**")
-        st.info(rationale or "N/A")
+        st.markdown("**Positive Instructions** (What to include)")
+        pos_box.code(pos_prompt or "None")
+        st.markdown("**Negative Instructions** (What to avoid)")
+        neg_box.code(neg_prompt or "None")
+        st.markdown("**Why These Instructions Were Created**")
+        st.info(rationale or "No explanation available")
 
         # Display generated images
         if generated_image:
@@ -224,24 +262,25 @@ if generate:
             if isinstance(generated_image, tuple) and len(generated_image) == 2:
                 transparent_img, original_img = generated_image
                 # Display both images side by side
-                st.markdown("### Generated Outputs")
+                st.markdown("### 🎨 Your Generated Images")
+                st.markdown("_Two versions of your processed animation frame:_")
                 col1, col2 = st.columns(2)
                 with col1:
                     st.image(
                         transparent_img, 
-                        caption="🟢 Transparent Background (Node 42 - ImageRemoveBackground+)", 
+                        caption="✨ With Transparent Background (Perfect for compositing)", 
                         use_container_width=True
                     )
                 with col2:
                     st.image(
                         original_img, 
-                        caption="🔵 Original with Background (Node 54 - VAEDecode)", 
+                        caption="📄 With White Background (Ready to use)", 
                         use_container_width=True
                     )
             else:
                 # Fallback for single image (backward compatibility)
-                img_placeholder.image(generated_image, caption="Generated Output")
+                img_placeholder.image(generated_image, caption="Your Generated Image")
         else:
-            img_placeholder.info("Image will appear here after backend wiring or when COMFYUI_API_URL is set.")
+            img_placeholder.info("💡 Your generated image will appear here after you click 'Start Generation'")
 
-st.caption("Built with Streamlit + Gemini + ComfyUI. Configure API keys in the sidebar.")
+st.caption("Built with Streamlit + Google Gemini AI + ComfyUI. Set your API keys in the sidebar to get started.")

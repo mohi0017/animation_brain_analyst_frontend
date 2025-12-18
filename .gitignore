@@ -58,11 +58,12 @@ Thumbs.db
 *.cache
 
 # Project Specific
-# Keep workflow templates
+# Keep workflow templates in workflows/ directory
+!workflows/
 !workflows/*.json
-# Ignore versioned workflow copies
-**/ANIMATION_M1*_v*.json
-**/ANIMATION_M1*[0-9].json
+# Ignore versioned workflow copies (numbered versions in other directories)
+ANIMATION_M1*_v*.json
+ANIMATION_M1*[0-9].json
 
 # Old Versions
 V1/

@@ -1,17 +1,29 @@
 # 🎬 AI Animation Studio
 
-A sophisticated AI-powered animation cleanup pipeline that converts rough sketches into various animation phases (Skeleton, Roughs, Tie Down, Cleanup, Colors) using Gemini LLM agents and ComfyUI (Stable Diffusion).
+An AI-powered tool that helps you transform rough animation sketches into polished frames. It uses Google's Gemini AI to understand your drawings and ComfyUI to create clean, professional animation frames automatically.
 
-## ✨ Features
+## ✨ What Can It Do?
 
-- **Multi-Phase Animation Pipeline**: Convert between all animation phases (Skeleton ↔ Roughs ↔ Tie Down ↔ CleanUp ↔ Colors)
-- **AI-Powered Analysis**: Gemini multimodal agent analyzes input sketches and identifies fixes
-- **Intelligent Prompt Engineering**: Gemini text agent generates optimized Stable Diffusion prompts
-- **Advanced ControlNet Strategy**: "Timed Release" strategy for anatomy correction
-- **Transparent Background Support**: Generate images with transparent backgrounds
-- **Dual Image Output**: Display both transparent and original images side-by-side
-- **Interactive Parameters Tuning**: Dedicated page for fine-tuning ComfyUI parameters
-- **Robust Error Handling**: Smart fallback mechanisms for API failures
+- **Transform Between Animation Stages**: Convert your drawings between any animation phase:
+  - Skeleton (basic stick figures)
+  - Roughs (rough sketches with movement)
+  - Tie Down (refined shapes and proportions)
+  - CleanUp (clean line art)
+  - Colors (fully colored frames)
+
+- **Smart AI Analysis**: The AI looks at your drawing and figures out what needs to be fixed
+
+- **Automatic Instructions**: The AI creates detailed instructions for the image generator
+
+- **Fix Anatomy Problems**: Special technique that helps fix anatomy issues while keeping your character's pose
+
+- **Transparent Backgrounds**: Get your frames with or without backgrounds
+
+- **Two Versions**: See your image with and without a background, side by side
+
+- **Easy Controls**: Simple page to adjust how the AI processes your images
+
+- **Works Offline**: Even if the AI services are down, you can still use basic features
 
 ## 📁 Project Structure
 
@@ -45,130 +57,143 @@ M1/
 └── README.md                       # This file
 ```
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
+### What You Need Before Starting
 
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Gemini API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
-- ComfyUI instance (local or RunPod)
+- **Python 3.10 or newer** (programming language)
+- **uv** (tool to install Python packages) - [Get it here](https://github.com/astral-sh/uv)
+- **Gemini API Key** (free from [Google AI Studio](https://makersuite.google.com/app/apikey))
+- **ComfyUI Server** (the image generation software - can be on your computer or in the cloud)
 
-### Installation
+### How to Install (Step by Step)
 
-1. **Clone the repository**
+**Step 1: Download the Project**
    ```bash
    git clone https://github.com/mohi0017/animation_brain_analyst_frontend.git
    cd M1
    ```
+   _(This downloads all the project files to your computer)_
 
-2. **Install dependencies using uv**
+**Step 2: Install Required Software**
    ```bash
    uv sync
    ```
+   _(This installs all the Python packages the project needs)_
 
-3. **Create `.env` file**
+**Step 3: Create Settings File**
    ```bash
    cp .env.example .env
-   # Edit .env with your API keys
+   # Then open .env in a text editor and add your API keys
    ```
+   _(This creates a file where you'll put your secret API keys)_
 
-4. **Configure environment variables in `.env`**
+**Step 4: Add Your API Keys to the `.env` File**
+   
+   Open the `.env` file in any text editor and fill in your information:
+   
    ```env
-   # Required
-   GOOGLE_GENAI_API_KEY=your_gemini_api_key_here
+   # YOU MUST FILL THESE IN:
+   GOOGLE_GENAI_API_KEY=paste_your_gemini_key_here
    COMFYUI_API_URL=http://localhost:8188
 
-   # Optional
+   # OPTIONAL (only change if you know what these do):
    GEMINI_MODEL=gemini-2.5-flash
    GEMINI_THINK_BUDGET=0
-   COMFYUI_WORKFLOW_URL=https://your-server.com/workflow.json
-   COMFYUI_WORKFLOW_PATH=ANIMATION_M1.json
    ```
 
-5. **Run the application**
+**Step 5: Start the Application**
    ```bash
    uv run streamlit run app.py
    ```
+   _(This starts the web app on your computer)_
 
-6. **Access the application**
-   - Open your browser to `http://localhost:8501`
+**Step 6: Open in Your Web Browser**
+   - Go to `http://localhost:8501`
+   - You should now see the AI Animation Studio interface!
 
-## 🎯 Usage
+## 🎯 How to Use
 
-### Basic Workflow
+### Simple 5-Step Process
 
-1. **Upload Image**: Upload your rough sketch (PNG, JPG, JPEG)
-2. **Select Phases**: Choose source and destination phases
-3. **Configure**: Set pose/style locks and anatomical correction level
-4. **Generate**: Click "Generate Phase" to start processing
-5. **Review**: View generated images and analysis reports
+1. **Upload Your Drawing**: Click to upload your sketch (PNG, JPG, or JPEG files work)
+2. **Tell Us What You Have**: Select what stage your drawing is at now (Roughs, Skeleton, etc.)
+3. **Tell Us What You Want**: Select what stage you want to reach (CleanUp, Colors, etc.)
+4. **Adjust Settings**: Choose if you want to keep the same pose and style
+5. **Click Generate**: Hit the big "Start Generation" button and wait 30-60 seconds
 
-### Phase Transitions
+That's it! The AI will process your drawing and show you the result.
 
-The system supports all animation phase transitions:
+### What Changes Can You Make?
 
-- **Forward Transitions** (increasing detail):
+You can transform your drawing in any direction:
+
+- **Add More Detail** (make it more polished):
   - Skeleton → Roughs → Tie Down → CleanUp → Colors
   
-- **Backward Transitions** (decreasing detail):
+- **Remove Detail** (make it simpler):
   - Colors → CleanUp → Tie Down → Roughs → Skeleton
   
-- **Lateral Transitions** (same level):
-  - Skeleton ↔ Roughs
-  - Tie Down ↔ CleanUp
+- **Switch Between Similar Stages**:
+  - Skeleton ↔ Roughs (both are rough stages)
+  - Tie Down ↔ CleanUp (both are clean stages)
 
-### Advanced Features
+**Example**: You can go directly from a rough sketch to fully colored, or from colored back to clean lines!
 
-#### Parameters Tuning Page
+### Extra Features for Power Users
 
-Access the Parameters Tuning page from the sidebar to:
-- Adjust KSampler settings (Steps, CFG, Denoise)
-- Tune ControlNet parameters (Strength, Start/End Percent)
-- Configure preprocessors (LineArt, Canny)
-- Use built-in presets (Gentle Cleanup, Aggressive Fix, etc.)
-- Export/import custom configurations
+#### Advanced Settings Page
 
-#### Documentation Page
+Click "Advanced Settings & Fine-Tuning" in the sidebar to:
+- **Change How the AI Processes Images**: Adjust speed vs quality, how much to change, etc.
+- **Control How Strictly It Follows Your Pose**: Make the AI follow your lines exactly, or give it freedom to fix problems
+- **Use Ready-Made Presets**: Choose from settings like "Fix Messy Sketches" or "Keep Exact Pose"
+- **Save Your Own Settings**: Create and reuse your favorite configurations
 
-View all project documentation within the Streamlit app:
-- **Parameters Guide**: Comprehensive parameter reference
-- **ControlNet Strategy**: "Timed Release" strategy explained
-- **ComfyUI Integration**: Complete integration guide
-- **Technical Report**: System architecture and design
-- Download any documentation as markdown file
-- Search within documents using browser's Ctrl+F
+#### Help & Documentation Page
 
-#### Transparent Background Output
+Click "Documentation" in the sidebar to read:
+- **Settings Explained**: What each setting does in simple terms
+- **How the AI Fixes Anatomy**: The strategy the AI uses to fix proportion problems
+- **Technical Details**: For developers who want to understand how it works
+- **Download Guides**: Save any guide as a file to read offline
 
-The system generates two versions of each image:
-1. **Transparent Background** (Node 42 - ImageRemoveBackground+)
-2. **Original with Background** (Node 54 - VAEDecode)
+#### Two Image Versions
 
-Both are displayed side-by-side for comparison.
+Every time you generate an image, you get TWO versions:
+1. **With Transparent Background**: Perfect for putting in other software or compositing
+2. **With White Background**: Ready to use as-is
 
-## 🧠 AI Brain Architecture
+Both appear side-by-side so you can pick which one you prefer!
 
-### Two-Agent System
+## 🧠 How the AI Works (Behind the Scenes)
 
-1. **Visual Analyst (Agent 1)**
-   - **Input**: Raw image + phase configuration
-   - **Model**: Gemini 2.5 Flash (multimodal)
-   - **Output**: Structured report (fixes, removes, preserve, notes)
-   - **Purpose**: Analyze anatomical issues and phase-specific requirements
+### Two AI Helpers Working Together
 
-2. **Prompt Engineer (Agent 2)**
-   - **Input**: Visual Analyst report + destination phase
-   - **Model**: Gemini 2.5 Flash (text)
-   - **Output**: Optimized SD prompts (positive, negative, rationale)
-   - **Purpose**: Generate SD-specific prompts with weighting syntax
+The app uses TWO AI assistants that work one after another:
 
-### Smart Fallback Mechanisms
+**1. The Image Analyst (First AI)**
+   - **What it does**: Looks at your drawing and makes a list of problems
+   - **What it uses**: Google's Gemini AI (can understand images)
+   - **What it creates**: A report that says:
+     - What needs to be fixed (like "left hand looks awkward")
+     - What should be removed (like "messy construction lines")
+     - What should stay the same (like "keep the character's pose")
 
-Both agents implement graceful degradation:
-- **429 RESOURCE_EXHAUSTED**: Phase-specific fallback prompts
-- **503 UNAVAILABLE**: Smart fallback based on phase transition
-- **Network Errors**: Mock outputs for testing without API keys
+**2. The Instruction Writer (Second AI)**
+   - **What it does**: Takes the report and writes detailed instructions
+   - **What it uses**: Google's Gemini AI (text only)
+   - **What it creates**: Instructions for the image generator, including:
+     - What to add or fix in the image
+     - What to avoid or remove
+     - Why these instructions were chosen
+
+### Backup System (If AI Services Go Down)
+
+If the AI services are having problems, the app has backups:
+- **If the service is overloaded**: Uses pre-made instructions based on your phase choices
+- **If the internet is down**: Creates basic instructions so you can still generate images
+- **For testing**: Works even without API keys using sample instructions
 
 ## 🎨 ComfyUI Integration
 
@@ -225,27 +250,36 @@ uv run streamlit run app.py --server.runOnSave true
 uv run streamlit run app.py --server.headless true
 ```
 
-## 🐛 Troubleshooting
+## 🐛 Common Problems and How to Fix Them
 
-### Common Issues
+### Problem 1: "No workflow found"
+**What it means**: The app can't find the instruction file it needs to generate images.
 
-1. **"No workflow found"**
-   - Ensure `ANIMATION_M1_api_version.json` is in `workflows/` directory
-   - Or set `COMFYUI_WORKFLOW_URL` in `.env`
+**How to fix**:
+- Make sure the file `ANIMATION_M1_api_version.json` is in the `workflows/` folder
+- OR add the location of this file to your `.env` settings file
 
-2. **"Gemini API error: 429"**
-   - You've exceeded the free tier quota
-   - The system will use smart fallback prompts
-   - Consider upgrading to a paid plan
+### Problem 2: "Gemini API error: 429"
+**What it means**: You've used up your free Google AI quota for today.
 
-3. **"ComfyUI connection failed"**
-   - Check `COMFYUI_API_URL` in `.env`
-   - Ensure ComfyUI is running and accessible
-   - Test with `curl http://your-comfyui-url/system_stats`
+**What happens**: The app will automatically use backup instructions (you can still generate images!)
 
-4. **"Invalid width value: None"** (Streamlit Cloud)
-   - This was fixed in the latest version
-   - Ensure you have `package-mode = false` in `pyproject.toml`
+**How to fix**:  
+- Wait until tomorrow (free quota resets daily)
+- OR upgrade to a paid Google AI plan if you need more
+
+### Problem 3: "ComfyUI connection failed"
+**What it means**: The app can't talk to your ComfyUI image generator.
+
+**How to fix**:
+- Check that `COMFYUI_API_URL` in your `.env` file is correct
+- Make sure ComfyUI is actually running
+- Test if ComfyUI is working by visiting its web address in your browser
+
+### Problem 4: App shows errors about image size
+**What it means**: An old version had a bug (this is now fixed!).
+
+**How to fix**: Just update to the latest version from GitHub
 
 ## 📝 License
 
