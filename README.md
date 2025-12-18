@@ -1,140 +1,260 @@
-# AI Animation Studio Frontend
+# 🎬 AI Animation Studio
 
-Streamlit control panel for the Gemini-powered Visual Analyst + Prompt Engineer + ComfyUI pipeline.
+A sophisticated AI-powered animation cleanup pipeline that converts rough sketches into various animation phases (Skeleton, Roughs, Tie Down, Cleanup, Colors) using Gemini LLM agents and ComfyUI (Stable Diffusion).
 
-## 🎯 Key Features
+## ✨ Features
 
-- **Multi-Modal LLM Brain:** Gemini 2.5 Flash for visual analysis and prompt engineering
-- **All Phase Transitions:** Skeleton ↔ Roughs ↔ Tie Down ↔ Cleanup ↔ Colors (any to any)
-- **Advanced ControlNet Strategy:** "Timed Release" method for anatomy correction (see [CONTROLNET_ANATOMY_STRATEGY.md](CONTROLNET_ANATOMY_STRATEGY.md))
-- **Transparent Background Generation:** All phases generate transparent PNG output
-- **Dual Output Display:** View both transparent background (Node 42) and original (Node 54) side-by-side
-- **Stable Diffusion Prompting:** Proper weighting syntax `(keyword:weight)` with comma-separated keywords
-- **Robust Error Handling:** Smart fallback prompts when Gemini API fails
+- **Multi-Phase Animation Pipeline**: Convert between all animation phases (Skeleton ↔ Roughs ↔ Tie Down ↔ CleanUp ↔ Colors)
+- **AI-Powered Analysis**: Gemini multimodal agent analyzes input sketches and identifies fixes
+- **Intelligent Prompt Engineering**: Gemini text agent generates optimized Stable Diffusion prompts
+- **Advanced ControlNet Strategy**: "Timed Release" strategy for anatomy correction
+- **Transparent Background Support**: Generate images with transparent backgrounds
+- **Dual Image Output**: Display both transparent and original images side-by-side
+- **Interactive Parameters Tuning**: Dedicated page for fine-tuning ComfyUI parameters
+- **Robust Error Handling**: Smart fallback mechanisms for API failures
 
-## 🚀 Setup (uv)
+## 📁 Project Structure
 
-```bash
-uv sync          # install dependencies from pyproject.toml
-uv run streamlit run app.py
+```
+M1/
+├── app.py                          # Main Streamlit application (entry point)
+├── pages/                          # Streamlit multi-page app
+│   └── 2_🎛️_Parameters_Tuning.py  # Interactive parameter tuning interface
+├── modules/                        # Core modular components
+│   ├── __init__.py                 # Module exports
+│   ├── config.py                   # Configuration, constants, prompts
+│   ├── utils.py                    # Helper functions
+│   ├── gemini_client.py            # Gemini API client initialization
+│   ├── visual_analyst.py           # Visual Analyst agent (multimodal)
+│   ├── prompt_engineer.py          # Prompt Engineer agent (text)
+│   └── comfyui_client.py           # ComfyUI API client
+├── workflows/                      # ComfyUI workflow templates
+│   ├── ANIMATION_M1_api_version.json  # v10 format (preferred for API)
+│   └── ANIMATION_M1.json              # v11 format (ComfyUI UI export)
+├── docs/                           # Documentation (Markdown only)
+│   ├── COMFYUI_INTEGRATION.md      # ComfyUI integration guide
+│   ├── CONTROLNET_ANATOMY_STRATEGY.md  # ControlNet strategies
+│   ├── PARAMETERS_GUIDE.md         # Parameter tuning guide
+│   └── TECHNICAL_REPORT.md         # Technical architecture report
+├── scripts/                        # Utility scripts
+│   └── convert_md_to_pdf.py        # Markdown to PDF converter
+├── pyproject.toml                  # Project dependencies (uv)
+├── .env                            # Environment variables (create this)
+├── .gitignore                      # Git ignore rules
+└── README.md                       # This file
 ```
 
-The app automatically includes multiple pages:
-- **🎬 Main Generator** (`app.py`) - Main image generation interface
-- **🎛️ Parameters Tuning** (`pages/2_🎛️_Parameters_Tuning.py`) - Interactive parameter adjustment with live explanations and presets
+## 🚀 Quick Start
 
-## ⚙️ Environment Variables
+### Prerequisites
 
-Set in `.env` file or paste into the sidebar:
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) package manager
+- Gemini API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
+- ComfyUI instance (local or RunPod)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GOOGLE_GENAI_API_KEY` | ✅ | Gemini API key for LLM calls |
-| `GEMINI_MODEL` | ❌ | Model name (default: `gemini-2.5-flash`) |
-| `GEMINI_THINK_BUDGET` | ❌ | Thinking budget for Gemini (default: auto) |
-| `COMFYUI_API_URL` | ✅ | RunPod endpoint (e.g., `https://xxx.proxy.runpod.net`) |
-| `COMFYUI_AUTH_TOKEN` | ❌ | Bearer token if API requires auth |
-| `COMFYUI_WORKFLOW_URL` | ❌ | Full URL to workflow JSON on server |
-| `COMFYUI_WORKFLOW_PATH` | ❌ | Filename/path on server (e.g., `ANIMATION_M1.json`) |
+### Installation
 
-**Workflow Loading Priority:**
-1. Server workflow URL (`COMFYUI_WORKFLOW_URL`) - if set
-2. Server workflow path (`COMFYUI_WORKFLOW_PATH`) - if set
-3. Local files: `ANIMATION_M1_api_version.json` (preferred) → `ANIMATION_M1.json` → others
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/mohi0017/animation_brain_analyst_frontend.git
+   cd M1
+   ```
 
-## 📋 Workflow
+2. **Install dependencies using uv**
+   ```bash
+   uv sync
+   ```
 
-1. **Upload:** Rough/Skeleton image (PNG/JPG)
-2. **Configure:** Select Source Phase → Destination Phase
-3. **Locks:** Motion/Pose Lock, Style/Artistic Lock
-4. **Generate:** 
-   - Gemini Visual Analyst analyzes image
-   - Gemini Prompt Engineer creates SD prompts
-   - ComfyUI KSampler generates output
-5. **Output:** View transparent + original images side-by-side
+3. **Create `.env` file**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
 
-## 🎨 Supported Phase Transitions
+4. **Configure environment variables in `.env`**
+   ```env
+   # Required
+   GOOGLE_GENAI_API_KEY=your_gemini_api_key_here
+   COMFYUI_API_URL=http://localhost:8188
 
-| From → To | Behavior |
-|-----------|----------|
-| **Skeleton → Roughs** | Add gestural movement, volumetric forms |
-| **Roughs → Tie Down** | Define on-model shapes, clean single lines |
-| **Tie Down → Cleanup** | Perfect linework, anatomy correction, remove construction lines |
-| **Cleanup → Colors** | Add full color fills, skin tones, vibrant palette |
-| **Roughs → Cleanup** | Combined: define shapes + perfect lines in one pass |
-| **Roughs → Colors** | Combined: cleanup lines + add colors in one pass |
+   # Optional
+   GEMINI_MODEL=gemini-2.5-flash
+   GEMINI_THINK_BUDGET=0
+   COMFYUI_WORKFLOW_URL=https://your-server.com/workflow.json
+   COMFYUI_WORKFLOW_PATH=ANIMATION_M1.json
+   ```
 
-All reverse transitions supported (e.g., Cleanup → Roughs).
+5. **Run the application**
+   ```bash
+   uv run streamlit run app.py
+   ```
 
-## 🔧 Advanced: ControlNet "Timed Release" Strategy
+6. **Access the application**
+   - Open your browser to `http://localhost:8501`
 
-For rough sketches with anatomy issues (distorted face, messy hands), we use an optimized ControlNet strategy:
+## 🎯 Usage
 
-- **CFG Scale:** 7.5 (balanced for ControlNet + prompt creativity)
-- **Lineart ControlNet:** End at 70% (releases at step 21/30)
-- **Canny ControlNet:** End at 60% (releases at step 18/30)
-- **Result:** AI follows structure for 70% of generation, then fixes anatomy in last 30%
+### Basic Workflow
 
-**See detailed documentation:** [CONTROLNET_ANATOMY_STRATEGY.md](CONTROLNET_ANATOMY_STRATEGY.md)
+1. **Upload Image**: Upload your rough sketch (PNG, JPG, JPEG)
+2. **Select Phases**: Choose source and destination phases
+3. **Configure**: Set pose/style locks and anatomical correction level
+4. **Generate**: Click "Generate Phase" to start processing
+5. **Review**: View generated images and analysis reports
 
-## 📚 Technical Documentation
+### Phase Transitions
 
-All documentation moved to `docs/` directory:
+The system supports all animation phase transitions:
 
-- **[docs/TECHNICAL_REPORT.md](docs/TECHNICAL_REPORT.md)** - Complete system architecture and design
-- **[docs/COMFYUI_INTEGRATION.md](docs/COMFYUI_INTEGRATION.md)** - ComfyUI integration details and challenges
-- **[docs/CONTROLNET_ANATOMY_STRATEGY.md](docs/CONTROLNET_ANATOMY_STRATEGY.md)** - ControlNet optimization strategy
-- **[docs/PARAMETERS_GUIDE.md](docs/PARAMETERS_GUIDE.md)** - ⭐ **NEW** Comprehensive parameters tuning guide
-- **[convert_md_to_pdf.py](convert_md_to_pdf.py)** - Convert documentation to PDF
+- **Forward Transitions** (increasing detail):
+  - Skeleton → Roughs → Tie Down → CleanUp → Colors
+  
+- **Backward Transitions** (decreasing detail):
+  - Colors → CleanUp → Tie Down → Roughs → Skeleton
+  
+- **Lateral Transitions** (same level):
+  - Skeleton ↔ Roughs
+  - Tie Down ↔ CleanUp
 
-## 🎯 Prompt Engineering Rules
+### Advanced Features
 
-This system uses **Stable Diffusion 1.5** prompting best practices:
+#### Parameters Tuning Page
 
-1. **Comma-separated keywords**, not sentences
-2. **Weighting syntax:** `(keyword:weight)` where 1.0=normal, 1.1-1.4=strong
-3. **Hierarchical structure:** Subject + Pose + Style + Environment + Quality
-4. **Material focus** (not motion, since ControlNet locks motion)
-5. **High-weight anatomy keywords:** `(perfectly drawn face:1.3)`, `(anatomically correct hands:1.3)`
+Access the Parameters Tuning page from the sidebar to:
+- Adjust KSampler settings (Steps, CFG, Denoise)
+- Tune ControlNet parameters (Strength, Start/End Percent)
+- Configure preprocessors (LineArt, Canny)
+- Use built-in presets (Gentle Cleanup, Aggressive Fix, etc.)
+- Export/import custom configurations
 
-## 🧪 Testing
+#### Transparent Background Output
 
-**Test with rough sketch containing:**
-- Distorted face (unclear eyes/nose/mouth)
-- Messy hands (fused/extra/missing fingers)
-- Off proportions
+The system generates two versions of each image:
+1. **Transparent Background** (Node 42 - ImageRemoveBackground+)
+2. **Original with Background** (Node 54 - VAEDecode)
 
-**Expected result:**
-- Face becomes clear with defined features
-- Hands correct to proper anatomy (5 fingers)
-- Body proportions adjust to on-model
-- Smooth, uniform line quality
+Both are displayed side-by-side for comparison.
 
-## 🚢 Deployment
+## 🧠 AI Brain Architecture
 
-Deployed on **Streamlit Cloud**: [Link to your deployed app]
+### Two-Agent System
 
-Push to GitHub `main` branch triggers auto-deployment.
+1. **Visual Analyst (Agent 1)**
+   - **Input**: Raw image + phase configuration
+   - **Model**: Gemini 2.5 Flash (multimodal)
+   - **Output**: Structured report (fixes, removes, preserve, notes)
+   - **Purpose**: Analyze anatomical issues and phase-specific requirements
 
-## 📝 Version History
+2. **Prompt Engineer (Agent 2)**
+   - **Input**: Visual Analyst report + destination phase
+   - **Model**: Gemini 2.5 Flash (text)
+   - **Output**: Optimized SD prompts (positive, negative, rationale)
+   - **Purpose**: Generate SD-specific prompts with weighting syntax
 
-- **v1.0:** Initial Streamlit UI with Gemini + ComfyUI integration
-- **v1.1:** Added all phase transition support (any to any)
-- **v1.2:** Transparent background generation, dual output display
-- **v1.3:** Stable Diffusion prompting rules with weighting syntax
-- **v1.4:** ControlNet "Timed Release" strategy for anatomy correction
-- **v1.5:** ⭐ **NEW** Parameters Tuning page, comprehensive PARAMETERS_GUIDE.md, workflow JSON synchronization, documentation reorganization
+### Smart Fallback Mechanisms
 
-## 🛠️ Tech Stack
+Both agents implement graceful degradation:
+- **429 RESOURCE_EXHAUSTED**: Phase-specific fallback prompts
+- **503 UNAVAILABLE**: Smart fallback based on phase transition
+- **Network Errors**: Mock outputs for testing without API keys
 
-- **Frontend:** Streamlit
-- **LLM:** Google Gemini 2.5 Flash (Multi-Modal)
-- **Image Generation:** Stable Diffusion 1.5 via ComfyUI
-- **ControlNets:** LineArt + Canny
-- **Package Manager:** uv
-- **Deployment:** Streamlit Cloud
+## 🎨 ComfyUI Integration
+
+### Workflow Templates
+
+Two workflow formats are supported:
+- **v10 Format** (`ANIMATION_M1_api_version.json`): Preferred for API submission
+- **v11 Format** (`ANIMATION_M1.json`): ComfyUI UI export format
+
+The system automatically converts v11 to v10 if needed.
+
+### Dynamic Parameter Update
+
+The system dynamically updates workflow parameters based on destination phase:
+
+| Phase | CFG | Lineart End | Canny End |
+|-------|-----|-------------|-----------|
+| Skeleton | 7.5 | 0.7 | 0.6 |
+| Roughs | 7.0 | 0.6 | 0.5 |
+| Tie Down | 7.5 | 0.7 | 0.6 |
+| CleanUp | 7.5 | 0.7 | 0.6 |
+| Colors | 7.5 | 0.8 | 0.7 |
+
+## 📚 Documentation
+
+Detailed documentation is available in the `docs/` directory:
+
+- **[ComfyUI Integration](docs/COMFYUI_INTEGRATION.md)**: Complete integration guide
+- **[ControlNet Anatomy Strategy](docs/CONTROLNET_ANATOMY_STRATEGY.md)**: "Timed Release" strategy explained
+- **[Parameters Guide](docs/PARAMETERS_GUIDE.md)**: Comprehensive parameter tuning reference
+- **[Technical Report](docs/TECHNICAL_REPORT.md)**: System architecture and design decisions
+
+## 🔧 Development
+
+### Adding a New Module
+
+1. Create a new Python file in `modules/`
+2. Add exports to `modules/__init__.py`
+3. Import in `app.py` or other modules as needed
+
+### Modifying Prompts
+
+Edit the default prompts in `modules/config.py`:
+- `DEFAULT_ANALYST_PROMPT`: Visual Analyst instructions
+- `DEFAULT_PROMPT_ENGINEER`: Prompt Engineer instructions
+
+### Testing Locally
+
+```bash
+# Run with auto-reload
+uv run streamlit run app.py --server.runOnSave true
+
+# Run in headless mode (for servers)
+uv run streamlit run app.py --server.headless true
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **"No workflow found"**
+   - Ensure `ANIMATION_M1_api_version.json` is in `workflows/` directory
+   - Or set `COMFYUI_WORKFLOW_URL` in `.env`
+
+2. **"Gemini API error: 429"**
+   - You've exceeded the free tier quota
+   - The system will use smart fallback prompts
+   - Consider upgrading to a paid plan
+
+3. **"ComfyUI connection failed"**
+   - Check `COMFYUI_API_URL` in `.env`
+   - Ensure ComfyUI is running and accessible
+   - Test with `curl http://your-comfyui-url/system_stats`
+
+4. **"Invalid width value: None"** (Streamlit Cloud)
+   - This was fixed in the latest version
+   - Ensure you have `package-mode = false` in `pyproject.toml`
+
+## 📝 License
+
+[Your License Here]
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📧 Contact
+
+**Mohi** - [mohi.pk0017@gmail.com](mailto:mohi.pk0017@gmail.com)
+
+**GitHub**: [@mohi0017](https://github.com/mohi0017)
 
 ---
 
-Built with ❤️ for professional animation cleanup workflows.
-
+Built with ❤️ using Streamlit, Gemini, and ComfyUI

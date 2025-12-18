@@ -1,22 +1,69 @@
-# Bytecode / env
+# Python
 __pycache__/
-.venv/
-.env
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Build artifacts
-ai_animation_studio.egg-info/
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# UV Package Manager
 uv.lock
 
-# Large docs / data not needed for frontend repo
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Generated Files
 *.pdf
-ANIMATION_M1 (1).json
-ANIMATION_M1 (2).json
-ANIMATION_M1 (3).json
-ANIMATION_M1 (4).json
-ANIMATION_M1 (5).json
-ANIMATION_M1 (7).json
-# Keep workflow templates for ComfyUI integration
-# ANIMATION_M1.json  # Main template (RunPod filename)
-# ANIMATION_M1 (10).json
-# ANIMATION_M1 (11).json
+*.pyc
+
+# Temporary Files
+*.tmp
+*.bak
+*.cache
+
+# Project Specific
+# Keep workflow templates
+!workflows/*.json
+# Ignore versioned workflow copies
+**/ANIMATION_M1*_v*.json
+**/ANIMATION_M1*[0-9].json
+
+# Old Versions
 V1/
+versions/
