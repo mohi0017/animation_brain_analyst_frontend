@@ -37,10 +37,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------- Sidebar Label Hack: Show "Studio" Instead of File Name ----------
+# ---------- Sidebar Label Hack: Show "Studio 🎬" Instead of File Name ----------
 # Streamlit names the top-level page in the sidebar based on the filename (e.g. "app").
 # Because Streamlit Cloud UI does not expose a way to change the main file path,
-# we use a small CSS override to rename the sidebar label to "Studio".
+# we use a small CSS override to rename the sidebar label to "Studio 🎬".
 st.markdown(
     """
     <style>
@@ -49,7 +49,7 @@ st.markdown(
         visibility: hidden;
     }
     [data-testid="stSidebarNav"] li:first-child a span::after {
-        content: 'Studio';
+        content: 'Studio 🎬';
         visibility: visible;
         display: inline-block;
     }
