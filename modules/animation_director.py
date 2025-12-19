@@ -441,13 +441,29 @@ def validate_plan(plan: ParameterPlan, goal_info: Dict) -> list:
     if plan.steps < 15 or plan.steps > 50:
         raise ValueError(f"Steps {plan.steps} out of safe range [15, 50]")
     
-    # Phase-specific limits
-    if dest_phase in ["Tie Down", "CleanUp"]:
-        if plan.denoise > 0.7:
+    # Phase-specific limits (accounting for aggressive transitions)
+    goal_type = goal_info.get("goal_type", "")
+    
+    if dest_phase == "CleanUp":
+        # Allow up to 0.65 for CleanUp (including AGGRESSIVE_CLEANUP)
+        if plan.denoise > 0.65:
             raise ValueError(
                 f"Denoise {plan.denoise} too high for {dest_phase} (max 0.65)"
             )
-        if plan.lineart_end < 0.85:
+        # Allow earlier release for aggressive cleanup (0.80 is fine)
+        if plan.lineart_end < 0.80 and goal_type != "AGGRESSIVE_CLEANUP":
+            warnings.append(
+                f"ControlNet end {plan.lineart_end} may be too early for {dest_phase}"
+            )
+    elif dest_phase == "Tie Down":
+        # Allow up to 0.75 for AGGRESSIVE_REFINE, otherwise max 0.7
+        max_denoise = 0.75 if goal_type == "AGGRESSIVE_REFINE" else 0.7
+        if plan.denoise > max_denoise:
+            raise ValueError(
+                f"Denoise {plan.denoise} too high for {dest_phase} (max {max_denoise})"
+            )
+        # Allow earlier release for aggressive refine (0.75 is fine)
+        if plan.lineart_end < 0.75 and goal_type != "AGGRESSIVE_REFINE":
             warnings.append(
                 f"ControlNet end {plan.lineart_end} may be too early for {dest_phase}"
             )
