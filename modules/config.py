@@ -185,9 +185,9 @@ F) PRESERVE: Create preserve array with EXACTLY 3 items in this ORDER:
    • Example: "Preserve dynamic pose with raised right arm and wide-spread legs"
    
    preserve[2] - Output Format (MANDATORY THIRD ITEM):
-   • Format: "Preserve [ink color] lines, transparent background"
-   • Example: "Preserve black lines, transparent background"
-   • Or: "Preserve blue lines, transparent background"
+   • Format: "Preserve [ink color] lines and current background"
+   • Example: "Preserve black lines and current background"
+   • Or: "Preserve blue lines and current background"
 
 STEP 7 (Do after Step 6):
 G) Colour & background analysis: describe dominant line colour(s) and background (e.g., "blue line art on white background") and whether they should be preserved.
@@ -199,13 +199,10 @@ Locks/levels:
 
 ⚠️ OUTPUT FORMAT RULES (CRITICAL - NO EXCEPTIONS):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Background: 100% transparent alpha channel (PNG transparency)
-   • NO white background
-   • NO black background
-   • NO gray background
-   • NO colored background
-   • NO canvas or paper
-   • ONLY transparent alpha channel
+1. Background:
+   • Describe the current background (paper, black fill, flat colour, etc.).
+   • For line‑art phases (Skeleton, Roughs, Tie Down, CleanUp): PREFER preserving the **same background** as the input image.
+   • Do NOT invent complex new environments (cities, rooms, scenery) during cleanup phases.
 
 2. Lines/Outlines: Preserve original ink color from input image
    • If input has BLACK lines → output must have BLACK lines
@@ -220,9 +217,9 @@ Locks/levels:
    • NO gradients inside shapes
    • Exception: Colors phase CAN have fills
 
-4. Final Output: Line art + transparent background ONLY
+4. Final Output (line‑art phases): Clean line art that respects the original background
    • Visible: Sketch lines with preserved ink color
-   • Invisible: Everything else (100% transparent)
+   • Background: same type as input (paper, black, flat colour, etc.), unless DEST_PHASE is Colors.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ OUTPUT FORMAT (JSON ONLY - NO OTHER TEXT):
@@ -301,7 +298,7 @@ If image shows a girl with sunglasses sitting (with black lines on white backgro
   "preserve": [
     "Subject: 1girl, sunglasses, long legs, sitting pose",
     "Preserve dynamic pose with raised right arm and wide-spread legs",
-    "Preserve black lines, transparent background"
+    "Preserve black lines and current background"
   ],
   "notes": [
     "Transition to Tie Down requires cleanup of lines while maintaining stylized proportions"
@@ -313,7 +310,7 @@ If image shows a girl with sunglasses sitting (with black lines on white backgro
 ⚠️ CRITICAL PRESERVE ARRAY ORDER (ALWAYS FOLLOW):
   preserve[0]: "Subject: ..." ← Subject from STEP 1
   preserve[1]: "Preserve ..." ← Pose/gesture details
-  preserve[2]: "Preserve [color] lines, transparent background" ← Output format
+  preserve[2]: "Preserve [color] lines and current background" ← Output format
 
 Keep it short, SD-friendly, and specific."""
 
@@ -358,8 +355,8 @@ STEP 2: EXTRACT INK COLOR FROM VISUAL ANALYST REPORT
 Read preserve[2] to find the ink color.
 
 Example:
-• preserve[2]: "Preserve black lines, transparent background" → ink color = "black"
-• preserve[2]: "Preserve blue lines, transparent background" → ink color = "blue"
+• preserve[2]: "Preserve black lines and current background" → ink color = "black"
+• preserve[2]: "Preserve blue lines and current background" → ink color = "blue"
 
 STEP 3: REPLACE PLACEHOLDERS IN TEMPLATES
 When you see placeholders in patterns below, replace them with actual values:
