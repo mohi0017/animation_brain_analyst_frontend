@@ -511,8 +511,8 @@ def _update_v10_workflow(
 
 def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[bytes, bytes]]:
     """Poll ComfyUI for completion and download generated images."""
-    log("⏳ Waiting for generation (this may take 30-60 seconds)...")
-    max_wait = 120
+    log("⏳ Waiting for generation (this may take up to 4 minutes)...")
+    max_wait = 240
     poll_interval = 2
     elapsed = 0
     
@@ -536,7 +536,7 @@ def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[byt
         if elapsed % 10 == 0:  # Update every 10 seconds
             log(f"⏳ Still processing... ({elapsed}s/{max_wait}s)")
 
-    st.error("ComfyUI generation timeout (exceeded 2 minutes)")
+    st.error("ComfyUI generation timeout (exceeded 4 minutes)")
     return None
 
 

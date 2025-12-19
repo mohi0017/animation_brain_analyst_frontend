@@ -281,7 +281,7 @@ if generate:
             )
 
             # Step 3: ComfyUI Generation
-            status.write("🎨 Step 3: Generating your new image (this may take 30-60 seconds)...")
+            status.write("🎨 Step 3: Generating your new image (this may take up to 4 minutes)...")
             generated_image = call_comfyui(
                 image_bytes, 
                 pos_prompt, 
