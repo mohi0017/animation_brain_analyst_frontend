@@ -13,6 +13,23 @@ st.set_page_config(
     layout="wide"
 )
 
+# Ensure main sidebar label always shows "🎬 Studio" on all pages
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebarNav"] li:first-child a span {
+        visibility: hidden;
+    }
+    [data-testid="stSidebarNav"] li:first-child a span::after {
+        content: '🎬 Studio';
+        visibility: visible;
+        display: inline-block;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Load workflow templates
 WORKFLOW_PATH = Path(__file__).parent.parent / "workflows" / "ANIMATION_M1_api_version.json"
 
