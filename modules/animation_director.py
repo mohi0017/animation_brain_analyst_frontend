@@ -111,8 +111,10 @@ def determine_goal_type(
     # Transition type
     if source_phase in ["Skeleton", "Roughs"] and dest_phase in ["Skeleton", "Roughs"]:
         goal_type = "REBUILD"  # Major structural change
+    elif source_phase == "Roughs" and dest_phase == "CleanUp":
+        goal_type = "AGGRESSIVE_CLEANUP"  # Roughs to CleanUp needs aggressive cleanup
     elif source_phase == "Roughs" and dest_phase == "Tie Down":
-        goal_type = "REFINE"  # Cleanup + anatomy fix
+        goal_type = "AGGRESSIVE_REFINE"  # Roughs to Tie Down needs more freedom
     elif source_phase == "Tie Down" and dest_phase == "CleanUp":
         goal_type = "INK_ONLY"  # Pure inking, minimal change
     elif dest_phase == "Colors":
@@ -193,7 +195,13 @@ def compute_cfg(goal_info: Dict, damage_level: str) -> float:
     """
     goal_type = goal_info["goal_type"]
     
-    if goal_type == "INK_ONLY":
+    if goal_type == "AGGRESSIVE_CLEANUP":
+        # Roughs → CleanUp: Higher CFG for better cleanup
+        base_cfg = 7.5
+    elif goal_type == "AGGRESSIVE_REFINE":
+        # Roughs → Tie Down: Higher CFG for refinement
+        base_cfg = 7.8
+    elif goal_type == "INK_ONLY":
         # Cleanup: Moderate CFG, don't overbake
         base_cfg = 7.0
     elif goal_type == "REFINE":
@@ -225,31 +233,43 @@ def compute_denoise(goal_info: Dict, anatomy_level: int) -> float:
     Returns:
         Denoise value in safe range [0.4, 0.9]
     """
+    goal_type = goal_info["goal_type"]
     dest_phase = goal_info["transition"].split("→")[1].strip()
+    source_phase = goal_info["transition"].split("→")[0].strip()
     
-    # Base denoise by phase
-    phase_denoise = {
-        "Skeleton": 0.9,
-        "Roughs": 0.8,
-        "Tie Down": 0.6,
-        "CleanUp": 0.5,
-        "Colors": 0.4,
-    }
-    
-    base_denoise = phase_denoise.get(dest_phase, 0.6)
+    # Special handling for aggressive transitions
+    if goal_type == "AGGRESSIVE_CLEANUP":
+        # Roughs → CleanUp: Needs aggressive cleanup but safe
+        base_denoise = 0.65  # Higher than normal CleanUp
+    elif goal_type == "AGGRESSIVE_REFINE":
+        # Roughs → Tie Down: Needs more freedom to refine
+        base_denoise = 0.75  # Higher than normal Tie Down
+    else:
+        # Base denoise by phase
+        phase_denoise = {
+            "Skeleton": 0.9,
+            "Roughs": 0.8,
+            "Tie Down": 0.6,
+            "CleanUp": 0.55,  # Increased from 0.5 for better cleanup
+            "Colors": 0.4,
+        }
+        base_denoise = phase_denoise.get(dest_phase, 0.6)
     
     # Adjust for anatomy fix demand
     if anatomy_level >= 80:
         # User wants aggressive fixes
-        base_denoise += 0.1
+        base_denoise += 0.05  # Reduced from 0.1 to avoid going too high
     elif anatomy_level <= 30:
         # User wants minimal changes
-        base_denoise -= 0.1
+        base_denoise -= 0.05  # Reduced from 0.1
     
     # CRITICAL: Clamp based on phase safety
-    if dest_phase in ["Tie Down", "CleanUp"]:
-        # Never exceed 0.65 for cleanup phases
+    if dest_phase == "CleanUp":
+        # CleanUp: Allow up to 0.65 for aggressive cleanup, but cap at 0.65
         base_denoise = min(0.65, base_denoise)
+    elif dest_phase == "Tie Down":
+        # Tie Down: Allow up to 0.75 for aggressive refine
+        base_denoise = min(0.75, base_denoise)
     
     return max(0.4, min(0.9, base_denoise))
 
@@ -263,9 +283,15 @@ def compute_steps(goal_info: Dict, damage_level: str) -> int:
     """
     goal_type = goal_info["goal_type"]
     
-    if goal_type == "INK_ONLY":
+    if goal_type == "AGGRESSIVE_CLEANUP":
+        # Roughs → CleanUp: Needs more steps for proper cleanup
+        base_steps = 32
+    elif goal_type == "AGGRESSIVE_REFINE":
+        # Roughs → Tie Down: Needs more steps for refinement
+        base_steps = 30
+    elif goal_type == "INK_ONLY":
         # Simple cleanup: Fewer steps
-        base_steps = 24
+        base_steps = 26  # Increased from 24 for better quality
     elif goal_type == "COLOR_ONLY":
         # Colors need detail: More steps
         base_steps = 32
@@ -290,18 +316,36 @@ def compute_controlnet_params(
     goal_type = goal_info["goal_type"]
     dest_phase = goal_info["transition"].split("→")[1].strip()
     
-    if damage_level == "HIGH" or goal_type == "REBUILD":
+    if goal_type == "AGGRESSIVE_CLEANUP":
+        # Roughs → CleanUp: Release earlier to allow proper cleanup
+        lineart_end = 0.80  # Release at step 25-26 (out of 32)
+        canny_end = 0.75
+        lineart_strength = 1.1 if pose_lock else 1.0
+        canny_strength = 0.9
+    elif goal_type == "AGGRESSIVE_REFINE":
+        # Roughs → Tie Down: Release earlier for refinement
+        lineart_end = 0.75  # Release at step 22-23 (out of 30)
+        canny_end = 0.70
+        lineart_strength = 1.0
+        canny_strength = 0.85
+    elif damage_level == "HIGH" or goal_type == "REBUILD":
         # Need freedom to repair
         lineart_end = 0.65
         canny_end = 0.6
         lineart_strength = 1.0
         canny_strength = 0.8
-    elif goal_type == "INK_ONLY" or dest_phase == "CleanUp":
-        # Lock structure tightly
-        lineart_end = 0.95
-        canny_end = 0.9
+    elif goal_type == "INK_ONLY":
+        # Tie Down → CleanUp: Lock structure tightly
+        lineart_end = 0.90  # Slightly earlier than before (was 0.95)
+        canny_end = 0.85
         lineart_strength = 1.2 if pose_lock else 1.0
         canny_strength = 1.0
+    elif dest_phase == "CleanUp":
+        # Other CleanUp transitions: Moderate lock
+        lineart_end = 0.88
+        canny_end = 0.85
+        lineart_strength = 1.1 if pose_lock else 1.0
+        canny_strength = 0.95
     else:
         # Balanced
         lineart_end = 0.85
@@ -334,10 +378,18 @@ def resolve_conflicts(plan: ParameterPlan, goal_info: Dict) -> list:
             "Reduced denoise to prevent artifacts with late ControlNet release"
         )
     
-    # Rule 2: Tie Down/CleanUp + High denoise = Not allowed
-    if dest_phase in ["Tie Down", "CleanUp"] and plan.denoise > 0.65:
-        plan.denoise = 0.6
-        conflicts_fixed.append(f"Clamped denoise to 0.6 for {dest_phase} phase")
+    # Rule 2: Tie Down/CleanUp + High denoise = Not allowed (except aggressive transitions)
+    goal_type = goal_info.get("goal_type", "")
+    if dest_phase == "CleanUp" and plan.denoise > 0.65:
+        if goal_type != "AGGRESSIVE_CLEANUP":
+            # Only allow 0.65 for AGGRESSIVE_CLEANUP, clamp others to 0.6
+            plan.denoise = 0.6
+            conflicts_fixed.append(f"Clamped denoise to 0.6 for {dest_phase} phase")
+    elif dest_phase == "Tie Down" and plan.denoise > 0.75:
+        if goal_type != "AGGRESSIVE_REFINE":
+            # Only allow up to 0.75 for AGGRESSIVE_REFINE
+            plan.denoise = 0.7
+            conflicts_fixed.append(f"Clamped denoise to 0.7 for {dest_phase} phase")
     
     # Rule 3: Pose lock + Weak ControlNet = Not allowed
     if goal_info.get("pose_lock") and plan.lineart_strength < 0.9:
@@ -417,7 +469,15 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
     reasoning_parts = []
     
     # Goal explanation
-    if goal_type == "INK_ONLY":
+    if goal_type == "AGGRESSIVE_CLEANUP":
+        reasoning_parts.append(
+            f"Aggressive cleanup ({transition}): Higher denoise and earlier ControlNet release for proper line refinement."
+        )
+    elif goal_type == "AGGRESSIVE_REFINE":
+        reasoning_parts.append(
+            f"Aggressive refinement ({transition}): More freedom to refine anatomy and structure."
+        )
+    elif goal_type == "INK_ONLY":
         reasoning_parts.append(
             f"Cleanup phase ({transition}): Preserving structure, cleaning lines only."
         )
@@ -439,6 +499,10 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
         reasoning_parts.append(
             f"Low denoise ({plan.denoise:.2f}) ensures minimal structure change."
         )
+    elif plan.denoise >= 0.7:
+        reasoning_parts.append(
+            f"Higher denoise ({plan.denoise:.2f}) allows proper cleanup and refinement."
+        )
     elif plan.denoise >= 0.8:
         reasoning_parts.append(
             f"High denoise ({plan.denoise:.2f}) allows significant repair."
@@ -446,6 +510,8 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
     
     if plan.lineart_end >= 0.9:
         reasoning_parts.append("ControlNet locked until end to prevent pose drift.")
+    elif plan.lineart_end <= 0.8:
+        reasoning_parts.append(f"ControlNet releases earlier (at {plan.lineart_end:.0%}) to allow model freedom.")
     
     # Conflicts
     if conflicts_fixed:
