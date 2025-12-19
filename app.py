@@ -49,7 +49,7 @@ st.markdown(
         visibility: hidden;
     }
     [data-testid="stSidebarNav"] li:first-child a span::after {
-        content: 'Studio 🎬';
+        content: '🎬 Studio';
         visibility: visible;
         display: inline-block;
     }
