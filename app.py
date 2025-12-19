@@ -14,6 +14,8 @@ Environment Variables:
 """
 
 import os
+from io import BytesIO
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -352,21 +354,41 @@ if generate:
         if generated_image:
             img_placeholder.empty()  # Clear placeholder
             if isinstance(generated_image, tuple) and len(generated_image) == 2:
-                transparent_img, original_img = generated_image
+                # transparent_img and original_img are PNG bytes from ComfyUI
+                transparent_img, _ = generated_image
+
+                # Build a version that preserves the original background:
+                # 1) load the user's original upload
+                # 2) overlay the transparent line art on top
+                from PIL import Image
+
+                base_img = Image.open(BytesIO(image_bytes)).convert("RGBA")
+                lines_img = Image.open(BytesIO(transparent_img)).convert("RGBA")
+
+                if lines_img.size != base_img.size:
+                    lines_img = lines_img.resize(base_img.size, Image.LANCZOS)
+
+                composed = base_img.copy()
+                composed.alpha_composite(lines_img)
+
+                buf = BytesIO()
+                composed.convert("RGB").save(buf, format="PNG")
+                composed_bytes = buf.getvalue()
+
                 # Display both images side by side
                 st.markdown("### 🎨 Your Generated Images")
                 st.markdown("_Two versions of your processed animation frame:_")
                 col1, col2 = st.columns(2)
                 with col1:
                     st.image(
-                        transparent_img, 
-                        caption="✨ With Transparent Background (Perfect for compositing)", 
+                        transparent_img,
+                        caption="✨ Transparent Lines Only (no background)",
                         width='stretch'
                     )
                 with col2:
                     st.image(
-                        original_img, 
-                        caption="📄 With White Background (Ready to use)", 
+                        composed_bytes,
+                        caption="📄 Original Background Preserved (lines cleaned on top)",
                         width='stretch'
                     )
             else:
