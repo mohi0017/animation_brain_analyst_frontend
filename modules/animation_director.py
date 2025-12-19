@@ -141,10 +141,24 @@ def determine_goal_type(
     else:
         damage_level = "LOW"
     
+    # Detect if face/hands need definition (for CleanUp phase)
+    needs_face_definition = any(
+        "face" in fix.lower() or "facial" in fix.lower() or "eyes" in fix.lower() or "mouth" in fix.lower()
+        for fix in fixes
+    )
+    needs_hands_definition = any(
+        "hand" in fix.lower() or "finger" in fix.lower() or "palm" in fix.lower()
+        for fix in fixes
+    )
+    needs_anatomy_definition = needs_face_definition or needs_hands_definition
+    
     return {
         "goal_type": goal_type,
         "damage_level": damage_level,
         "transition": f"{source_phase} → {dest_phase}",
+        "needs_anatomy_definition": needs_anatomy_definition,
+        "needs_face_definition": needs_face_definition,
+        "needs_hands_definition": needs_hands_definition,
     }
 
 
@@ -292,6 +306,11 @@ def compute_denoise(goal_info: Dict, anatomy_level: int) -> float:
     
     # CRITICAL: Clamp based on phase safety
     if dest_phase == "CleanUp":
+        # Check if face/hands need definition
+        needs_anatomy_definition = goal_info.get("needs_anatomy_definition", False)
+        if needs_anatomy_definition:
+            # Increase denoise for face/hands definition (up to 0.65)
+            base_denoise = max(base_denoise, 0.63)  # Ensure at least 0.63 for definition
         # CleanUp: Allow up to 0.65 for aggressive cleanup, but cap at 0.65
         base_denoise = min(0.65, base_denoise)
     elif dest_phase == "Tie Down":
@@ -324,7 +343,11 @@ def compute_steps(goal_info: Dict, damage_level: str) -> int:
         base_steps = 30
     elif goal_type == "INK_ONLY":
         # CleanUp phase: More steps for better final polish and cleanup
-        base_steps = 28  # Increased from 26 for better line refinement and artifact removal
+        needs_anatomy_definition = goal_info.get("needs_anatomy_definition", False)
+        if needs_anatomy_definition:
+            base_steps = 30  # More steps for face/hands definition
+        else:
+            base_steps = 28  # Standard steps for final polish
     elif goal_type == "COLOR_ONLY":
         # Colors need detail: More steps
         base_steps = 32
@@ -384,14 +407,26 @@ def compute_controlnet_params(
         canny_strength = 0.8
     elif goal_type == "INK_ONLY":
         # Tie Down → CleanUp: Lock structure but allow final refinement
-        lineart_end = 0.88  # Earlier release (was 0.90) to allow final polish in last steps
-        canny_end = 0.85
+        needs_anatomy_definition = goal_info.get("needs_anatomy_definition", False)
+        if needs_anatomy_definition:
+            # Release slightly earlier for face/hands definition (but still maintain structure)
+            lineart_end = 0.85  # Earlier release to allow face/hands definition
+            canny_end = 0.82
+        else:
+            lineart_end = 0.88  # Standard release for final polish
+            canny_end = 0.85
         lineart_strength = 1.2 if pose_lock else 1.0
         canny_strength = 1.0
     elif dest_phase == "CleanUp":
         # Other CleanUp transitions: Moderate lock
-        lineart_end = 0.88
-        canny_end = 0.85
+        needs_anatomy_definition = goal_info.get("needs_anatomy_definition", False)
+        if needs_anatomy_definition:
+            # Release slightly earlier for face/hands definition
+            lineart_end = 0.85
+            canny_end = 0.82
+        else:
+            lineart_end = 0.88
+            canny_end = 0.85
         lineart_strength = 1.1 if pose_lock else 1.0
         canny_strength = 0.95
     else:
@@ -549,9 +584,21 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
             f"Aggressive refinement ({transition}): More freedom to refine anatomy and structure."
         )
     elif goal_type == "INK_ONLY":
-        reasoning_parts.append(
-            f"Cleanup phase ({transition}): Final polish with improved denoise and steps for better line refinement and artifact removal."
-        )
+        needs_face_definition = goal_info.get("needs_face_definition", False)
+        needs_hands_definition = goal_info.get("needs_hands_definition", False)
+        if needs_face_definition or needs_hands_definition:
+            definition_parts = []
+            if needs_face_definition:
+                definition_parts.append("face")
+            if needs_hands_definition:
+                definition_parts.append("hands")
+            reasoning_parts.append(
+                f"Cleanup phase ({transition}): Using higher denoise and more steps to properly define {', '.join(definition_parts)} while maintaining structure."
+            )
+        else:
+            reasoning_parts.append(
+                f"Cleanup phase ({transition}): Final polish with improved denoise and steps for better line refinement and artifact removal."
+            )
     elif goal_type == "REFINE":
         reasoning_parts.append(
             f"Refinement ({transition}): Fixing anatomy while maintaining pose."
