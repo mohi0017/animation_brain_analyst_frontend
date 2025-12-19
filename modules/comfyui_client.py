@@ -24,6 +24,7 @@ def call_comfyui(
     lineart_end: float = None,
     canny_end: float = None,
     denoise: float = None,
+    parameter_plan=None,  # NEW: Optional ParameterPlan object
     status_writer=None
 ) -> Optional[Tuple[bytes, bytes]]:
     """
@@ -36,9 +37,11 @@ def call_comfyui(
         neg_prompt: Negative prompt text
         dest_phase: Destination phase (for automatic parameter tuning)
         model_name: Stable Diffusion model filename (default: anything-v5-PrtRE.safetensors)
-        cfg_scale: Override CFG scale (default: phase-specific)
-        lineart_end: Override Lineart ending percent (default: phase-specific)
-        canny_end: Override Canny ending percent (default: phase-specific)
+        cfg_scale: Override CFG scale (default: phase-specific) - DEPRECATED if parameter_plan provided
+        lineart_end: Override Lineart ending percent (default: phase-specific) - DEPRECATED if parameter_plan provided
+        canny_end: Override Canny ending percent (default: phase-specific) - DEPRECATED if parameter_plan provided
+        denoise: Override Denoise (default: phase-specific) - DEPRECATED if parameter_plan provided
+        parameter_plan: Optional ParameterPlan object (if provided, overrides individual params)
         status_writer: Streamlit status widget for logging
     
     Returns:
@@ -56,19 +59,45 @@ def call_comfyui(
         else:
             st.info(msg)
 
-    # Determine optimal parameters based on dest_phase if not explicitly provided
-    from .config import DEFAULT_LINE_ART_MODEL
-    phase_params = PHASE_PARAMS.get(dest_phase, PHASE_PARAMS["CleanUp"])
-    final_cfg = cfg_scale if cfg_scale is not None else phase_params["cfg"]
-    final_lineart_end = lineart_end if lineart_end is not None else phase_params["lineart_end"]
-    final_canny_end = canny_end if canny_end is not None else phase_params["canny_end"]
-    final_denoise = denoise if denoise is not None else phase_params.get("denoise", 1.0)
-    
-    # Use default model if none specified
-    if not model_name:
-        model_name = DEFAULT_LINE_ART_MODEL
-    
-    log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end} | Denoise: {final_denoise}")
+    # NEW: Use ParameterPlan if provided, otherwise fall back to old logic
+    if parameter_plan:
+        # Use AD-Agent's computed parameters
+        final_cfg = parameter_plan.cfg
+        final_denoise = parameter_plan.denoise
+        final_steps = parameter_plan.steps
+        final_sampler = parameter_plan.sampler
+        final_scheduler = parameter_plan.scheduler
+        final_lineart_strength = parameter_plan.lineart_strength
+        final_lineart_end = parameter_plan.lineart_end
+        final_canny_strength = parameter_plan.canny_strength
+        final_canny_end = parameter_plan.canny_end
+        model_name = parameter_plan.model_name
+        
+        log(f"🎯 AD-Agent Plan: {parameter_plan.reasoning}")
+        log(f"📊 CFG: {final_cfg} | Denoise: {final_denoise} | Steps: {final_steps}")
+        log(f"🎨 Model: {model_name} | Lineart: {final_lineart_strength}@{final_lineart_end} | Canny: {final_canny_strength}@{final_canny_end}")
+        if parameter_plan.warnings:
+            for warning in parameter_plan.warnings:
+                log(f"⚠️ {warning}")
+    else:
+        # OLD: Determine optimal parameters based on dest_phase if not explicitly provided
+        from .config import DEFAULT_LINE_ART_MODEL
+        phase_params = PHASE_PARAMS.get(dest_phase, PHASE_PARAMS["CleanUp"])
+        final_cfg = cfg_scale if cfg_scale is not None else phase_params["cfg"]
+        final_lineart_end = lineart_end if lineart_end is not None else phase_params["lineart_end"]
+        final_canny_end = canny_end if canny_end is not None else phase_params["canny_end"]
+        final_denoise = denoise if denoise is not None else phase_params.get("denoise", 1.0)
+        final_steps = 30  # Default
+        final_sampler = "euler"
+        final_scheduler = "simple"
+        final_lineart_strength = 1.0
+        final_canny_strength = 0.8
+        
+        # Use default model if none specified
+        if not model_name:
+            model_name = DEFAULT_LINE_ART_MODEL
+        
+        log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end} | Denoise: {final_denoise}")
     
     try:
         # Step 1: Upload image to ComfyUI
@@ -94,7 +123,10 @@ def call_comfyui(
         # Step 3: Update workflow with prompts and image
         workflow = _update_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name,
+            final_steps, final_sampler, final_scheduler,
+            final_lineart_strength, final_canny_strength,
+            log
         )
         
         log("✅ Workflow updated with prompts, image, and parameters")
@@ -230,7 +262,10 @@ def _load_workflow(base_url: str, log) -> Optional[dict]:
 def _update_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
     final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
-    model_name: str, log
+    model_name: str,
+    final_steps: int, final_sampler: str, final_scheduler: str,
+    final_lineart_strength: float, final_canny_strength: float,
+    log
 ) -> dict:
     """Update workflow with prompts, image, and parameters."""
     is_v11_format = "nodes" in workflow
@@ -239,13 +274,19 @@ def _update_workflow(
         # v11 format - update nodes directly by ID, then convert to v10
         workflow = _update_v11_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name,
+            final_steps, final_sampler, final_scheduler,
+            final_lineart_strength, final_canny_strength,
+            log
         )
     else:
         # v10 format - update directly
         workflow = _update_v10_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name,
+            final_steps, final_sampler, final_scheduler,
+            final_lineart_strength, final_canny_strength,
+            log
         )
     
     return workflow
@@ -254,7 +295,10 @@ def _update_workflow(
 def _update_v11_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
     final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
-    model_name: str, log
+    model_name: str,
+    final_steps: int, final_sampler: str, final_scheduler: str,
+    final_lineart_strength: float, final_canny_strength: float,
+    log
 ) -> dict:
     """Update v11 format workflow and convert to v10 for API submission."""
     log("📝 Updating v11 format workflow...")
@@ -296,27 +340,52 @@ def _update_v11_workflow(
                 log(f"✅ Updated image filename: {uploaded_filename}")
                 node_4_found = True
         
-        # Node 5: KSampler - Update CFG and Denoise
+        # Node 5: KSampler - Update Steps, CFG, Sampler, Scheduler, Denoise
         elif node_id == 5 and node_type == "KSampler":
             if "widgets_values" in node and len(node["widgets_values"]) >= 7:
+                # Widget indices: 0=seed, 1=control_after_generate, 2=steps, 3=cfg, 4=sampler_name, 5=scheduler, 6=denoise
+                old_steps = node["widgets_values"][2]
+                node["widgets_values"][2] = final_steps
+                log(f"✅ Updated Steps: {old_steps} → {final_steps}")
+                
                 old_cfg = node["widgets_values"][3]
                 node["widgets_values"][3] = final_cfg
                 log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+                
+                old_sampler = node["widgets_values"][4]
+                node["widgets_values"][4] = final_sampler
+                log(f"✅ Updated Sampler: {old_sampler} → {final_sampler}")
+                
+                old_scheduler = node["widgets_values"][5]
+                node["widgets_values"][5] = final_scheduler
+                log(f"✅ Updated Scheduler: {old_scheduler} → {final_scheduler}")
+                
                 old_denoise = node["widgets_values"][6]
                 node["widgets_values"][6] = final_denoise
                 log(f"✅ Updated Denoise: {old_denoise} → {final_denoise}")
         
-        # Node 39: CR Multi-ControlNet Stack - Update Ending Steps
+        # Node 39: CR Multi-ControlNet Stack - Update Strengths and Ending Steps
         elif node_id == 39 and node_type == "CR Multi-ControlNet Stack":
             if "widgets_values" in node and len(node["widgets_values"]) >= 15:
                 # Widget indices: 
+                # 2 = lineart strength (controlnet_strength_1)
                 # 4 = lineart end_percent_1
+                # 7 = canny strength (controlnet_strength_2)
                 # 9 = canny end_percent_2
+                old_lineart_strength = node["widgets_values"][2]
+                node["widgets_values"][2] = final_lineart_strength
+                log(f"✅ Updated Lineart Strength: {old_lineart_strength} → {final_lineart_strength}")
+                
                 old_lineart_end = node["widgets_values"][4]
-                old_canny_end = node["widgets_values"][9]
                 node["widgets_values"][4] = final_lineart_end
-                node["widgets_values"][9] = final_canny_end
                 log(f"✅ Updated Lineart End: {old_lineart_end} → {final_lineart_end}")
+                
+                old_canny_strength = node["widgets_values"][7]
+                node["widgets_values"][7] = final_canny_strength
+                log(f"✅ Updated Canny Strength: {old_canny_strength} → {final_canny_strength}")
+                
+                old_canny_end = node["widgets_values"][9]
+                node["widgets_values"][9] = final_canny_end
                 log(f"✅ Updated Canny End: {old_canny_end} → {final_canny_end}")
     
     if not node_2_found:
@@ -328,11 +397,19 @@ def _update_v11_workflow(
     
     # Convert v11 to v10 format for API submission
     log("🔄 Converting v11 to v10 format for API submission...")
-    return _convert_v11_to_v10(workflow, final_cfg, final_lineart_end, final_canny_end, log)
+    return _convert_v11_to_v10(
+        workflow, final_cfg, final_lineart_end, final_canny_end, final_denoise,
+        final_steps, final_sampler, final_scheduler,
+        final_lineart_strength, final_canny_strength,
+        log
+    )
 
 
 def _convert_v11_to_v10(
-    workflow: dict, final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float, log
+    workflow: dict, final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
+    final_steps: int, final_sampler: str, final_scheduler: str,
+    final_lineart_strength: float, final_canny_strength: float,
+    log
 ) -> dict:
     """Convert v11 workflow format (nodes array) to v10 format (flat dict)."""
     v10_workflow = {}
@@ -376,11 +453,20 @@ def _convert_v11_to_v10(
                 ksampler_inputs = ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"]
                 for i, widget_val in enumerate(widgets[:7]):
                     if i < len(ksampler_inputs):
-                        # Use updated CFG value if this is the cfg parameter
-                        if ksampler_inputs[i] == "cfg" and node_id == "5":
-                            v10_node["inputs"]["cfg"] = final_cfg
-                        elif ksampler_inputs[i] == "denoise" and node_id == "5":
-                            v10_node["inputs"]["denoise"] = final_denoise
+                        # Use updated values if this is Node 5
+                        if node_id == "5":
+                            if ksampler_inputs[i] == "steps":
+                                v10_node["inputs"]["steps"] = final_steps
+                            elif ksampler_inputs[i] == "cfg":
+                                v10_node["inputs"]["cfg"] = final_cfg
+                            elif ksampler_inputs[i] == "sampler_name":
+                                v10_node["inputs"]["sampler_name"] = final_sampler
+                            elif ksampler_inputs[i] == "scheduler":
+                                v10_node["inputs"]["scheduler"] = final_scheduler
+                            elif ksampler_inputs[i] == "denoise":
+                                v10_node["inputs"]["denoise"] = final_denoise
+                            else:
+                                v10_node["inputs"][ksampler_inputs[i]] = widget_val
                         else:
                             v10_node["inputs"][ksampler_inputs[i]] = widget_val
             
@@ -407,12 +493,12 @@ def _convert_v11_to_v10(
             elif node_type == "CR Multi-ControlNet Stack" and len(widgets) >= 15 and node_id == "39":
                 v10_node["inputs"]["switch_1"] = widgets[0]
                 v10_node["inputs"]["controlnet_1"] = widgets[1]
-                v10_node["inputs"]["controlnet_strength_1"] = widgets[2]
+                v10_node["inputs"]["controlnet_strength_1"] = final_lineart_strength  # Use updated value
                 v10_node["inputs"]["start_percent_1"] = widgets[3]
                 v10_node["inputs"]["end_percent_1"] = final_lineart_end  # Use updated value
                 v10_node["inputs"]["switch_2"] = widgets[5]
                 v10_node["inputs"]["controlnet_2"] = widgets[6]
-                v10_node["inputs"]["controlnet_strength_2"] = widgets[7]
+                v10_node["inputs"]["controlnet_strength_2"] = final_canny_strength  # Use updated value
                 v10_node["inputs"]["start_percent_2"] = widgets[8]
                 v10_node["inputs"]["end_percent_2"] = final_canny_end  # Use updated value
                 v10_node["inputs"]["switch_3"] = widgets[10]
@@ -470,7 +556,10 @@ def _convert_v11_to_v10(
 def _update_v10_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
     final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
-    model_name: str, log
+    model_name: str,
+    final_steps: int, final_sampler: str, final_scheduler: str,
+    final_lineart_strength: float, final_canny_strength: float,
+    log
 ) -> dict:
     """Update v10 format workflow directly."""
     log("📝 Updating v10 format workflow...")
@@ -501,22 +590,44 @@ def _update_v10_workflow(
     else:
         log("⚠️ Node 4 (LoadImage) not found in workflow")
     
-    # Update KSampler CFG & Denoise (Node 5)
+    # Update KSampler Steps, CFG, Sampler, Scheduler & Denoise (Node 5)
     if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
+        old_steps = workflow["5"]["inputs"].get("steps", "N/A")
+        workflow["5"]["inputs"]["steps"] = final_steps
+        log(f"✅ Updated Steps: {old_steps} → {final_steps}")
+        
         old_cfg = workflow["5"]["inputs"].get("cfg", "N/A")
         workflow["5"]["inputs"]["cfg"] = final_cfg
         log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+        
+        old_sampler = workflow["5"]["inputs"].get("sampler_name", "N/A")
+        workflow["5"]["inputs"]["sampler_name"] = final_sampler
+        log(f"✅ Updated Sampler: {old_sampler} → {final_sampler}")
+        
+        old_scheduler = workflow["5"]["inputs"].get("scheduler", "N/A")
+        workflow["5"]["inputs"]["scheduler"] = final_scheduler
+        log(f"✅ Updated Scheduler: {old_scheduler} → {final_scheduler}")
+        
         old_denoise = workflow["5"]["inputs"].get("denoise", "N/A")
         workflow["5"]["inputs"]["denoise"] = final_denoise
         log(f"✅ Updated Denoise: {old_denoise} → {final_denoise}")
     
-    # Update ControlNet Ending Steps (Node 39)
+    # Update ControlNet Strengths & Ending Steps (Node 39)
     if "39" in workflow and workflow["39"].get("class_type") == "CR Multi-ControlNet Stack":
+        old_lineart_strength = workflow["39"]["inputs"].get("controlnet_strength_1", "N/A")
+        workflow["39"]["inputs"]["controlnet_strength_1"] = final_lineart_strength
+        log(f"✅ Updated Lineart Strength: {old_lineart_strength} → {final_lineart_strength}")
+        
         old_lineart_end = workflow["39"]["inputs"].get("end_percent_1", "N/A")
-        old_canny_end = workflow["39"]["inputs"].get("end_percent_2", "N/A")
         workflow["39"]["inputs"]["end_percent_1"] = final_lineart_end
-        workflow["39"]["inputs"]["end_percent_2"] = final_canny_end
         log(f"✅ Updated Lineart End: {old_lineart_end} → {final_lineart_end}")
+        
+        old_canny_strength = workflow["39"]["inputs"].get("controlnet_strength_2", "N/A")
+        workflow["39"]["inputs"]["controlnet_strength_2"] = final_canny_strength
+        log(f"✅ Updated Canny Strength: {old_canny_strength} → {final_canny_strength}")
+        
+        old_canny_end = workflow["39"]["inputs"].get("end_percent_2", "N/A")
+        workflow["39"]["inputs"]["end_percent_2"] = final_canny_end
         log(f"✅ Updated Canny End: {old_canny_end} → {final_canny_end}")
     
     return workflow

@@ -27,6 +27,7 @@ from modules import (
     run_visual_analyst,
     run_prompt_engineer,
     call_comfyui,
+    create_parameter_plan,  # NEW: AD-Agent
 )
 
 # Load environment variables from .env file
@@ -257,21 +258,31 @@ if generate:
             raw_report = run_visual_analyst(image_bytes, mime, cfg)
             report = normalize_report(raw_report)
 
-            # Determine which model to use
-            if selected_model:
-                # User manually selected a model
-                final_model = selected_model
-                model_source = "user selection"
-            else:
-                # Use AI recommendation
-                ai_recommended = report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
-                final_model = ai_recommended
-                model_source = "AI recommendation"
+            # Step 1.5: AD-Agent - Create Parameter Plan
+            status.write("🎯 Step 1.5: AD-Agent computing optimal parameters...")
+            user_model_override = selected_model if model_choice == "Manual" else None
+            parameter_plan = create_parameter_plan(
+                report=report,
+                source_phase=source_phase,
+                dest_phase=dest_phase,
+                pose_lock=pose_lock,
+                style_lock=style_lock,
+                anatomy_level=anat_level,
+                user_model_override=user_model_override,
+            )
             
-            # Log model choice
-            model_info = SD_MODELS.get(final_model, {})
-            model_name = model_info.get("name", final_model)
-            status.write(f"🎨 Using model: {model_name} ({model_source})")
+            # Display AD-Agent reasoning
+            status.write(f"🎯 AD-Agent Plan: {parameter_plan.reasoning}")
+            if parameter_plan.warnings:
+                for warning in parameter_plan.warnings:
+                    status.write(f"⚠️ {warning}")
+            if parameter_plan.conflicts_fixed:
+                status.write(f"🔧 Auto-fixed conflicts: {len(parameter_plan.conflicts_fixed)}")
+            
+            # Log model choice (from AD-Agent)
+            model_info = SD_MODELS.get(parameter_plan.model_name, {})
+            model_name_display = model_info.get("name", parameter_plan.model_name)
+            status.write(f"🎨 Selected Model: {model_name_display}")
 
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
@@ -282,14 +293,14 @@ if generate:
                 style_lock=style_lock
             )
 
-            # Step 3: ComfyUI Generation
+            # Step 3: ComfyUI Generation (with AD-Agent's ParameterPlan)
             status.write("🎨 Step 3: Generating your new image (this may take up to 4 minutes)...")
             generated_image = call_comfyui(
                 image_bytes, 
                 pos_prompt, 
                 neg_prompt, 
                 dest_phase=dest_phase,
-                model_name=final_model,  # Pass the chosen model
+                parameter_plan=parameter_plan,  # NEW: Pass ParameterPlan instead of individual params
                 status_writer=status
             )
 

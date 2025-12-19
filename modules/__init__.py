@@ -30,6 +30,9 @@ __all__ = [
     "run_visual_analyst",
     "run_prompt_engineer",
     "generate_smart_fallback_prompts",
+    # AD-Agent
+    "ParameterPlan",
+    "create_parameter_plan",
     # ComfyUI
     "call_comfyui",
 ]
@@ -54,6 +57,12 @@ def __getattr__(name):
         elif name in ("run_prompt_engineer", "generate_smart_fallback_prompts"):
             from .prompt_engineer import run_prompt_engineer, generate_smart_fallback_prompts
             return locals()[name]
+        elif name == "ParameterPlan":
+            from .parameter_plan import ParameterPlan
+            return ParameterPlan
+        elif name == "create_parameter_plan":
+            from .animation_director import create_parameter_plan
+            return create_parameter_plan
         elif name == "call_comfyui":
             from .comfyui_client import call_comfyui
             return call_comfyui
