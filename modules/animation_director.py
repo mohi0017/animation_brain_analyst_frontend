@@ -45,6 +45,11 @@ def create_parameter_plan(
     goal_info["pose_lock"] = pose_lock
     goal_info["style_lock"] = style_lock
     
+    # Detect simple geometric shapes (circle, square, etc.) - need tighter control
+    preserve_subject = _extract_subject(report.get("preserve", []))
+    is_simple_shape = _is_simple_geometric_shape(preserve_subject, report.get("preserve", []))
+    goal_info["is_simple_shape"] = is_simple_shape
+    
     # Step 2: Model selection
     preserve_subject = _extract_subject(report.get("preserve", []))
     analyst_recommendation = report.get("recommended_model")
@@ -194,6 +199,16 @@ def compute_cfg(goal_info: Dict, damage_level: str) -> float:
         CFG value in safe range [6.5, 8.0]
     """
     goal_type = goal_info["goal_type"]
+    is_simple_shape = goal_info.get("is_simple_shape", False)
+    
+    # Simple geometric shapes need higher CFG for precise adherence
+    if is_simple_shape:
+        base_cfg = 8.0  # Higher CFG for geometric precision
+        if damage_level == "HIGH":
+            base_cfg += 0.2
+        elif damage_level == "LOW":
+            base_cfg -= 0.2
+        return max(6.5, min(8.5, base_cfg))
     
     if goal_type == "AGGRESSIVE_CLEANUP":
         # Roughs → CleanUp: Higher CFG for better cleanup
@@ -236,6 +251,18 @@ def compute_denoise(goal_info: Dict, anatomy_level: int) -> float:
     goal_type = goal_info["goal_type"]
     dest_phase = goal_info["transition"].split("→")[1].strip()
     source_phase = goal_info["transition"].split("→")[0].strip()
+    is_simple_shape = goal_info.get("is_simple_shape", False)
+    
+    # Simple geometric shapes need moderate denoise (not too aggressive)
+    if is_simple_shape:
+        # Moderate denoise for precise geometric shapes
+        base_denoise = 0.65  # Enough cleanup but maintains shape precision
+        # Adjust slightly for anatomy level
+        if anatomy_level >= 80:
+            base_denoise = 0.68
+        elif anatomy_level <= 30:
+            base_denoise = 0.62
+        return max(0.4, min(0.7, base_denoise))
     
     # Special handling for aggressive transitions
     if goal_type == "AGGRESSIVE_CLEANUP":
@@ -282,6 +309,12 @@ def compute_steps(goal_info: Dict, damage_level: str) -> int:
         Steps value in safe range [20, 36]
     """
     goal_type = goal_info["goal_type"]
+    is_simple_shape = goal_info.get("is_simple_shape", False)
+    
+    # Simple geometric shapes need more steps for smooth, precise curves
+    if is_simple_shape:
+        base_steps = 32  # More steps for smooth geometric shapes
+        return max(20, min(36, base_steps))
     
     if goal_type == "AGGRESSIVE_CLEANUP":
         # Roughs → CleanUp: Needs more steps for proper cleanup
@@ -315,6 +348,21 @@ def compute_controlnet_params(
     """
     goal_type = goal_info["goal_type"]
     dest_phase = goal_info["transition"].split("→")[1].strip()
+    is_simple_shape = goal_info.get("is_simple_shape", False)
+    
+    # Simple geometric shapes need tighter control for precise lines
+    if is_simple_shape:
+        # Tighter ControlNet lock for geometric precision
+        lineart_end = 0.90  # Lock until end for precise shapes
+        canny_end = 0.85
+        lineart_strength = 1.2  # Stronger control
+        canny_strength = 1.0
+        return {
+            "lineart_strength": lineart_strength,
+            "lineart_end": lineart_end,
+            "canny_strength": canny_strength,
+            "canny_end": canny_end,
+        }
     
     if goal_type == "AGGRESSIVE_CLEANUP":
         # Roughs → CleanUp: Release earlier to allow proper cleanup
@@ -481,8 +529,15 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
     goal_type = goal_info["goal_type"]
     damage_level = goal_info["damage_level"]
     transition = goal_info["transition"]
+    is_simple_shape = goal_info.get("is_simple_shape", False)
     
     reasoning_parts = []
+    
+    # Simple shape detection
+    if is_simple_shape:
+        reasoning_parts.append(
+            f"Simple geometric shape detected: Using tighter ControlNet control and higher CFG for precise, uniform lines."
+        )
     
     # Goal explanation
     if goal_type == "AGGRESSIVE_CLEANUP":
@@ -552,4 +607,39 @@ def _extract_subject(preserve: list) -> str:
         return preserve_0
     
     return ""
+
+
+def _is_simple_geometric_shape(subject: str, preserve: list) -> bool:
+    """
+    Detect if the subject is a simple geometric shape (circle, square, etc.).
+    Simple shapes need tighter ControlNet control for precise lines.
+    """
+    if not subject:
+        return False
+    
+    subject_lower = subject.lower()
+    
+    # Check for simple geometric shape keywords
+    simple_shape_keywords = [
+        "circle", "circular", "round", "ball", "sphere",
+        "square", "rectangle", "rectangular", "box",
+        "triangle", "triangular",
+        "oval", "ellipse", "ellipse",
+        "line", "straight line",
+        "simple shape", "geometric shape", "basic shape",
+        "1 object", "single object"
+    ]
+    
+    # Check subject
+    if any(keyword in subject_lower for keyword in simple_shape_keywords):
+        return True
+    
+    # Check preserve array for shape descriptions
+    for item in preserve:
+        if isinstance(item, str):
+            item_lower = item.lower()
+            if any(keyword in item_lower for keyword in simple_shape_keywords):
+                return True
+    
+    return False
 
