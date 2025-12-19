@@ -250,7 +250,7 @@ def compute_denoise(goal_info: Dict, anatomy_level: int) -> float:
             "Skeleton": 0.9,
             "Roughs": 0.8,
             "Tie Down": 0.6,
-            "CleanUp": 0.55,  # Increased from 0.5 for better cleanup
+            "CleanUp": 0.60,  # Increased from 0.55 for better final polish and cleanup
             "Colors": 0.4,
         }
         base_denoise = phase_denoise.get(dest_phase, 0.6)
@@ -290,8 +290,8 @@ def compute_steps(goal_info: Dict, damage_level: str) -> int:
         # Roughs → Tie Down: Needs more steps for refinement
         base_steps = 30
     elif goal_type == "INK_ONLY":
-        # Simple cleanup: Fewer steps
-        base_steps = 26  # Increased from 24 for better quality
+        # CleanUp phase: More steps for better final polish and cleanup
+        base_steps = 28  # Increased from 26 for better line refinement and artifact removal
     elif goal_type == "COLOR_ONLY":
         # Colors need detail: More steps
         base_steps = 32
@@ -335,8 +335,8 @@ def compute_controlnet_params(
         lineart_strength = 1.0
         canny_strength = 0.8
     elif goal_type == "INK_ONLY":
-        # Tie Down → CleanUp: Lock structure tightly
-        lineart_end = 0.90  # Slightly earlier than before (was 0.95)
+        # Tie Down → CleanUp: Lock structure but allow final refinement
+        lineart_end = 0.88  # Earlier release (was 0.90) to allow final polish in last steps
         canny_end = 0.85
         lineart_strength = 1.2 if pose_lock else 1.0
         canny_strength = 1.0
@@ -495,7 +495,7 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
         )
     elif goal_type == "INK_ONLY":
         reasoning_parts.append(
-            f"Cleanup phase ({transition}): Preserving structure, cleaning lines only."
+            f"Cleanup phase ({transition}): Final polish with improved denoise and steps for better line refinement and artifact removal."
         )
     elif goal_type == "REFINE":
         reasoning_parts.append(
@@ -511,9 +511,13 @@ def generate_reasoning(plan: ParameterPlan, goal_info: Dict, conflicts_fixed: li
         )
     
     # Parameter highlights
-    if plan.denoise <= 0.6:
+    if plan.denoise <= 0.55:
         reasoning_parts.append(
             f"Low denoise ({plan.denoise:.2f}) ensures minimal structure change."
+        )
+    elif plan.denoise <= 0.65:
+        reasoning_parts.append(
+            f"Moderate denoise ({plan.denoise:.2f}) allows proper cleanup and final polish."
         )
     elif plan.denoise >= 0.7:
         reasoning_parts.append(
