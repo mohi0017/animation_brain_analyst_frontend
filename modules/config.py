@@ -19,14 +19,16 @@ class AnalysisConfig:
 
 
 # ---------- Phase Parameters ----------
+# Includes CFG, ControlNet ending steps, and denoise to control how much the model can "rewrite" the image.
 PHASE_PARAMS = {
-    # For damaged / rough structure we release slightly earlier to allow repair
-    "Skeleton": {"cfg": 7.5, "lineart_end": 0.7, "canny_end": 0.6},
-    "Roughs": {"cfg": 7.0, "lineart_end": 0.7, "canny_end": 0.6},
-    # For good structure (Tie Down / CleanUp) we keep control almost until the end
-    "Tie Down": {"cfg": 7.5, "lineart_end": 0.9, "canny_end": 0.9},
-    "CleanUp": {"cfg": 7.5, "lineart_end": 0.9, "canny_end": 0.9},
-    "Colors": {"cfg": 7.5, "lineart_end": 0.8, "canny_end": 0.7},
+    # High damage / construction phases – allow more freedom to fix structure
+    "Skeleton": {"cfg": 7.5, "lineart_end": 0.7, "canny_end": 0.6, "denoise": 0.9},
+    "Roughs": {"cfg": 7.0, "lineart_end": 0.7, "canny_end": 0.6, "denoise": 0.8},
+    # Good structure – keep control until the end, low/medium denoise to avoid hallucinations
+    "Tie Down": {"cfg": 7.5, "lineart_end": 0.9, "canny_end": 0.9, "denoise": 0.6},
+    "CleanUp": {"cfg": 7.5, "lineart_end": 0.9, "canny_end": 0.9, "denoise": 0.5},
+    # Colors – mostly textural work, very low denoise
+    "Colors": {"cfg": 7.5, "lineart_end": 0.8, "canny_end": 0.7, "denoise": 0.4},
 }
 
 

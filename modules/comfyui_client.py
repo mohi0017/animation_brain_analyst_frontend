@@ -23,6 +23,7 @@ def call_comfyui(
     cfg_scale: float = None,
     lineart_end: float = None,
     canny_end: float = None,
+    denoise: float = None,
     status_writer=None
 ) -> Optional[Tuple[bytes, bytes]]:
     """
@@ -61,12 +62,13 @@ def call_comfyui(
     final_cfg = cfg_scale if cfg_scale is not None else phase_params["cfg"]
     final_lineart_end = lineart_end if lineart_end is not None else phase_params["lineart_end"]
     final_canny_end = canny_end if canny_end is not None else phase_params["canny_end"]
+    final_denoise = denoise if denoise is not None else phase_params.get("denoise", 1.0)
     
     # Use default model if none specified
     if not model_name:
         model_name = DEFAULT_LINE_ART_MODEL
     
-    log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end}")
+    log(f"🎯 Phase: {dest_phase} | CFG: {final_cfg} | Lineart End: {final_lineart_end} | Canny End: {final_canny_end} | Denoise: {final_denoise}")
     
     try:
         # Step 1: Upload image to ComfyUI
@@ -92,7 +94,7 @@ def call_comfyui(
         # Step 3: Update workflow with prompts and image
         workflow = _update_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
         )
         
         log("✅ Workflow updated with prompts, image, and parameters")
@@ -227,7 +229,8 @@ def _load_workflow(base_url: str, log) -> Optional[dict]:
 
 def _update_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
+    model_name: str, log
 ) -> dict:
     """Update workflow with prompts, image, and parameters."""
     is_v11_format = "nodes" in workflow
@@ -236,13 +239,13 @@ def _update_workflow(
         # v11 format - update nodes directly by ID, then convert to v10
         workflow = _update_v11_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
         )
     else:
         # v10 format - update directly
         workflow = _update_v10_workflow(
             workflow, pos_prompt, neg_prompt, uploaded_filename,
-            final_cfg, final_lineart_end, final_canny_end, model_name, log
+            final_cfg, final_lineart_end, final_canny_end, final_denoise, model_name, log
         )
     
     return workflow
@@ -250,7 +253,8 @@ def _update_workflow(
 
 def _update_v11_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
+    model_name: str, log
 ) -> dict:
     """Update v11 format workflow and convert to v10 for API submission."""
     log("📝 Updating v11 format workflow...")
@@ -292,12 +296,15 @@ def _update_v11_workflow(
                 log(f"✅ Updated image filename: {uploaded_filename}")
                 node_4_found = True
         
-        # Node 5: KSampler - Update CFG
+        # Node 5: KSampler - Update CFG and Denoise
         elif node_id == 5 and node_type == "KSampler":
-            if "widgets_values" in node and len(node["widgets_values"]) >= 4:
+            if "widgets_values" in node and len(node["widgets_values"]) >= 7:
                 old_cfg = node["widgets_values"][3]
                 node["widgets_values"][3] = final_cfg
                 log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+                old_denoise = node["widgets_values"][6]
+                node["widgets_values"][6] = final_denoise
+                log(f"✅ Updated Denoise: {old_denoise} → {final_denoise}")
         
         # Node 39: CR Multi-ControlNet Stack - Update Ending Steps
         elif node_id == 39 and node_type == "CR Multi-ControlNet Stack":
@@ -325,7 +332,7 @@ def _update_v11_workflow(
 
 
 def _convert_v11_to_v10(
-    workflow: dict, final_cfg: float, final_lineart_end: float, final_canny_end: float, log
+    workflow: dict, final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float, log
 ) -> dict:
     """Convert v11 workflow format (nodes array) to v10 format (flat dict)."""
     v10_workflow = {}
@@ -372,6 +379,8 @@ def _convert_v11_to_v10(
                         # Use updated CFG value if this is the cfg parameter
                         if ksampler_inputs[i] == "cfg" and node_id == "5":
                             v10_node["inputs"]["cfg"] = final_cfg
+                        elif ksampler_inputs[i] == "denoise" and node_id == "5":
+                            v10_node["inputs"]["denoise"] = final_denoise
                         else:
                             v10_node["inputs"][ksampler_inputs[i]] = widget_val
             
@@ -460,7 +469,8 @@ def _convert_v11_to_v10(
 
 def _update_v10_workflow(
     workflow: dict, pos_prompt: str, neg_prompt: str, uploaded_filename: str,
-    final_cfg: float, final_lineart_end: float, final_canny_end: float, model_name: str, log
+    final_cfg: float, final_lineart_end: float, final_canny_end: float, final_denoise: float,
+    model_name: str, log
 ) -> dict:
     """Update v10 format workflow directly."""
     log("📝 Updating v10 format workflow...")
@@ -491,11 +501,14 @@ def _update_v10_workflow(
     else:
         log("⚠️ Node 4 (LoadImage) not found in workflow")
     
-    # Update KSampler CFG (Node 5)
+    # Update KSampler CFG & Denoise (Node 5)
     if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
         old_cfg = workflow["5"]["inputs"].get("cfg", "N/A")
         workflow["5"]["inputs"]["cfg"] = final_cfg
         log(f"✅ Updated CFG: {old_cfg} → {final_cfg}")
+        old_denoise = workflow["5"]["inputs"].get("denoise", "N/A")
+        workflow["5"]["inputs"]["denoise"] = final_denoise
+        log(f"✅ Updated Denoise: {old_denoise} → {final_denoise}")
     
     # Update ControlNet Ending Steps (Node 39)
     if "39" in workflow and workflow["39"].get("class_type") == "CR Multi-ControlNet Stack":
