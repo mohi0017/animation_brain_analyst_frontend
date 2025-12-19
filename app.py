@@ -258,31 +258,51 @@ if generate:
             raw_report = run_visual_analyst(image_bytes, mime, cfg)
             report = normalize_report(raw_report)
 
-            # Step 1.5: AD-Agent - Create Parameter Plan
-            status.write("🎯 Step 1.5: AD-Agent computing optimal parameters...")
-            user_model_override = selected_model if model_choice == "Manual" else None
-            parameter_plan = create_parameter_plan(
-                report=report,
-                source_phase=source_phase,
-                dest_phase=dest_phase,
-                pose_lock=pose_lock,
-                style_lock=style_lock,
-                anatomy_level=anat_level,
-                user_model_override=user_model_override,
-            )
-            
-            # Display AD-Agent reasoning
-            status.write(f"🎯 AD-Agent Plan: {parameter_plan.reasoning}")
-            if parameter_plan.warnings:
-                for warning in parameter_plan.warnings:
-                    status.write(f"⚠️ {warning}")
-            if parameter_plan.conflicts_fixed:
-                status.write(f"🔧 Auto-fixed conflicts: {len(parameter_plan.conflicts_fixed)}")
-            
-            # Log model choice (from AD-Agent)
-            model_info = SD_MODELS.get(parameter_plan.model_name, {})
-            model_name_display = model_info.get("name", parameter_plan.model_name)
-            status.write(f"🎨 Selected Model: {model_name_display}")
+            # Step 1.5: AD-Agent - Create Parameter Plan (with fallback)
+            parameter_plan = None
+            try:
+                status.write("🎯 Step 1.5: AD-Agent computing optimal parameters...")
+                user_model_override = selected_model if model_choice == "Manual" else None
+                parameter_plan = create_parameter_plan(
+                    report=report,
+                    source_phase=source_phase,
+                    dest_phase=dest_phase,
+                    pose_lock=pose_lock,
+                    style_lock=style_lock,
+                    anatomy_level=anat_level,
+                    user_model_override=user_model_override,
+                )
+                
+                # Display AD-Agent reasoning
+                status.write(f"🎯 AD-Agent Plan: {parameter_plan.reasoning}")
+                if parameter_plan.warnings:
+                    for warning in parameter_plan.warnings:
+                        status.write(f"⚠️ {warning}")
+                if parameter_plan.conflicts_fixed:
+                    status.write(f"🔧 Auto-fixed conflicts: {len(parameter_plan.conflicts_fixed)}")
+                
+                # Log model choice (from AD-Agent)
+                model_info = SD_MODELS.get(parameter_plan.model_name, {})
+                model_name_display = model_info.get("name", parameter_plan.model_name)
+                status.write(f"🎨 Selected Model: {model_name_display}")
+            except (ImportError, AttributeError) as e:
+                # Fallback to old parameter logic if AD-Agent not available
+                status.write(f"⚠️ AD-Agent not available, using default parameters: {str(e)}")
+                parameter_plan = None
+                
+                # Determine which model to use (old logic)
+                if selected_model:
+                    final_model = selected_model
+                    model_source = "user selection"
+                else:
+                    ai_recommended = report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
+                    final_model = ai_recommended
+                    model_source = "AI recommendation"
+                
+                # Log model choice
+                model_info = SD_MODELS.get(final_model, {})
+                model_name_display = model_info.get("name", final_model)
+                status.write(f"🎨 Using model: {model_name_display} ({model_source})")
 
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
@@ -293,16 +313,29 @@ if generate:
                 style_lock=style_lock
             )
 
-            # Step 3: ComfyUI Generation (with AD-Agent's ParameterPlan)
+            # Step 3: ComfyUI Generation (with AD-Agent's ParameterPlan or fallback)
             status.write("🎨 Step 3: Generating your new image (this may take up to 4 minutes)...")
-            generated_image = call_comfyui(
-                image_bytes, 
-                pos_prompt, 
-                neg_prompt, 
-                dest_phase=dest_phase,
-                parameter_plan=parameter_plan,  # NEW: Pass ParameterPlan instead of individual params
-                status_writer=status
-            )
+            if parameter_plan:
+                # Use AD-Agent's ParameterPlan
+                generated_image = call_comfyui(
+                    image_bytes, 
+                    pos_prompt, 
+                    neg_prompt, 
+                    dest_phase=dest_phase,
+                    parameter_plan=parameter_plan,
+                    status_writer=status
+                )
+            else:
+                # Fallback to old parameter logic
+                final_model = selected_model if selected_model else report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
+                generated_image = call_comfyui(
+                    image_bytes, 
+                    pos_prompt, 
+                    neg_prompt, 
+                    dest_phase=dest_phase,
+                    model_name=final_model,
+                    status_writer=status
+                )
 
             status.update(label="✅ Complete! Your image is ready.", state="complete")
 

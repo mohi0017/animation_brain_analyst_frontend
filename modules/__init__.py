@@ -58,11 +58,17 @@ def __getattr__(name):
             from .prompt_engineer import run_prompt_engineer, generate_smart_fallback_prompts
             return locals()[name]
         elif name == "ParameterPlan":
-            from .parameter_plan import ParameterPlan
-            return ParameterPlan
+            try:
+                from .parameter_plan import ParameterPlan
+                return ParameterPlan
+            except (ImportError, AttributeError) as e:
+                raise ImportError(f"Failed to import ParameterPlan: {e}")
         elif name == "create_parameter_plan":
-            from .animation_director import create_parameter_plan
-            return create_parameter_plan
+            try:
+                from .animation_director import create_parameter_plan
+                return create_parameter_plan
+            except (ImportError, AttributeError) as e:
+                raise ImportError(f"Failed to import create_parameter_plan from animation_director: {e}. Make sure animation_director.py exists.")
         elif name == "call_comfyui":
             from .comfyui_client import call_comfyui
             return call_comfyui
