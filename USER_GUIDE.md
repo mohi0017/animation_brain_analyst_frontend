@@ -32,7 +32,8 @@ We've successfully completed **Milestone 1: The Motion-Lock Engine** (December 1
 
 ### Step 1: Open the App
 
-Visit: **[Your Streamlit Cloud URL]**
+Open this link in your browser:  
+**https://animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app/**
 
 You'll see a clean interface with three main sections.
 
@@ -254,6 +255,4 @@ If you need help or have questions:
 ---
 
 **Thank you for using AI Animation Studio!** 🎬✨
-
-*This guide was created for non-technical users. For technical documentation, please refer to the technical documentation files in the project.*
 

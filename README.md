@@ -62,18 +62,15 @@ M1/
 ### What You Need Before Starting
 
 - **Python 3.10 or newer** (programming language)
-- **uv** (tool to install Python packages) - [Get it here](https://github.com/astral-sh/uv)
+- **uv** (tool to install Python packages) - Get it from the official uv website
 - **Gemini API Key** (free from [Google AI Studio](https://makersuite.google.com/app/apikey))
 - **ComfyUI Server** (the image generation software - can be on your computer or in the cloud)
 
 ### How to Install (Step by Step)
 
 **Step 1: Download the Project**
-   ```bash
-   git clone https://github.com/mohi0017/animation_brain_analyst_frontend.git
-   cd M1
-   ```
-   _(This downloads all the project files to your computer)_
+   - Download the project files to your computer
+   - Navigate to the M1 folder
 
 **Step 2: Install Required Software**
    ```bash
@@ -279,26 +276,15 @@ uv run streamlit run app.py --server.headless true
 ### Problem 4: App shows errors about image size
 **What it means**: An old version had a bug (this is now fixed!).
 
-**How to fix**: Just update to the latest version from GitHub
+**How to fix**: Make sure you're using the latest version of the application
 
 ## 📝 License
 
 [Your License Here]
 
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## 📧 Contact
 
 **Mohi** - [mohi.pk0017@gmail.com](mailto:mohi.pk0017@gmail.com)
-
-**GitHub**: [@mohi0017](https://github.com/mohi0017)
 
 ---
 

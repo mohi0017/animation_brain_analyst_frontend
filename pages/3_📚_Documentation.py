@@ -36,9 +36,8 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 🔗 Quick Links")
-    st.markdown("- [GitHub Repository](https://github.com/mohi0017/animation_brain_analyst_frontend)")
     st.markdown("- [Streamlit Documentation](https://docs.streamlit.io)")
-    st.markdown("- [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI)")
+    st.markdown("- [ComfyUI Documentation](https://github.com/comfyanonymous/ComfyUI)")
     st.markdown("- [Gemini API Docs](https://ai.google.dev/docs)")
 
 # Display selected documentation
