@@ -192,14 +192,18 @@ m2_labels = [
     f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
     for m in m2_options
 ]
-selected_model_idx = st.selectbox(
+model_key = "m2_model_choice"
+auto_key = "m2_model_auto"
+if auto_key in st.session_state and st.session_state[auto_key] in m2_options:
+    st.session_state[model_key] = st.session_state[auto_key]
+selected_model = st.selectbox(
     "Select Model (M2):",
-    range(len(m2_options)),
-    format_func=lambda i: m2_labels[i],
-    index=0,
+    m2_options,
+    format_func=lambda m: m2_labels[m2_options.index(m)],
+    key=model_key,
     help="Default is Animagine XL 3.1. AnythingXL Ink Base is for stronger cleanup lines."
 )
-selected_model = m2_options[selected_model_idx]
+st.caption("Model auto-optimizes after analysis, but you can still override it.")
 
 master_instruction = st.text_area(
     "Custom Instructions (Optional - for advanced users)",
@@ -281,6 +285,10 @@ if generate:
                     f"OpenPose end={m2_plan['controlnet_openpose']['end_percent']}, "
                     f"IP end_at={m2_plan['ip_adapter']['end_at']}"
                 )
+                if m2_plan.get("model_name"):
+                    selected_model = m2_plan["model_name"]
+                    st.session_state["m2_model_auto"] = selected_model
+                    status.write(f"🧭 Director: model auto-switch → {selected_model}")
 
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
@@ -398,6 +406,9 @@ if generate:
                     f"weight: {m2_plan['ip_adapter']['weight']}, "
                     f"end_at: {m2_plan['ip_adapter']['end_at']}"
                 )
+                if m2_plan.get("model_name"):
+                    st.markdown("**Model Auto-Switch**")
+                    st.code(f"model: {m2_plan['model_name']}")
         # Display generated images
         if generated_image:
             img_placeholder.empty()  # Clear placeholder

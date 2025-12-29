@@ -4,6 +4,8 @@ Animation Director Agent (AD-Agent) - M2 Parameter Planner
 
 from __future__ import annotations
 
+from .config import DEFAULT_LINE_ART_MODEL, DEFAULT_M2_MODEL
+
 
 def create_parameter_plan_m2(
     report: dict,
@@ -88,8 +90,18 @@ def create_parameter_plan_m2(
     if ip_end >= cn_union_end:
         ip_end = max(0.20, cn_union_end - 0.05)
 
+    phase_goal = (report.get("phase_goal") or "").lower()
+    model_name = DEFAULT_LINE_ART_MODEL
+    if "anime" in phase_goal or dest_phase == "Colors":
+        model_name = DEFAULT_M2_MODEL
+    elif source_phase == "Tie Down" and dest_phase == "CleanUp":
+        model_name = DEFAULT_M2_MODEL
+    elif source_phase == "Roughs" and dest_phase in ("Tie Down", "CleanUp"):
+        model_name = DEFAULT_LINE_ART_MODEL
+
     return {
         "transition": transition,
+        "model_name": model_name,
         "ksampler1": {
             "steps": 30,
             "cfg": round(ks1_cfg, 2),
