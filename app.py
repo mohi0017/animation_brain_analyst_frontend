@@ -187,7 +187,7 @@ anat_level = st.slider(
 from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M2_MODEL
 
 st.markdown("**🎨 Stable Diffusion Model**")
-m2_options = [DEFAULT_M2_MODEL, DEFAULT_LINE_ART_MODEL]
+m2_options = [DEFAULT_M2_MODEL]
 m2_labels = [
     f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
     for m in m2_options
@@ -201,9 +201,9 @@ selected_model = st.selectbox(
     m2_options,
     format_func=lambda m: m2_labels[m2_options.index(m)],
     key=model_key,
-    help="Default is Animagine XL 3.1. AnythingXL Ink Base is for stronger cleanup lines."
+    help="Animagine XL 3.1 is the locked M2 model."
 )
-st.caption("Model auto-optimizes after analysis, but you can still override it.")
+st.caption("Model is locked to Animagine XL 3.1 for M2.")
 
 master_instruction = st.text_area(
     "Custom Instructions (Optional - for advanced users)",

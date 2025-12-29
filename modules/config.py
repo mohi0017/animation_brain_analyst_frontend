@@ -28,20 +28,11 @@ SD_MODELS = {
         "strengths": "Sharp anime linework, clean cel look, strong character rendering",
         "use_when": "You need strong anime-style output with clean structure",
         "keywords": ["anime", "character", "cel", "lineart", "xl"]
-    },
-    "anything-v5-PrtRE.safetensors": {
-        "name": "AnythingXL Ink Base",
-        "category": "Line Art",
-        "description": "Best for pure line art and ink drawings. Perfect for animation cleanup phases.",
-        "best_for": ["Skeleton", "Roughs", "Tie Down", "CleanUp"],
-        "strengths": "Clean lines, no unwanted shading, preserves ink color, transparent backgrounds",
-        "use_when": "Input is sketches, line art, or needs clean outlines without fills",
-        "keywords": ["line art", "sketch", "outline", "ink", "drawing", "clean lines"]
     }
 }
 
 # Default model for line art phases
-DEFAULT_LINE_ART_MODEL = "anything-v5-PrtRE.safetensors"
+DEFAULT_LINE_ART_MODEL = "animagine-xl-3.1.safetensors"
 
 # Default model for Milestone 2 workflow (SDXL)
 DEFAULT_M2_MODEL = "animagine-xl-3.1.safetensors"
@@ -73,4 +64,3 @@ Rules:
 - anatomy_risk reflects how risky anatomy correction is.
 - complexity is based on line density / detail amount.
 """
-
