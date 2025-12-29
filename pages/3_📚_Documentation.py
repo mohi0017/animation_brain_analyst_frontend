@@ -40,6 +40,7 @@ docs = {
     "🎮 ControlNet Anatomy Strategy": "CONTROLNET_ANATOMY_STRATEGY.md",
     "🔧 ComfyUI Integration": "COMFYUI_INTEGRATION.md",
     "📋 Technical Report": "TECHNICAL_REPORT.md",
+    "🧩 Workflow Registry": "WORKFLOW_REGISTRY.md",
 }
 
 # Sidebar navigation
@@ -87,4 +88,3 @@ else:
 st.markdown("---")
 st.caption("💡 **Tip:** Use the sidebar to navigate between different documentation files")
 st.caption("📖 **Note:** You can download any documentation file using the download button")
-

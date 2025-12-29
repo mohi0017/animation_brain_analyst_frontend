@@ -67,6 +67,13 @@ def normalize_report(report: dict) -> dict:
     removes = report.get("removes") or []
     preserve = report.get("preserve") or []
     raw_notes = report.get("notes") or []
+    style_keywords = report.get("style_keywords") or []
+    style_notes = report.get("style_notes") or []
+    subject_details = report.get("subject_details")
+    phase_goal = report.get("phase_goal")
+    line_quality = report.get("line_quality")
+    anatomy_risk = report.get("anatomy_risk")
+    complexity = report.get("complexity")
     cleaned_notes = []
 
     if isinstance(raw_notes, list):
@@ -83,6 +90,13 @@ def normalize_report(report: dict) -> dict:
                             cleaned_notes.extend(extra_notes)
                         elif isinstance(extra_notes, str):
                             cleaned_notes.append(extra_notes)
+                    style_keywords = style_keywords or parsed.get("style_keywords", style_keywords)
+                    style_notes = style_notes or parsed.get("style_notes", style_notes)
+                    subject_details = subject_details or parsed.get("subject_details", subject_details)
+                    phase_goal = phase_goal or parsed.get("phase_goal", phase_goal)
+                    line_quality = line_quality or parsed.get("line_quality", line_quality)
+                    anatomy_risk = anatomy_risk or parsed.get("anatomy_risk", anatomy_risk)
+                    complexity = complexity or parsed.get("complexity", complexity)
                     # do not keep the raw JSON blob in cleaned notes
                     continue
             cleaned_notes.append(n)
@@ -92,5 +106,11 @@ def normalize_report(report: dict) -> dict:
         "removes": removes,
         "preserve": preserve,
         "notes": cleaned_notes,
+        "style_keywords": style_keywords,
+        "style_notes": style_notes,
+        "subject_details": subject_details,
+        "phase_goal": phase_goal,
+        "line_quality": line_quality,
+        "anatomy_risk": anatomy_risk,
+        "complexity": complexity,
     }
-

@@ -24,10 +24,11 @@ from modules import (
     AnalysisConfig,
     load_image_bytes,
     normalize_report,
-    run_visual_analyst,
-    run_prompt_engineer,
+    run_visual_analyst_m2,
+    run_prompt_engineer_m2,
     call_comfyui,
-    create_parameter_plan,  # NEW: AD-Agent
+    create_parameter_plan_m2,
+    get_workflow_spec,
 )
 
 # Load environment variables from .env file
@@ -67,6 +68,7 @@ st.markdown("_Transform rough sketches into polished animation frames_")
 
 # ---------- Sidebar: Environment Configuration ----------
 with st.sidebar:
+    use_server_workflow = False
     st.markdown("**API Keys & Settings**")
     st.text_input(
         "Google AI API Key", 
@@ -83,6 +85,11 @@ with st.sidebar:
         st.caption(f"✅ Connected to: {comfy_url}")
     
     st.markdown("**Workflow Settings**")
+
+    # Workflow selection (M2 only)
+    workflow_spec = get_workflow_spec("M2")
+    st.caption(f"✅ Selected: {workflow_spec.label}")
+    st.caption(f"📄 Workflow file: {workflow_spec.api_path}")
     
     # Server workflow options
     with st.expander("🔧 Advanced: Use Workflow from Server (Optional)", expanded=False):
@@ -95,36 +102,22 @@ with st.sidebar:
         workflow_path_input = st.text_input(
             "Workflow File Name on Server",
             value=os.getenv("COMFYUI_WORKFLOW_PATH", ""),
-            help="Example: ANIMATION_M1.json"
+            help="Example: ANIMATION_M2_Api.json"
         )
         if workflow_url_input:
             os.environ["COMFYUI_WORKFLOW_URL"] = workflow_url_input
+            use_server_workflow = True
         if workflow_path_input:
             os.environ["COMFYUI_WORKFLOW_PATH"] = workflow_path_input
+            use_server_workflow = True
     
-    # Local workflow files
-    workflow_files = []
-    for search_dir in ["workflows", "."]:
-        if os.path.isdir(search_dir):
-            workflow_files.extend([
-                os.path.join(search_dir, f) 
-                for f in os.listdir(search_dir) 
-                if f.startswith("ANIMATION_M1") and f.endswith(".json")
-            ])
-    
-    if workflow_files:
-        # Show priority order (API version first, then v11 format)
-        priority_order = ["workflows/ANIMATION_M1_api_version.json", "workflows/ANIMATION_M1.json"]
-        found_priority = [f for f in priority_order if f in workflow_files]
-        if found_priority:
-            st.caption(f"✅ Local: {found_priority[0]}")
-            if len(found_priority) > 1:
-                st.caption(f"Also: {found_priority[1]}")
-        else:
-            st.caption(f"Local files: {', '.join(workflow_files[:2])}")
-    else:
+    # Local workflow file check
+    if not os.path.exists(workflow_spec.api_path):
         if not os.getenv("COMFYUI_WORKFLOW_URL") and not os.getenv("COMFYUI_WORKFLOW_PATH"):
-            st.warning("⚠️ No workflow file found. Please either:\n- Add ANIMATION_M1_api_version.json to the workflows/ folder, OR\n- Use the server workflow settings above")
+            st.warning(
+                "⚠️ Selected workflow file not found. "
+                "Please add the file locally or use the server workflow settings above."
+            )
 
 # ---------- Section 1: Input & Upload ----------
 st.header("1️⃣ Upload Your Image")
@@ -138,6 +131,17 @@ uploaded = st.file_uploader(
 if uploaded:
     st.markdown("**Your Image Preview**")
     st.image(uploaded, caption="This is the image that will be processed")
+
+reference_uploaded = None
+if workflow_spec.requires_reference:
+    reference_uploaded = st.file_uploader(
+        "Upload Reference Style Image (Required for M2)",
+        type=["png", "jpg", "jpeg"],
+        help="Used by IP-Adapter to inject style for M2"
+    )
+    if reference_uploaded:
+        st.markdown("**Reference Image Preview**")
+        st.image(reference_uploaded, caption="This reference image guides style transfer")
 
 col_src, col_dst = st.columns(2)
 with col_src:
@@ -180,40 +184,22 @@ anat_level = st.slider(
 )
 
 # Model Selection
-from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL
+from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M2_MODEL
 
 st.markdown("**🎨 Stable Diffusion Model**")
-model_choice = st.radio(
-    "Choose how to select the model:",
-    ["✨ AI Auto-Select (Recommended)", "🎯 Manual Selection"],
-    help="AI will analyze your image and choose the best model, or you can choose manually"
+m2_options = [DEFAULT_M2_MODEL, DEFAULT_LINE_ART_MODEL]
+m2_labels = [
+    f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
+    for m in m2_options
+]
+selected_model_idx = st.selectbox(
+    "Select Model (M2):",
+    range(len(m2_options)),
+    format_func=lambda i: m2_labels[i],
+    index=0,
+    help="Default is Animagine XL 3.1. AnythingXL Ink Base is for stronger cleanup lines."
 )
-
-if model_choice == "🎯 Manual Selection":
-    # Manual selection
-    model_options = list(SD_MODELS.keys())
-    model_labels = [f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" for m in model_options]
-    
-    selected_model_idx = st.selectbox(
-        "Select Model:",
-        range(len(model_options)),
-        format_func=lambda i: model_labels[i],
-        index=model_options.index(DEFAULT_LINE_ART_MODEL),
-        help="Choose a specific Stable Diffusion model for generation"
-    )
-    selected_model = model_options[selected_model_idx]
-    
-    # Show model description
-    model_info = SD_MODELS[selected_model]
-    with st.expander("ℹ️ About This Model", expanded=False):
-        st.markdown(f"**{model_info['name']}** ({model_info['category']})")
-        st.markdown(f"**Description:** {model_info['description']}")
-        st.markdown(f"**Best for:** {', '.join(model_info['best_for'])}")
-        st.markdown(f"**Strengths:** {model_info['strengths']}")
-        st.markdown(f"**Use when:** {model_info['use_when']}")
-else:
-    selected_model = None  # AI will decide
-    st.info("💡 The AI will analyze your image and automatically choose the best model!")
+selected_model = m2_options[selected_model_idx]
 
 master_instruction = st.text_area(
     "Custom Instructions (Optional - for advanced users)",
@@ -229,17 +215,19 @@ generate = st.button("🚀 Start Generation", type="primary", use_container_widt
 status_placeholder = st.empty()
 img_placeholder = st.empty()
 
-with st.expander("View Generated Prompts"):
-    pos_box = st.empty()
-    neg_box = st.empty()
-
 # ---------- Generation Logic ----------
 if generate:
     if not uploaded:
         st.warning("⚠️ Please upload an image first before generating.")
+    elif workflow_spec.requires_reference and not reference_uploaded:
+        st.warning("⚠️ Please upload a reference image for M2 workflow.")
     else:
         # Load image
         image_bytes, mime = load_image_bytes(uploaded)
+        reference_bytes = None
+        reference_mime = None
+        if workflow_spec.requires_reference and reference_uploaded:
+            reference_bytes, reference_mime = load_image_bytes(reference_uploaded)
         
         # Create analysis configuration
         cfg = AnalysisConfig(
@@ -253,89 +241,74 @@ if generate:
 
         # Execute workflow with status updates
         with st.status("Processing your image...", expanded=True) as status:
+            selected_workflow_path = None if use_server_workflow else workflow_spec.api_path
             # Step 1: Visual Analyst
             status.write("🔍 Step 1: Analyzing your image with AI...")
-            raw_report = run_visual_analyst(image_bytes, mime, cfg)
+            raw_report = run_visual_analyst_m2(image_bytes, mime, cfg)
             report = normalize_report(raw_report)
 
-            # Step 1.5: AD-Agent - Create Parameter Plan (with fallback)
-            parameter_plan = None
-            try:
-                status.write("🎯 Step 1.5: AD-Agent computing optimal parameters...")
-                user_model_override = selected_model if model_choice == "Manual" else None
-                parameter_plan = create_parameter_plan(
-                    report=report,
-                    source_phase=source_phase,
-                    dest_phase=dest_phase,
-                    pose_lock=pose_lock,
-                    style_lock=style_lock,
-                    anatomy_level=anat_level,
-                    user_model_override=user_model_override,
+            required_fields = ["subject_details", "line_quality", "anatomy_risk", "complexity"]
+            missing = [f for f in required_fields if not report.get(f)]
+            if missing:
+                status.write("❌ Visual Analyst output incomplete for M2.")
+                st.error(
+                    "Image analysis failed. Please re-upload or check your connection "
+                    "to ensure anatomy-lock is active."
                 )
-                
-                # Display AD-Agent reasoning
-                status.write(f"🎯 AD-Agent Plan: {parameter_plan.reasoning}")
-                if parameter_plan.warnings:
-                    for warning in parameter_plan.warnings:
-                        status.write(f"⚠️ {warning}")
-                if parameter_plan.conflicts_fixed:
-                    status.write(f"🔧 Auto-fixed conflicts: {len(parameter_plan.conflicts_fixed)}")
-                
-                # Log model choice (from AD-Agent)
-                model_info = SD_MODELS.get(parameter_plan.model_name, {})
-                model_name_display = model_info.get("name", parameter_plan.model_name)
-                status.write(f"🎨 Selected Model: {model_name_display}")
-            except (ImportError, AttributeError) as e:
-                # Fallback to old parameter logic if AD-Agent not available
-                status.write(f"⚠️ AD-Agent not available, using default parameters: {str(e)}")
-                parameter_plan = None
-                
-                # Determine which model to use (old logic)
-                if selected_model:
-                    final_model = selected_model
-                    model_source = "user selection"
-                else:
-                    ai_recommended = report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
-                    final_model = ai_recommended
-                    model_source = "AI recommendation"
-                
-                # Log model choice
-                model_info = SD_MODELS.get(final_model, {})
-                model_name_display = model_info.get("name", final_model)
-                status.write(f"🎨 Using model: {model_name_display} ({model_source})")
+                st.caption(f"Missing required fields: {', '.join(missing)}")
+                st.stop()
+
+            if selected_model:
+                model_info = SD_MODELS.get(selected_model, {})
+                model_name_display = model_info.get("name", selected_model)
+                status.write(f"🎨 Using model: {model_name_display} (M2 default)")
+            status.write("🎯 Step 1.5: AD-Agent computing M2 parameters...")
+            m2_plan = create_parameter_plan_m2(
+                report=report,
+                source_phase=source_phase,
+                dest_phase=dest_phase,
+            )
+            # Director's decision log
+            status.write(
+                f"🧭 Director: line_quality={report.get('line_quality')}, "
+                f"anatomy_risk={report.get('anatomy_risk')}, "
+                f"complexity={report.get('complexity')}"
+            )
+            if m2_plan:
+                status.write(
+                    "🧭 Director: "
+                    f"CN Union end={m2_plan['controlnet_union']['end_percent']}, "
+                    f"OpenPose end={m2_plan['controlnet_openpose']['end_percent']}, "
+                    f"IP end_at={m2_plan['ip_adapter']['end_at']}"
+                )
 
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
-            pos_prompt, neg_prompt, rationale = run_prompt_engineer(
-                report, dest_phase, master_instruction, 
-                source_phase=source_phase, 
-                pose_lock=pose_lock, 
-                style_lock=style_lock
+            pos_prompt, neg_prompt, pos_prompt_stage2, neg_prompt_stage2, rationale = run_prompt_engineer_m2(
+                report,
+                dest_phase,
+                master_instruction,
+                source_phase=source_phase,
+                pose_lock=pose_lock,
+                style_lock=style_lock,
+                workflow_path=workflow_spec.api_path,
             )
+            prompts = {
+                "stage1": {"positive": pos_prompt, "negative": neg_prompt},
+                "stage2": {"positive": pos_prompt_stage2, "negative": neg_prompt_stage2},
+            }
 
-            # Step 3: ComfyUI Generation (with AD-Agent's ParameterPlan or fallback)
+            # Step 3: ComfyUI Generation
             status.write("🎨 Step 3: Generating your new image (this may take up to 4 minutes)...")
-            if parameter_plan:
-                # Use AD-Agent's ParameterPlan
-                generated_image = call_comfyui(
-                    image_bytes, 
-                    pos_prompt, 
-                    neg_prompt, 
-                    dest_phase=dest_phase,
-                    parameter_plan=parameter_plan,
-                    status_writer=status
-                )
-            else:
-                # Fallback to old parameter logic
-                final_model = selected_model if selected_model else report.get("recommended_model", DEFAULT_LINE_ART_MODEL)
-                generated_image = call_comfyui(
-                    image_bytes, 
-                    pos_prompt, 
-                    neg_prompt, 
-                    dest_phase=dest_phase,
-                    model_name=final_model,
-                    status_writer=status
-                )
+            generated_image = call_comfyui(
+                image_bytes,
+                prompts,
+                model_name=selected_model,
+                status_writer=status,
+                workflow_path=selected_workflow_path,
+                reference_image_bytes=reference_bytes,
+                m2_plan=m2_plan,
+            )
 
             status.update(label="✅ Complete! Your image is ready.", state="complete")
 
@@ -366,34 +339,65 @@ if generate:
             st.caption("Information about colors and background")
             st.code("\n".join(colour_lines) or "None")
             
-            # Show AI model recommendation
-            if "recommended_model" in report:
-                st.write("**🎨 AI Recommended Model**")
-                rec_model = report["recommended_model"]
-                rec_model_info = SD_MODELS.get(rec_model, {})
-                rec_model_name = rec_model_info.get("name", rec_model)
-                reasoning = report.get("model_reasoning", "No reasoning provided")
-                
-                if selected_model == rec_model:
-                    st.success(f"✅ {rec_model_name} (Matches your selection!)")
-                elif selected_model:
-                    st.info(f"💡 AI suggested: {rec_model_name} (You chose: {SD_MODELS[selected_model]['name']})")
-                else:
-                    st.success(f"✅ {rec_model_name} (Auto-selected by AI)")
-                
-                st.caption(f"**Why:** {reasoning}")
-            
             st.write("**Additional Notes**")
             st.caption("Extra information and context")
             st.code("\n".join(report.get("notes", [])) or "None")
 
-        st.markdown("**Positive Instructions** (What to include)")
-        pos_box.code(pos_prompt or "None")
-        st.markdown("**Negative Instructions** (What to avoid)")
-        neg_box.code(neg_prompt or "None")
+        st.markdown("**Stage 1 Positive Instructions** (Character + Style)")
+        st.code(pos_prompt or "None")
+        st.markdown("**Stage 1 Negative Instructions**")
+        st.code(neg_prompt or "None")
+        st.markdown("**Stage 2 Positive Instructions** (Cleanup + Ink)")
+        st.code(pos_prompt_stage2 or "None")
+        st.markdown("**Stage 2 Negative Instructions**")
+        st.code(neg_prompt_stage2 or "None")
         st.markdown("**Why These Instructions Were Created**")
         st.info(rationale or "No explanation available")
 
+        if m2_plan:
+            summary = []
+            line_quality = report.get("line_quality", "")
+            anatomy_risk = report.get("anatomy_risk", "")
+            complexity = report.get("complexity", "")
+            if line_quality == "messy":
+                summary.append("Messy lines detected; prioritizing heavy structure lock and high denoise to stabilize anatomy.")
+            elif line_quality == "structured":
+                summary.append("Structured sketch detected; applying light refinement and high-fidelity inking for crisp outlines.")
+            elif line_quality == "clean":
+                summary.append("Clean lines detected; preserving structure while focusing on final inking polish.")
+            if anatomy_risk == "high":
+                summary.append("Complex pose detected; maximizing Motion-Lock Engine (OpenPose) to prevent skeletal shift.")
+            if not summary and complexity:
+                summary.append("Dynamic parameters set based on sketch complexity and anatomy risk.")
+            st.info(summary[0] if summary else "Waiting for analysis.")
+
+            with st.expander("🧭 AI Strategy (M2 Parameter Plan)"):
+                st.markdown("**Sampler 1: Structural Setup**")
+                st.code(
+                    f"steps: {m2_plan['ksampler1']['steps']}, "
+                    f"cfg: {m2_plan['ksampler1']['cfg']}, "
+                    f"denoise: {m2_plan['ksampler1']['denoise']}"
+                )
+                st.markdown("**Sampler 2: Ink Refinement**")
+                st.code(
+                    f"steps: {m2_plan['ksampler2']['steps']}, "
+                    f"cfg: {m2_plan['ksampler2']['cfg']}, "
+                    f"denoise: {m2_plan['ksampler2']['denoise']}"
+                )
+                st.markdown("**Motion-Lock Engine**")
+                st.code(
+                    f"Union strength: {m2_plan['controlnet_union']['strength']}, "
+                    f"Union end: {m2_plan['controlnet_union']['end_percent']}"
+                )
+                st.code(
+                    f"OpenPose strength: {m2_plan['controlnet_openpose']['strength']}, "
+                    f"OpenPose end: {m2_plan['controlnet_openpose']['end_percent']}"
+                )
+                st.markdown("**Style Injection (IP-Adapter)**")
+                st.code(
+                    f"weight: {m2_plan['ip_adapter']['weight']}, "
+                    f"end_at: {m2_plan['ip_adapter']['end_at']}"
+                )
         # Display generated images
         if generated_image:
             img_placeholder.empty()  # Clear placeholder

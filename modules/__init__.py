@@ -14,11 +14,11 @@ This package contains the core modules for the AI Animation Studio:
 __all__ = [
     # Config
     "AnalysisConfig",
-    "PHASE_PARAMS",
     "SD_MODELS",
     "DEFAULT_LINE_ART_MODEL",
-    "DEFAULT_ANALYST_PROMPT",
-    "DEFAULT_PROMPT_ENGINEER",
+    "DEFAULT_M2_MODEL",
+    "DEFAULT_ANALYST_PROMPT_M2",
+    
     # Utils
     "load_image_bytes",
     "normalize_report",
@@ -27,12 +27,13 @@ __all__ = [
     "get_thinking_config",
     "get_model_name",
     # Agents
-    "run_visual_analyst",
-    "run_prompt_engineer",
-    "generate_smart_fallback_prompts",
+    "run_visual_analyst_m2",
+    "run_prompt_engineer_m2",
+    "generate_m2_cleanup_prompts",
+    # Workflow Registry
+    "get_workflow_spec",
     # AD-Agent
-    "ParameterPlan",
-    "create_parameter_plan",
+    "create_parameter_plan_m2",
     # ComfyUI
     "call_comfyui",
 ]
@@ -42,35 +43,37 @@ def __getattr__(name):
     """Lazy import to avoid circular dependencies and streamlit hot-reload issues."""
     if name in __all__:
         # Import on-demand to avoid module initialization issues
-        if name in ("AnalysisConfig", "PHASE_PARAMS", "SD_MODELS", "DEFAULT_LINE_ART_MODEL", "DEFAULT_ANALYST_PROMPT", "DEFAULT_PROMPT_ENGINEER"):
-            from .config import AnalysisConfig, PHASE_PARAMS, SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_ANALYST_PROMPT, DEFAULT_PROMPT_ENGINEER
+        if name in ("AnalysisConfig", "SD_MODELS", "DEFAULT_LINE_ART_MODEL"):
+            from .config import AnalysisConfig, SD_MODELS, DEFAULT_LINE_ART_MODEL
             return locals()[name]
+        elif name == "DEFAULT_ANALYST_PROMPT_M2":
+            from .config import DEFAULT_ANALYST_PROMPT_M2
+            return DEFAULT_ANALYST_PROMPT_M2
+        elif name == "DEFAULT_M2_MODEL":
+            from .config import DEFAULT_M2_MODEL
+            return DEFAULT_M2_MODEL
         elif name in ("load_image_bytes", "normalize_report"):
             from .utils import load_image_bytes, normalize_report
             return locals()[name]
         elif name in ("get_genai_client", "get_thinking_config", "get_model_name"):
             from .gemini_client import get_genai_client, get_thinking_config, get_model_name
             return locals()[name]
-        elif name == "run_visual_analyst":
-            from .visual_analyst import run_visual_analyst
-            return run_visual_analyst
-        elif name in ("run_prompt_engineer", "generate_smart_fallback_prompts"):
-            from .prompt_engineer import run_prompt_engineer, generate_smart_fallback_prompts
+        elif name == "run_visual_analyst_m2":
+            from .visual_analyst import run_visual_analyst_m2
+            return run_visual_analyst_m2
+        elif name in ("run_prompt_engineer_m2", "generate_m2_cleanup_prompts"):
+            from .prompt_engineer import run_prompt_engineer_m2, generate_m2_cleanup_prompts
             return locals()[name]
-        elif name == "ParameterPlan":
+        elif name == "create_parameter_plan_m2":
             try:
-                from .parameter_plan import ParameterPlan
-                return ParameterPlan
+                from .animation_director import create_parameter_plan_m2
+                return create_parameter_plan_m2
             except (ImportError, AttributeError) as e:
-                raise ImportError(f"Failed to import ParameterPlan: {e}")
-        elif name == "create_parameter_plan":
-            try:
-                from .animation_director import create_parameter_plan
-                return create_parameter_plan
-            except (ImportError, AttributeError) as e:
-                raise ImportError(f"Failed to import create_parameter_plan from animation_director: {e}. Make sure animation_director.py exists.")
+                raise ImportError(f"Failed to import create_parameter_plan_m2 from animation_director: {e}.")
         elif name == "call_comfyui":
             from .comfyui_client import call_comfyui
             return call_comfyui
+        elif name == "get_workflow_spec":
+            from .workflow_registry import get_workflow_spec
+            return get_workflow_spec
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-

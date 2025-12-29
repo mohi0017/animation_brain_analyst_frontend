@@ -1,0 +1,401 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "animagine-xl-3.1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "2": {
+    "inputs": {
+      "text": "score_9, score_8_up, score_7_up, (masterpiece), (ultra-clean lineart:1.4), (vector style:1.2), high contrast, solid black lines, flat color, 2d animation style, official art, sharp edges, white background, (smooth outlines:1.3), high-resolution, minimalist, 1girl, short hair, wearing black round sunglasses, short sleeves crop top, denim shorts, sitting pose, wide angle perspective, extreme long legs, holding papers in hand, waving hand",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": "score_4, score_5, score_6, (rough sketch:1.5), messy lines, construction lines, overlapping strokes, gray scale, blurry, lowres, shadow gradients, 3d render, realistic, shaky lines, hatching, pencil marks, dirty lines, extra fingers, deformed hands, (sketchy texture:1.3), (pencil shading:1.2), compression artifacts",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "image": "Drive_Steering_Roughs_0024.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "5": {
+    "inputs": {
+      "seed": 153563715982370,
+      "steps": 30,
+      "cfg": 8.5,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "karras",
+      "denoise": 0.65,
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "79",
+        0
+      ],
+      "negative": [
+        "79",
+        1
+      ],
+      "latent_image": [
+        "65",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "41": {
+    "inputs": {
+      "samples": [
+        "55",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "42": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "52": {
+    "inputs": {
+      "rembg_session": [
+        "53",
+        0
+      ],
+      "image": [
+        "41",
+        0
+      ]
+    },
+    "class_type": "ImageRemoveBackground+",
+    "_meta": {
+      "title": "🔧 Image Remove Background"
+    }
+  },
+  "53": {
+    "inputs": {
+      "model": "isnet-general-use: general purpose",
+      "providers": "CUDA"
+    },
+    "class_type": "RemBGSession+",
+    "_meta": {
+      "title": "🔧 RemBG Session"
+    }
+  },
+  "54": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "41",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "55": {
+    "inputs": {
+      "seed": 153563715982370,
+      "steps": 30,
+      "cfg": 7.5,
+      "sampler_name": "dpmpp_2m_sde_gpu",
+      "scheduler": "karras",
+      "denoise": 0.3,
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "77",
+        0
+      ],
+      "negative": [
+        "76",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "61": {
+    "inputs": {
+      "control_net_name": "controlnet_xl_union_xinsir.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  },
+  "62": {
+    "inputs": {
+      "strength": 0.5,
+      "start_percent": 0,
+      "end_percent": 0.65,
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
+      "control_net": [
+        "61",
+        0
+      ],
+      "image": [
+        "4",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced",
+    "_meta": {
+      "title": "Apply ControlNet"
+    }
+  },
+  "65": {
+    "inputs": {
+      "pixels": [
+        "4",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "66": {
+    "inputs": {
+      "weight": 0.8,
+      "weight_type": "linear",
+      "combine_embeds": "concat",
+      "start_at": 0,
+      "end_at": 0.6,
+      "embeds_scaling": "V only",
+      "model": [
+        "1",
+        0
+      ],
+      "ipadapter": [
+        "68",
+        0
+      ],
+      "image": [
+        "72",
+        0
+      ],
+      "clip_vision": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "IPAdapterAdvanced",
+    "_meta": {
+      "title": "IPAdapter Advanced"
+    }
+  },
+  "68": {
+    "inputs": {
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"
+    },
+    "class_type": "IPAdapterModelLoader",
+    "_meta": {
+      "title": "IPAdapter Model Loader"
+    }
+  },
+  "69": {
+    "inputs": {
+      "clip_name": "CLIP-ViT-H-14-laion2B-s32b-b79k.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "Load CLIP Vision"
+    }
+  },
+  "72": {
+    "inputs": {
+      "image": "pasted/image (3).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "73": {
+    "inputs": {
+      "samples": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "74": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "76": {
+    "inputs": {
+      "text": "(color:1.6), shading, gradients, shadows, blurry, messy lines, rough sketch, pencil texture, gray scale, background noise, artifacts",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "77": {
+    "inputs": {
+      "text": "(masterpiece), (ultra-clean lineart:1.5), (vector line art:1.3), high contrast, solid black lines, pure white background, sharp edges, flat 2d illustration, digital ink, perfect outlines.",
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "78": {
+    "inputs": {
+      "detect_hand": "enable",
+      "detect_body": "enable",
+      "detect_face": "enable",
+      "resolution": 1920,
+      "bbox_detector": "yolox_l.onnx",
+      "pose_estimator": "dw-ll_ucoco_384_bs5.torchscript.pt",
+      "scale_stick_for_xinsr_cn": "disable",
+      "image": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "DWPreprocessor",
+    "_meta": {
+      "title": "DWPose Estimator"
+    }
+  },
+  "79": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 0.8,
+      "positive": [
+        "62",
+        0
+      ],
+      "negative": [
+        "62",
+        1
+      ],
+      "control_net": [
+        "80",
+        0
+      ],
+      "image": [
+        "78",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced",
+    "_meta": {
+      "title": "Apply ControlNet"
+    }
+  },
+  "80": {
+    "inputs": {
+      "control_net_name": "controlnet_openpose_sdxl.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "Load ControlNet Model"
+    }
+  }
+}
