@@ -29,7 +29,7 @@ SD_MODELS = {
         "use_when": "You need strong anime-style output with clean structure",
         "keywords": ["anime", "character", "cel", "lineart", "xl"]
     },
-    "anything-v5-PrtRE.safetensors": {
+    "anythingxl-ink-base.safetensors": {
         "name": "AnythingXL Ink Base",
         "category": "Line Art",
         "description": "Best for pure line art and ink drawings. Perfect for animation cleanup phases.",
@@ -37,47 +37,11 @@ SD_MODELS = {
         "strengths": "Clean lines, no unwanted shading, preserves ink color, transparent backgrounds",
         "use_when": "Input is sketches, line art, or needs clean outlines without fills",
         "keywords": ["line art", "sketch", "outline", "ink", "drawing", "clean lines"]
-    },
-    "Counterfeit-V3.0.safetensors": {
-        "name": "Counterfeit V3",
-        "category": "Anime",
-        "description": "High-quality anime style. Great for character-focused work with vibrant colors.",
-        "best_for": ["CleanUp", "Colors"],
-        "strengths": "Anime aesthetics, vibrant colors, detailed characters, smooth gradients",
-        "use_when": "Input has anime characters or needs anime-style coloring",
-        "keywords": ["anime", "character", "girl", "boy", "manga", "face", "eyes"]
-    },
-    "GhostMix-v2.0.safetensors": {
-        "name": "GhostMix V2",
-        "category": "Anime/Fantasy",
-        "description": "Ethereal anime style with soft lighting. Good for fantasy and atmospheric scenes.",
-        "best_for": ["Colors"],
-        "strengths": "Soft lighting, atmospheric effects, fantasy aesthetics, detailed backgrounds",
-        "use_when": "Input has fantasy elements, magical scenes, or needs atmospheric coloring",
-        "keywords": ["fantasy", "magic", "ethereal", "atmospheric", "ghost", "spirit"]
-    },
-    "Lyriel-v1.6.safetensors": {
-        "name": "Lyriel V1.6",
-        "category": "Illustration",
-        "description": "Versatile illustration model. Works for both line art and coloring with artistic flair.",
-        "best_for": ["Tie Down", "CleanUp", "Colors"],
-        "strengths": "Artistic style, versatile, good for illustrations, balanced detail",
-        "use_when": "Input needs artistic illustration style or book/concept art quality",
-        "keywords": ["illustration", "art", "artistic", "book", "concept", "versatile"]
-    },
-    "Realistic_Vision_V5.1.safetensors": {
-        "name": "Realistic Vision V5.1",
-        "category": "Photorealistic",
-        "description": "Photorealistic rendering. ⚠️ NOT recommended for line art (adds unwanted shading).",
-        "best_for": ["Colors"],
-        "strengths": "Photorealistic quality, 3D-like rendering, realistic lighting and shadows",
-        "use_when": "Input is photo or needs realistic rendering (NOT for line art phases)",
-        "keywords": ["photo", "realistic", "3d", "render", "real", "portrait"]
     }
 }
 
 # Default model for line art phases
-DEFAULT_LINE_ART_MODEL = "anything-v5-PrtRE.safetensors"
+DEFAULT_LINE_ART_MODEL = "anythingxl-ink-base.safetensors"
 
 # Default model for Milestone 2 workflow (SDXL)
 DEFAULT_M2_MODEL = "animagine-xl-3.1.safetensors"
@@ -109,6 +73,5 @@ Rules:
 - anatomy_risk reflects how risky anatomy correction is.
 - complexity is based on line density / detail amount.
 """
-
 
 

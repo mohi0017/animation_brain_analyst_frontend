@@ -20,7 +20,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 **Expected logs:**
 - `🧭 Director: line_quality=messy, anatomy_risk=high, complexity=...`
 - `🧭 Director: CN Union end=0.65, OpenPose end>=0.80, IP end_at<Union`
-- `🧭 Director: model auto-switch → anything-v5-PrtRE.safetensors`
+- `🧭 Director: model auto-switch → anythingxl-ink-base.safetensors`
 
 **Validation pointers:**
 - Confirm no shading/gradients (Stage 2 negatives doing their job)
@@ -100,4 +100,3 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 - Always show **Director Summary** before generating
 - Use **AI Strategy** expander to confirm sequential gap values
 - If results look off, check buckets (line_quality/anatomy_risk)
-
