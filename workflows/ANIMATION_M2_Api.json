@@ -10,7 +10,7 @@
   },
   "2": {
     "inputs": {
-      "text": "score_9, score_8_up, score_7_up, (masterpiece), (ultra-clean lineart:1.4), (vector style:1.2), high contrast, solid black lines, flat color, 2d animation style, official art, sharp edges, white background, (smooth outlines:1.3), high-resolution, minimalist, 1girl, short hair, wearing black round sunglasses, short sleeves crop top, denim shorts, sitting pose, wide angle perspective, extreme long legs, holding papers in hand, waving hand",
+      "text": "score_9, (masterpiece), 1girl, short hair, round sunglasses, crop top, shorts, sitting, legs stretched out, foreshortening, from below, waving hand, (rough sketch)",
       "clip": [
         "1",
         1
@@ -23,7 +23,7 @@
   },
   "3": {
     "inputs": {
-      "text": "score_4, score_5, score_6, (rough sketch:1.5), messy lines, construction lines, overlapping strokes, gray scale, blurry, lowres, shadow gradients, 3d render, realistic, shaky lines, hatching, pencil marks, dirty lines, extra fingers, deformed hands, (sketchy texture:1.3), (pencil shading:1.2), compression artifacts",
+      "text": "score_4, score_5, score_6, lowres, bad anatomy, deformed hands, extra fingers, missing limbs, blurry, compression artifacts, jpeg artifacts",
       "clip": [
         "1",
         1
@@ -36,7 +36,7 @@
   },
   "4": {
     "inputs": {
-      "image": "Drive_Steering_Roughs_0024.png"
+      "image": "Drive_Steering_Roughs_0003.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -50,7 +50,7 @@
       "cfg": 8.5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.65,
+      "denoise": 0.5,
       "model": [
         "66",
         0
@@ -148,7 +148,7 @@
       "cfg": 7.5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.3,
+      "denoise": 0.35,
       "model": [
         "66",
         0
@@ -182,9 +182,9 @@
   },
   "62": {
     "inputs": {
-      "strength": 0.5,
+      "strength": 0.8,
       "start_percent": 0,
-      "end_percent": 0.65,
+      "end_percent": 0.6,
       "positive": [
         "2",
         0
@@ -229,11 +229,11 @@
   },
   "66": {
     "inputs": {
-      "weight": 0.8,
+      "weight": 0.7,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0,
-      "end_at": 0.6,
+      "end_at": 0,
       "embeds_scaling": "V only",
       "model": [
         "1",
@@ -244,7 +244,7 @@
         0
       ],
       "image": [
-        "72",
+        "87",
         0
       ],
       "clip_vision": [
@@ -277,7 +277,7 @@
   },
   "72": {
     "inputs": {
-      "image": "pasted/image (3).png"
+      "image": "refrence image 4.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -315,7 +315,7 @@
   },
   "76": {
     "inputs": {
-      "text": "(color:1.6), shading, gradients, shadows, blurry, messy lines, rough sketch, pencil texture, gray scale, background noise, artifacts",
+      "text": "(color:1.6), shading, gradients, shadows, messy lines, rough sketch, pencil texture, gray scale, background noise, realistic, 3d render",
       "clip": [
         "1",
         1
@@ -328,7 +328,7 @@
   },
   "77": {
     "inputs": {
-      "text": "(masterpiece), (ultra-clean lineart:1.5), (vector line art:1.3), high contrast, solid black lines, pure white background, sharp edges, flat 2d illustration, digital ink, perfect outlines.",
+      "text": "(solid black lines:1.5), (vector line art:1.3), sharp edges, pure white background, digital ink, cel shaded, flat color",
       "clip": [
         "1",
         1
@@ -362,7 +362,7 @@
     "inputs": {
       "strength": 1,
       "start_percent": 0,
-      "end_percent": 0.8,
+      "end_percent": 0,
       "positive": [
         "62",
         0
@@ -396,6 +396,21 @@
     "class_type": "ControlNetLoader",
     "_meta": {
       "title": "Load ControlNet Model"
+    }
+  },
+  "87": {
+    "inputs": {
+      "interpolation": "BICUBIC",
+      "crop_position": "pad",
+      "sharpening": 0,
+      "image": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "PrepImageForClipVision",
+    "_meta": {
+      "title": "Prep Image For ClipVision"
     }
   }
 }
