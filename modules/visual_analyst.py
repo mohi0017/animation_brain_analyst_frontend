@@ -13,6 +13,9 @@ except Exception:
 
 from .config import AnalysisConfig, DEFAULT_ANALYST_PROMPT_M2
 from .gemini_client import get_genai_client, get_thinking_config, get_model_name
+from .utils import get_logger, parse_report_blob
+
+logger = get_logger("visual_analyst")
 
 
 def run_visual_analyst_m2(
@@ -65,12 +68,17 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
             ),
         )
         text = response.text or ""
-        try:
-            import json
-            return json.loads(text)
-        except Exception:
-            return {"fixes": [], "removes": [], "notes": [text.strip()]}
+        logger.info(f"Visual analyst response received ({len(text)} chars)")
+        
+        parsed = parse_report_blob(text)
+        if parsed:
+            return parsed
+        
+        logger.warning("Failed to parse JSON from analyst response, returning raw notes")
+        return {"fixes": [], "removes": [], "notes": [text.strip()]}
+
     except Exception as exc:
+        logger.error(f"Gemini analyst fallback (error: {exc})")
         st.warning(f"Gemini analyst fallback (error: {exc})")
         return {
             "fixes": [],

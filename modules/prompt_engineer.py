@@ -7,6 +7,9 @@ from __future__ import annotations
 from typing import Optional, Tuple
 import json
 import re
+from .utils import get_logger
+
+logger = get_logger("prompt_engineer")
 
 
 def generate_m2_cleanup_prompts() -> Tuple[str, str, str]:
@@ -55,10 +58,36 @@ def _ensure_score_tags(pos_prompt: str) -> str:
 
 
 def _cap_prompt_tokens(prompt: str, max_tokens: int = 75) -> str:
+    """
+    Cap prompt tags while prioritizing critical identifiers.
+    """
     tags = [t.strip() for t in prompt.split(",") if t.strip()]
     if len(tags) <= max_tokens:
         return prompt
-    return ", ".join(tags[:max_tokens])
+    
+    # Priority tags: score tags, masterpiece, and bracketed emphasis
+    priority_tags = []
+    other_tags = []
+    
+    for tag in tags:
+        lower_tag = tag.lower()
+        if "score_" in lower_tag or "masterpiece" in lower_tag or "(" in tag:
+            priority_tags.append(tag)
+        else:
+            other_tags.append(tag)
+            
+    # Reconstruct with priority first
+    combined = priority_tags + other_tags
+    logger.info(f"Capping prompt: {len(tags)} tags -> {max_tokens} tags (prioritized {len(priority_tags)} tags)")
+    return ", ".join(combined[:max_tokens])
+
+
+def _append_unique_tags(prompt: str, tags: list[str]) -> str:
+    existing = {t.strip().lower() for t in prompt.split(",") if t.strip()}
+    additions = [t for t in tags if t.strip().lower() not in existing]
+    if not additions:
+        return prompt
+    return f"{prompt}, {', '.join(additions)}"
 
 
 def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
@@ -136,9 +165,34 @@ def run_prompt_engineer_m2(
         elif "solid black lines" not in pos2.lower():
             pos2 = f"{pos2}, (solid black lines:1.5)"
 
+    if dest_phase in ("Tie Down", "CleanUp"):
+        neg1 = _append_unique_tags(
+            neg1,
+            [
+                "color",
+                "colored background",
+                "background",
+                "fills",
+                "gradients",
+                "texture",
+            ],
+        )
+        neg2 = _append_unique_tags(
+            neg2,
+            [
+                "color",
+                "colored background",
+                "background",
+                "fills",
+                "gradients",
+                "texture",
+            ],
+        )
+
     pos1 = _ensure_score_tags(pos1)
     pos1 = _cap_prompt_tokens(pos1, max_tokens=75)
     neg1 = _cap_prompt_tokens(neg1, max_tokens=75)
 
     rationale = f"Stage1: {rationale1} Stage2: {rationale2}"
+    logger.info(f"M2 Prompts generated. Rationale: {rationale}")
     return pos1, neg1, pos2, neg2, rationale

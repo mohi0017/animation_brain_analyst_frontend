@@ -5,6 +5,9 @@ Animation Director Agent (AD-Agent) - M2 Parameter Planner
 from __future__ import annotations
 
 from .config import DEFAULT_LINE_ART_MODEL, DEFAULT_M2_MODEL
+from .utils import get_logger
+
+logger = get_logger("animation_director")
 
 
 def create_parameter_plan_m2(
@@ -70,6 +73,9 @@ def create_parameter_plan_m2(
     if line_quality == "messy":
         ks1_denoise = min(cfg["ks1_denoise"][1], ks1_denoise + 0.1)
         cn_union_end = min(cn_union_end, 0.65)
+        # Reduce style transfer for messy inputs to avoid color/style bleed
+        ip_weight = min(ip_weight, 0.4)
+        ip_end = min(ip_end, 0.4)
 
     # Rule A: high anatomy risk -> reduce style weight, force openpose strength
     if anatomy_risk == "high":
@@ -86,13 +92,18 @@ def create_parameter_plan_m2(
     openpose_end = max(0.80, openpose_end)
     cn_union_end = min(cn_union_end, openpose_end - 0.15)
 
+    # Rule D: low complexity + clean lines -> reduce denoise to preserve detail
+    if complexity == "simple" and line_quality == "structured":
+        ks1_denoise = max(cfg["ks1_denoise"][0], ks1_denoise - 0.05)
+        logger.info("Low complexity and structured lines detected: reducing KS1 denoise")
+
     # Adapter ends before union
     if ip_end >= cn_union_end:
         ip_end = max(0.20, cn_union_end - 0.05)
 
     model_name = DEFAULT_M2_MODEL
 
-    return {
+    plan = {
         "transition": transition,
         "model_name": model_name,
         "ksampler1": {
@@ -118,3 +129,5 @@ def create_parameter_plan_m2(
             "end_at": round(ip_end, 2),
         },
     }
+    logger.info(f"Parameter plan created: {plan}")
+    return plan

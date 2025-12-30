@@ -4,8 +4,22 @@ Utility functions for AI Animation Studio.
 
 from __future__ import annotations
 import io
+import json
+import logging
+import re
 from typing import Tuple
 from PIL import Image
+
+# Configure basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a named logger."""
+    return logging.getLogger(name)
 
 
 def load_image_bytes(file) -> Tuple[bytes, str]:
@@ -26,7 +40,7 @@ def load_image_bytes(file) -> Tuple[bytes, str]:
 
 def parse_report_blob(blob: str) -> dict:
     """
-    Parse JSON from a string, stripping code fences.
+    Parse JSON from a string, stripping code fences and robustly extracting JSON objects.
     
     Args:
         blob: String potentially containing JSON with markdown code fences
@@ -36,17 +50,23 @@ def parse_report_blob(blob: str) -> dict:
     """
     if not blob:
         return {}
+    
     text = blob.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1].strip()
-    if text.lower().startswith("json"):
-        text = text[4:].strip()
+    
+    # 1. Try to find JSON block in markdown code fences
+    code_block_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    if code_block_match:
+        text = code_block_match.group(1).strip()
+    else:
+        # 2. Try to find anything that looks like a JSON object
+        object_match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if object_match:
+            text = object_match.group(1).strip()
+    
     try:
-        import json
         return json.loads(text)
-    except Exception:
+    except Exception as exc:
+        get_logger("utils").debug(f"Failed to parse JSON blob: {exc}. Original: {blob[:100]}...")
         return {}
 
 
