@@ -261,10 +261,7 @@ def _update_m2_v10_workflow(
         workflow["4"]["inputs"]["image"] = uploaded_filename
         log(f"✅ Updated main image filename: {uploaded_filename}")
 
-    # Reference image for IP-Adapter
-    if "72" in workflow and workflow["72"].get("class_type") == "LoadImage":
-        workflow["72"]["inputs"]["image"] = reference_uploaded_filename
-        log(f"✅ Updated reference image filename: {reference_uploaded_filename}")
+    _update_reference_image_nodes(workflow, reference_uploaded_filename, log)
 
     if m2_plan:
         ks1 = m2_plan.get("ksampler1", {})
@@ -301,6 +298,49 @@ def _update_m2_v10_workflow(
             log("✅ Updated M2 IP-Adapter params")
 
     return workflow
+
+
+def _update_reference_image_nodes(workflow: dict, reference_uploaded_filename: str, log) -> None:
+    """Update the reference image LoadImage node feeding IP-Adapter, even if IDs change."""
+    updated = False
+    ipadapter_nodes = [
+        (node_id, node)
+        for node_id, node in workflow.items()
+        if isinstance(node, dict) and node.get("class_type") == "IPAdapterAdvanced"
+    ]
+
+    for _, ip_node in ipadapter_nodes:
+        image_input = ip_node.get("inputs", {}).get("image")
+        if not (isinstance(image_input, list) and len(image_input) >= 1):
+            continue
+        image_node_id = str(image_input[0])
+        image_node = workflow.get(image_node_id)
+        if not isinstance(image_node, dict):
+            continue
+
+        if image_node.get("class_type") == "LoadImage":
+            image_node["inputs"]["image"] = reference_uploaded_filename
+            updated = True
+            continue
+
+        if image_node.get("class_type") == "PrepImageForClipVision":
+            upstream = image_node.get("inputs", {}).get("image")
+            if isinstance(upstream, list) and len(upstream) >= 1:
+                upstream_id = str(upstream[0])
+                upstream_node = workflow.get(upstream_id)
+                if isinstance(upstream_node, dict) and upstream_node.get("class_type") == "LoadImage":
+                    upstream_node["inputs"]["image"] = reference_uploaded_filename
+                    updated = True
+
+    # Fallback for legacy mapping
+    if not updated and "72" in workflow and workflow["72"].get("class_type") == "LoadImage":
+        workflow["72"]["inputs"]["image"] = reference_uploaded_filename
+        updated = True
+
+    if updated:
+        log(f"✅ Updated reference image filename: {reference_uploaded_filename}")
+    else:
+        log("⚠️ Reference image node not found for IP-Adapter")
 
 
 def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[bytes, bytes]]:
