@@ -204,8 +204,20 @@ def run_prompt_engineer_m2(
         "(colored lines:1.3)",
         "(pastel:1.2)",
     ]
+    tone_block_negatives_stage2 = [
+        "(grayscale:1.4)",
+        "(grey:1.4)",
+        "(tones:1.3)",
+        "(halftone:1.3)",
+        "(screen tone:1.3)",
+        "(paper texture:1.3)",
+        "(crosshatching:1.3)",
+        "(hatching:1.3)",
+        "(noise texture:1.3)",
+    ]
     neg1 = _append_unique_tags(neg1, color_block_negatives_stage1)
     neg2 = _append_unique_tags(neg2, color_block_negatives_stage2)
+    neg2 = _append_unique_tags(neg2, tone_block_negatives_stage2)
     # Keep only colored background negatives; remove plain "background" tag.
     neg1 = _remove_conflicting_tags(neg1, ["background"])
     neg2 = _remove_conflicting_tags(neg2, ["background"])
