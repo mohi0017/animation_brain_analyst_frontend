@@ -83,7 +83,10 @@ def create_parameter_plan_m2(
     # Enforce minimums requested by user
     cn_union_strength = max(cn_union_strength, 0.6)
     openpose_strength = max(openpose_strength, 0.9)
-    openpose_end = 0.0
+    ks1_cfg = _clamp(ks1_cfg, 8.0, 10.0)
+    ks2_cfg = _clamp(ks2_cfg, 8.0, 10.0)
+    ks1_steps = 35
+    ks2_steps = 35
 
     # Messy lines -> more structure lock, less style
     if line_quality == "messy":
@@ -92,6 +95,7 @@ def create_parameter_plan_m2(
         cn_union_end = max(cn_union_end, 0.65)
         ip_weight = min(ip_weight, 0.4)
         ip_end = min(ip_end, 0.4)
+        ks1_steps += 3
 
     # Clean lines -> relax structure, push cleanup
     if line_quality == "clean":
@@ -105,6 +109,7 @@ def create_parameter_plan_m2(
         ip_weight = max(cfg["ip"][0], ip_weight - 0.2)
         openpose_strength = 1.0
         openpose_end = max(openpose_end, 0.9)
+        ks1_steps += 2
 
     # Complexity rules
     if complexity == "simple":
@@ -113,6 +118,8 @@ def create_parameter_plan_m2(
     elif complexity == "detailed":
         ks1_denoise = min(cfg["ks1_denoise"][1], ks1_denoise + 0.05)
         ip_weight = min(cfg["ip"][1], ip_weight + 0.1)
+        ks1_steps += 2
+        ks2_steps += 1
 
     # Need strong pose lock
     if pose_lock:
@@ -159,11 +166,13 @@ def create_parameter_plan_m2(
         ks2_denoise = _clamp(ks2_denoise + 0.05, 0.1, 0.6)
         cn_union_strength = _clamp(cn_union_strength + 0.1, 0.2, 1.0)
 
-    # Core safe constraints (skip gap rule when OpenPose end is 0.0)
-    if openpose_end > 0:
-        openpose_end = max(0.80, openpose_end)
+    # Core safe constraints
+    openpose_end = _clamp(openpose_end, 0.0, 0.05)
+    if openpose_end > 0.05:
         cn_union_end = min(cn_union_end, openpose_end - 0.15)
     cn_union_end = _clamp(cn_union_end, 0.2, 0.9)
+    ks1_steps = int(_clamp(ks1_steps, 35, 40))
+    ks2_steps = int(_clamp(ks2_steps, 35, 40))
     if ip_end >= cn_union_end:
         ip_end = max(0.20, cn_union_end - 0.05)
     if ks2_denoise >= ks1_denoise:
@@ -180,12 +189,12 @@ def create_parameter_plan_m2(
         "transition": transition,
         "model_name": model_name,
         "ksampler1": {
-            "steps": 30,
+            "steps": ks1_steps,
             "cfg": round(ks1_cfg, 2),
             "denoise": round(ks1_denoise, 2),
         },
         "ksampler2": {
-            "steps": 30,
+            "steps": ks2_steps,
             "cfg": round(ks2_cfg, 2),
             "denoise": round(ks2_denoise, 2),
         },
