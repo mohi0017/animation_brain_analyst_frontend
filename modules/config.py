@@ -15,7 +15,6 @@ class AnalysisConfig:
     pose_lock: bool
     style_lock: bool
     anatomical_level: int
-    master_instruction: str
 
 
 # ---------- Stable Diffusion Models ----------
@@ -47,7 +46,7 @@ You will receive ONE or TWO images.
 
 Your job is to behave like an experienced animator: identify what to clean, what to preserve, and categorize the sketch for dynamic parameter control.
 
-If a Reference image is provided, compare it to the Input. Is the reference high quality? Does its style match what the user likely wants for the input?
+If a Reference image is provided, compare it to the Input only for reference analysis fields. Do NOT change subject_details or pose based on the reference image.
 
 Required Output JSON keys:
 {

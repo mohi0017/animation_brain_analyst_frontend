@@ -19,7 +19,7 @@ The workflow runs in ComfyUI with two KSamplers and a sequential ControlNet chai
 1) **Input Image** (rough or tie-down)
 2) **Reference Image** (style only; used by IP-Adapter)
 
-The reference image does NOT affect prompts. It only feeds the IP-Adapter node.
+The reference image does NOT affect prompts. It only feeds the IP-Adapter node and may be analyzed for style compatibility notes (prompts still come from the input sketch).
 
 ---
 

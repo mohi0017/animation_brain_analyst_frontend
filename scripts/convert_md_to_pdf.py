@@ -19,14 +19,14 @@ except ImportError:
     from weasyprint import HTML, CSS
 
 
-def create_pdf_style():
+def create_pdf_style(header_text: str):
     """Create CSS styling for PDF output."""
-    return """
+    style = """
     @page {
         size: A4;
         margin: 2cm;
         @top-center {
-            content: "AI Animation Studio - Technical Documentation";
+            content: "__HEADER_TEXT__";
             font-size: 10pt;
             color: #666;
         }
@@ -216,9 +216,10 @@ def create_pdf_style():
         margin: 15px 0;
     }
     """
+    return style.replace("__HEADER_TEXT__", header_text)
 
 
-def markdown_to_html(md_content, style_css):
+def markdown_to_html(md_content, style_css, doc_title: str):
     """Convert markdown content to HTML with styling."""
     # Convert markdown to HTML
     html_body = markdown.markdown(
@@ -246,7 +247,7 @@ def markdown_to_html(md_content, style_css):
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>AI Animation Studio - Technical Documentation</title>
+        <title>{doc_title}</title>
         <style>
             {style_css}
         </style>
@@ -281,11 +282,19 @@ def convert_md_to_pdf(md_file_path, output_pdf_path=None):
     
     print(f"Converting to PDF: {output_pdf_path}")
     
+    stem = md_path.stem.lower()
+    if stem == "user_guide":
+        header_text = "AI Animation Studio - User Guide"
+        doc_title = "AI Animation Studio - User Guide"
+    else:
+        header_text = "AI Animation Studio - Technical Documentation"
+        doc_title = "AI Animation Studio - Technical Documentation"
+
     # Create CSS styling
-    style_css = create_pdf_style()
+    style_css = create_pdf_style(header_text)
     
     # Convert markdown to HTML
-    html_doc = markdown_to_html(md_content, style_css)
+    html_doc = markdown_to_html(md_content, style_css, doc_title)
     
     # Convert HTML to PDF
     try:
@@ -348,4 +357,3 @@ Examples:
 
 if __name__ == '__main__':
     sys.exit(main())
-

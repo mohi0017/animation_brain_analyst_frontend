@@ -94,6 +94,9 @@ def normalize_report(report: dict) -> dict:
     line_quality = report.get("line_quality")
     anatomy_risk = report.get("anatomy_risk")
     complexity = report.get("complexity")
+    reference_quality = report.get("reference_quality")
+    style_compatibility = report.get("style_compatibility")
+    reference_summary = report.get("reference_summary")
     cleaned_notes = []
 
     if isinstance(raw_notes, list):
@@ -117,6 +120,9 @@ def normalize_report(report: dict) -> dict:
                     line_quality = line_quality or parsed.get("line_quality", line_quality)
                     anatomy_risk = anatomy_risk or parsed.get("anatomy_risk", anatomy_risk)
                     complexity = complexity or parsed.get("complexity", complexity)
+                    reference_quality = reference_quality or parsed.get("reference_quality", reference_quality)
+                    style_compatibility = style_compatibility or parsed.get("style_compatibility", style_compatibility)
+                    reference_summary = reference_summary or parsed.get("reference_summary", reference_summary)
                     # do not keep the raw JSON blob in cleaned notes
                     continue
             cleaned_notes.append(n)
@@ -133,4 +139,7 @@ def normalize_report(report: dict) -> dict:
         "line_quality": line_quality,
         "anatomy_risk": anatomy_risk,
         "complexity": complexity,
+        "reference_quality": reference_quality,
+        "style_compatibility": style_compatibility,
+        "reference_summary": reference_summary,
     }

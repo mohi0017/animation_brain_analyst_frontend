@@ -205,12 +205,6 @@ selected_model = st.selectbox(
 )
 st.caption("Model is locked to Animagine XL 3.1 for M2.")
 
-master_instruction = st.text_area(
-    "Custom Instructions (Optional - for advanced users)",
-    value="",
-    placeholder="Leave this empty to use the default settings. Only fill this if you know what you're doing.",
-)
-
 # ---------- Section 3: Generation Control & Output ----------
 st.header("3️⃣ Generate Your Animation Frame")
 st.markdown("_Click the button below to start processing_")
@@ -240,7 +234,6 @@ if generate:
             pose_lock=pose_lock,
             style_lock=style_lock,
             anatomical_level=anat_level,
-            master_instruction=master_instruction,
         )
 
         # Execute workflow with status updates
@@ -248,7 +241,13 @@ if generate:
             selected_workflow_path = None if use_server_workflow else workflow_spec.api_path
             # Step 1: Visual Analyst
             status.write("🔍 Step 1: Analyzing your image with AI...")
-            raw_report = run_visual_analyst_m2(image_bytes, mime, cfg)
+            raw_report = run_visual_analyst_m2(
+                image_bytes,
+                mime,
+                cfg,
+                reference_bytes=reference_bytes,
+                reference_mime=reference_mime,
+            )
             report = normalize_report(raw_report)
 
             required_fields = ["subject_details", "line_quality", "anatomy_risk", "complexity"]
@@ -295,7 +294,6 @@ if generate:
             pos_prompt, neg_prompt, pos_prompt_stage2, neg_prompt_stage2, rationale = run_prompt_engineer_m2(
                 report,
                 dest_phase,
-                master_instruction,
                 source_phase=source_phase,
                 pose_lock=pose_lock,
                 style_lock=style_lock,

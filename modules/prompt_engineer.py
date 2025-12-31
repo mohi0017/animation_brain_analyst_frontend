@@ -90,6 +90,17 @@ def _append_unique_tags(prompt: str, tags: list[str]) -> str:
     return f"{prompt}, {', '.join(additions)}"
 
 
+def _remove_conflicting_tags(prompt: str, conflicts: list[str]) -> str:
+    tags = [t.strip() for t in prompt.split(",") if t.strip()]
+    conflicts_lower = {c.lower() for c in conflicts}
+    filtered = []
+    for tag in tags:
+        if tag.lower() in conflicts_lower:
+            continue
+        filtered.append(tag)
+    return ", ".join(filtered)
+
+
 def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
     if not workflow_path:
         return None
@@ -124,7 +135,6 @@ def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
 def run_prompt_engineer_m2(
     report: dict,
     dest_phase: str,
-    override: str,
     source_phase: str = "Roughs",
     pose_lock: bool = True,
     style_lock: bool = True,
@@ -177,12 +187,34 @@ def run_prompt_engineer_m2(
         neg2 = _append_unique_tags(neg2, rescue_negatives)
 
     if dest_phase in ("Tie Down", "CleanUp"):
+        pos2 = _append_unique_tags(
+            pos2,
+            [
+                "solid black lines",
+                "continuous and smooth lines",
+                "pure white background",
+            ],
+        )
+        pos2 = _remove_conflicting_tags(
+            pos2,
+            [
+                "color",
+                "colored background",
+                "background",
+                "fills",
+                "gradients",
+                "texture",
+                "cel shaded",
+                "flat color",
+                "shading",
+                "shadows",
+            ],
+        )
         neg1 = _append_unique_tags(
             neg1,
             [
                 "color",
                 "colored background",
-                "background",
                 "fills",
                 "gradients",
                 "texture",
@@ -193,12 +225,72 @@ def run_prompt_engineer_m2(
             [
                 "color",
                 "colored background",
-                "background",
                 "fills",
                 "gradients",
                 "texture",
             ],
         )
+
+    if dest_phase == "CleanUp":
+        anatomy_focus = [
+            "clear anatomy",
+            "accurate anatomy",
+            "well-defined facial features",
+            "clean hands",
+            "clean feet",
+            "clean legs",
+            "clean torso",
+            "clean hips",
+            "clean shoulders",
+        ]
+        pos1 = _append_unique_tags(pos1, anatomy_focus)
+        pos2 = _append_unique_tags(pos2, anatomy_focus)
+
+    # Enforce clean black lines + white background across all stages
+    pos1 = _append_unique_tags(
+        pos1,
+        [
+            "solid black lines",
+            "continuous and smooth lines",
+            "pure white background",
+        ],
+    )
+    pos2 = _append_unique_tags(
+        pos2,
+        [
+            "solid black lines",
+            "continuous and smooth lines",
+            "pure white background",
+        ],
+    )
+    pos1 = _remove_conflicting_tags(
+        pos1,
+        [
+            "color",
+            "colored background",
+            "fills",
+            "gradients",
+            "texture",
+            "cel shaded",
+            "flat color",
+            "shading",
+            "shadows",
+        ],
+    )
+    pos2 = _remove_conflicting_tags(
+        pos2,
+        [
+            "color",
+            "colored background",
+            "fills",
+            "gradients",
+            "texture",
+            "cel shaded",
+            "flat color",
+            "shading",
+            "shadows",
+        ],
+    )
 
     pos1 = _ensure_score_tags(pos1)
     pos1 = _cap_prompt_tokens(pos1, max_tokens=75)

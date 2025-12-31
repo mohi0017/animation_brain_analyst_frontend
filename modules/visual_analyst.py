@@ -47,6 +47,8 @@ def run_visual_analyst_m2(
             "anatomy_risk": "",
             "complexity": "",
             "reference_quality": "none",
+            "style_compatibility": "none",
+            "reference_summary": "",
         }
 
     model_name = get_model_name()
@@ -102,4 +104,7 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
             "line_quality": "",
             "anatomy_risk": "",
             "complexity": "",
+            "reference_quality": "none",
+            "style_compatibility": "none",
+            "reference_summary": "",
         }
