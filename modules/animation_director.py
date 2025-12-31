@@ -104,6 +104,12 @@ def create_parameter_plan_m2(
     if ip_end >= cn_union_end:
         ip_end = max(0.20, cn_union_end - 0.05)
 
+    # CleanUp: enforce low style influence and lower KS2 denoise for pure lineart
+    if dest_phase == "CleanUp":
+        ip_weight = min(ip_weight, 0.25)
+        ip_end = min(ip_end, 0.25)
+        ks2_denoise = min(ks2_denoise, 0.25)
+
     model_name = DEFAULT_M2_MODEL
 
     plan = {
