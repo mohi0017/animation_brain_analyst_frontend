@@ -332,6 +332,7 @@ def run_prompt_engineer_m2(
     # Remove "rough sketch" language when aiming for clean output
     if dest_phase in ("Tie Down", "CleanUp"):
         pos1 = re.sub(r"\brough sketch\b", "", pos1, flags=re.IGNORECASE)
+        pos1 = re.sub(r"\(\s*\)", "", pos1)
     pos1 = _remove_conflicting_tags(
         pos1,
         [

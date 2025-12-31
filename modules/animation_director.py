@@ -110,6 +110,12 @@ def create_parameter_plan_m2(
         ip_end = min(ip_end, 0.25)
         ks2_denoise = min(ks2_denoise, 0.25)
 
+    # Tie Down: reduce style influence and soften KS1 denoise to avoid fill/shading
+    if dest_phase == "Tie Down":
+        ip_weight = min(ip_weight, 0.25)
+        ip_end = min(ip_end, 0.30)
+        ks1_denoise = min(ks1_denoise, 0.75)
+
     model_name = DEFAULT_M2_MODEL
 
     plan = {
