@@ -50,7 +50,7 @@
       "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.6,
+      "denoise": 0.7,
       "model": [
         "66",
         0
