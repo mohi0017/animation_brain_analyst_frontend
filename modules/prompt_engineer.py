@@ -35,7 +35,11 @@ def _sanitize_subject_details(details: str) -> str:
     parts = [p.strip() for p in cleaned.split(",") if p.strip()]
     safe_parts = []
     for part in parts:
-        if len(part.split()) > 5:
+        if len(part.split()) > 4:
+            continue
+        if re.search(r"[.?!;:]", part):
+            continue
+        if re.search(r"\b(the|this|that|these|those|with|and|for|to|from)\b", part, re.IGNORECASE):
             continue
         safe_parts.append(part)
     return ", ".join(safe_parts)
