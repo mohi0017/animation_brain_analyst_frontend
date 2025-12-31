@@ -26,14 +26,29 @@ def generate_m2_cleanup_prompts() -> Tuple[str, str, str]:
     return pos, neg, rationale
 
 
+def _sanitize_subject_details(details: str) -> str:
+    cleaned = details.strip()
+    cleaned = cleaned.replace("\n", " ").replace("\r", " ")
+    cleaned = re.sub(r"[\[\]{}()\"']", "", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    # Split by commas and keep short tag-like tokens
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+    safe_parts = []
+    for part in parts:
+        if len(part.split()) > 5:
+            continue
+        safe_parts.append(part)
+    return ", ".join(safe_parts)
+
+
 def _extract_subject_details(report: dict) -> str:
     details = report.get("subject_details")
     if isinstance(details, str) and details.strip():
-        return details.strip()
+        return _sanitize_subject_details(details)
     preserve = report.get("preserve") or []
     for item in preserve:
         if isinstance(item, str) and item.strip().lower().startswith("subject:"):
-            return item.split(":", 1)[-1].strip()
+            return _sanitize_subject_details(item.split(":", 1)[-1].strip())
     return ""
 
 
@@ -314,6 +329,9 @@ def run_prompt_engineer_m2(
             "pure white background",
         ],
     )
+    # Remove "rough sketch" language when aiming for clean output
+    if dest_phase in ("Tie Down", "CleanUp"):
+        pos1 = re.sub(r"\brough sketch\b", "", pos1, flags=re.IGNORECASE)
     pos1 = _remove_conflicting_tags(
         pos1,
         [
