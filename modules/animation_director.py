@@ -80,8 +80,8 @@ def create_parameter_plan_m2(
     def _clamp(val, lo, hi):
         return max(lo, min(val, hi))
 
-    # Enforce minimums requested by user
-    cn_union_strength = max(cn_union_strength, 0.6)
+    # Enforce union/openpose clamps requested by user
+    cn_union_strength = _clamp(cn_union_strength, 0.3, 0.6)
     openpose_strength = max(openpose_strength, 0.9)
     ks1_cfg = _clamp(ks1_cfg, 8.0, 10.0)
     ks2_cfg = _clamp(ks2_cfg, 8.0, 10.0)

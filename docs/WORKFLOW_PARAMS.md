@@ -28,7 +28,7 @@ These are the best current parameter values used by the M2 workflow files.
 
 ### Core Safe Constraints (never break)
 - OpenPose strength >= 0.90
-- Union strength >= 0.60
+- Union strength clamped to 0.30–0.60
 - OpenPose end clamped to 0.00–0.05 (background safety)
 - Union end gap rule applies only when OpenPose end > 0
 - KSampler1 CFG clamped to 8.0–10.0
