@@ -270,6 +270,8 @@ if generate:
                 report=report,
                 source_phase=source_phase,
                 dest_phase=dest_phase,
+                pose_lock=pose_lock,
+                style_lock=style_lock,
             )
             # Director's decision log
             status.write(

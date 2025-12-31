@@ -87,6 +87,8 @@ def normalize_report(report: dict) -> dict:
     removes = report.get("removes") or []
     preserve = report.get("preserve") or []
     raw_notes = report.get("notes") or []
+    issues = report.get("issues") or []
+    style_match = report.get("style_match")
     style_keywords = report.get("style_keywords") or []
     style_notes = report.get("style_notes") or []
     subject_details = report.get("subject_details")
@@ -120,6 +122,8 @@ def normalize_report(report: dict) -> dict:
                     line_quality = line_quality or parsed.get("line_quality", line_quality)
                     anatomy_risk = anatomy_risk or parsed.get("anatomy_risk", anatomy_risk)
                     complexity = complexity or parsed.get("complexity", complexity)
+                    issues = issues or parsed.get("issues", issues)
+                    style_match = style_match if style_match is not None else parsed.get("style_match")
                     reference_quality = reference_quality or parsed.get("reference_quality", reference_quality)
                     style_compatibility = style_compatibility or parsed.get("style_compatibility", style_compatibility)
                     reference_summary = reference_summary or parsed.get("reference_summary", reference_summary)
@@ -127,11 +131,18 @@ def normalize_report(report: dict) -> dict:
                     continue
             cleaned_notes.append(n)
 
+    if style_match is None and style_compatibility:
+        if style_compatibility in ("match", "compatible"):
+            style_match = True
+        elif style_compatibility == "conflict":
+            style_match = False
+
     return {
         "fixes": fixes,
         "removes": removes,
         "preserve": preserve,
         "notes": cleaned_notes,
+        "issues": issues,
         "style_keywords": style_keywords,
         "style_notes": style_notes,
         "subject_details": subject_details,
@@ -139,6 +150,7 @@ def normalize_report(report: dict) -> dict:
         "line_quality": line_quality,
         "anatomy_risk": anatomy_risk,
         "complexity": complexity,
+        "style_match": style_match,
         "reference_quality": reference_quality,
         "style_compatibility": style_compatibility,
         "reference_summary": reference_summary,

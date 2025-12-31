@@ -187,12 +187,20 @@ def run_prompt_engineer_m2(
     subject = _extract_subject_details(report)
     pose = _extract_pose(report)
     if subject:
-        # Prefer analyst-driven subject details over template text.
-        pos1 = subject
+        subject_tags = [t.strip() for t in subject.split(",") if t.strip()]
+        if pos1:
+            pos1 = _append_unique_tags(pos1, subject_tags)
+        else:
+            pos1 = ", ".join(subject_tags)
+        if pos2:
+            pos2 = _append_unique_tags(pos2, subject_tags)
+        else:
+            pos2 = ", ".join(subject_tags)
     if pose:
-        pos1 = f"{pos1}, {pose}".strip(", ")
-    if subject:
-        pos2 = f"{pos2}, {subject}".strip(", ")
+        if pos1:
+            pos1 = _append_unique_tags(pos1, [pose])
+        else:
+            pos1 = pose
 
     line_quality = (report.get("line_quality") or "").lower().strip()
     if line_quality == "messy":
@@ -311,6 +319,20 @@ def run_prompt_engineer_m2(
                 "texture",
             ],
         )
+        lineart_tags = [
+            "solid black lines",
+            "continuous and smooth lines",
+            "unbroken linework",
+            "single clean stroke",
+            "bold line weight",
+            "thick outline",
+            "solid ink strokes",
+            "pure white background",
+        ]
+        if pos1:
+            pos1 = _append_unique_tags(pos1, lineart_tags)
+        else:
+            pos1 = ", ".join(lineart_tags)
 
     if dest_phase == "CleanUp":
         anatomy_focus = [
@@ -327,33 +349,7 @@ def run_prompt_engineer_m2(
         pos1 = _append_unique_tags(pos1, anatomy_focus)
         pos2 = _append_unique_tags(pos2, anatomy_focus)
 
-    # Enforce clean black lines + white background across all stages
-    pos1 = _append_unique_tags(
-        pos1,
-        [
-            "solid black lines",
-            "continuous and smooth lines",
-            "unbroken linework",
-            "single clean stroke",
-            "bold line weight",
-            "thick outline",
-            "solid ink strokes",
-            "pure white background",
-        ],
-    )
-    pos2 = _append_unique_tags(
-        pos2,
-        [
-            "solid black lines",
-            "continuous and smooth lines",
-            "unbroken linework",
-            "single clean stroke",
-            "bold line weight",
-            "thick outline",
-            "solid ink strokes",
-            "pure white background",
-        ],
-    )
+    # Keep clean-line enforcement limited to Tie Down / CleanUp phases.
     # Remove "rough sketch" language when aiming for clean output
     if dest_phase in ("Tie Down", "CleanUp"):
         pos1 = re.sub(r"\brough sketch\b", "", pos1, flags=re.IGNORECASE)

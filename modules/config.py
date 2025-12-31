@@ -54,11 +54,13 @@ Required Output JSON keys:
   "removes": [...],
   "preserve": [...],
   "notes": [...],
+  "issues": [...],
   "subject_details": "tag list like: character, wings, armor",
   "phase_goal": "Rough to Tie Down | Rough to CleanUp | Tie Down to CleanUp",
   "line_quality": "messy | structured | clean",
   "anatomy_risk": "low | medium | high",
   "complexity": "simple | detailed",
+  "style_match": "true | false | null",
   "reference_quality": "high | medium | messy | none",
   "style_compatibility": "match | compatible | conflict | none",
   "reference_summary": "Brief analysis of the reference image (if present)"
@@ -69,6 +71,8 @@ Rules:
 - line_quality describes line cleanliness (messy roughs vs clean ink).
 - anatomy_risk reflects how risky anatomy correction is.
 - complexity is based on line density / detail amount.
+- issues is optional; list problems like "pose drift", "over-processed", "thin lines".
+- style_match is optional; true if reference style should be strongly matched.
 - reference_quality: 'messy' if the reference itself is a scribbly sketch; 'high' if it's a finished production frame.
 - style_compatibility: 'conflict' if input and reference have totally different proportions (e.g. chibi vs realistic).
 - If the input clearly shows clothing or lack of clothing, include a concise, neutral tag (e.g., "swimsuit", "bare torso", "bare shoulders").

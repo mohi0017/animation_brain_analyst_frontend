@@ -336,8 +336,42 @@ def _update_m2_v10_workflow(
 
     _update_reference_image_nodes(workflow, reference_uploaded_filename, log)
 
-    if m2_plan:
+    if not m2_plan:
         log("ℹ️ Skipping dynamic parameter updates; using workflow defaults")
+        return workflow
+
+    ks1 = m2_plan.get("ksampler1", {})
+    ks2 = m2_plan.get("ksampler2", {})
+    cn_union = m2_plan.get("controlnet_union", {})
+    cn_openpose = m2_plan.get("controlnet_openpose", {})
+    ip = m2_plan.get("ip_adapter", {})
+
+    if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
+        workflow["5"]["inputs"]["steps"] = ks1.get("steps", workflow["5"]["inputs"].get("steps"))
+        workflow["5"]["inputs"]["cfg"] = ks1.get("cfg", workflow["5"]["inputs"].get("cfg"))
+        workflow["5"]["inputs"]["denoise"] = ks1.get("denoise", workflow["5"]["inputs"].get("denoise"))
+        log("✅ Updated M2 KSampler1 params")
+
+    if "55" in workflow and workflow["55"].get("class_type") == "KSampler":
+        workflow["55"]["inputs"]["steps"] = ks2.get("steps", workflow["55"]["inputs"].get("steps"))
+        workflow["55"]["inputs"]["cfg"] = ks2.get("cfg", workflow["55"]["inputs"].get("cfg"))
+        workflow["55"]["inputs"]["denoise"] = ks2.get("denoise", workflow["55"]["inputs"].get("denoise"))
+        log("✅ Updated M2 KSampler2 params")
+
+    if "62" in workflow and workflow["62"].get("class_type") == "ControlNetApplyAdvanced":
+        workflow["62"]["inputs"]["strength"] = cn_union.get("strength", workflow["62"]["inputs"].get("strength"))
+        workflow["62"]["inputs"]["end_percent"] = cn_union.get("end_percent", workflow["62"]["inputs"].get("end_percent"))
+        log("✅ Updated M2 ControlNet Union params")
+
+    if "79" in workflow and workflow["79"].get("class_type") == "ControlNetApplyAdvanced":
+        workflow["79"]["inputs"]["strength"] = cn_openpose.get("strength", workflow["79"]["inputs"].get("strength"))
+        workflow["79"]["inputs"]["end_percent"] = cn_openpose.get("end_percent", workflow["79"]["inputs"].get("end_percent"))
+        log("✅ Updated M2 OpenPose params")
+
+    if "66" in workflow and workflow["66"].get("class_type") == "IPAdapterAdvanced":
+        workflow["66"]["inputs"]["weight"] = ip.get("weight", workflow["66"]["inputs"].get("weight"))
+        workflow["66"]["inputs"]["end_at"] = ip.get("end_at", workflow["66"]["inputs"].get("end_at"))
+        log("✅ Updated M2 IP-Adapter params")
 
     return workflow
 
