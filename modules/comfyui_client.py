@@ -203,8 +203,14 @@ def _update_workflow(
 ) -> dict:
     """Update M2 v10 workflow with prompts, images, and parameters."""
     if "nodes" in workflow:
-        log("⚠️ M2 workflow requires API (v10) format. Please use ANIMATION_M2_Api.json.")
-        return workflow
+        return _update_m2_nodes_workflow(
+            workflow,
+            prompts,
+            uploaded_filename,
+            reference_uploaded_filename,
+            model_name,
+            log,
+        )
     return _update_m2_v10_workflow(
         workflow,
         prompts,
@@ -215,6 +221,73 @@ def _update_workflow(
         log,
     )
 
+
+def _update_m2_nodes_workflow(
+    workflow: dict,
+    prompts: dict,
+    uploaded_filename: str,
+    reference_uploaded_filename: str,
+    model_name: Optional[str],
+    log,
+) -> dict:
+    """Update M2 workflow in nodes format with prompts and image filenames only."""
+    log("📝 Updating M2 workflow (nodes format)...")
+
+    stage1 = prompts.get("stage1", {})
+    stage2 = prompts.get("stage2", {})
+    pos1 = stage1.get("positive", "")
+    neg1 = stage1.get("negative", "")
+    pos2 = stage2.get("positive", "")
+    neg2 = stage2.get("negative", "")
+
+    nodes = workflow.get("nodes", [])
+    node_map = {n.get("id"): n for n in nodes if isinstance(n, dict)}
+
+    def _set_widget_text(node_id: int, text: str) -> None:
+        node = node_map.get(node_id)
+        if not node:
+            return
+        if node.get("type") != "CLIPTextEncode":
+            return
+        widgets = node.get("widgets_values") or []
+        if widgets:
+            widgets[0] = text
+        else:
+            node["widgets_values"] = [text]
+
+    def _set_load_image(node_id: int, filename: str) -> None:
+        node = node_map.get(node_id)
+        if not node:
+            return
+        if node.get("type") != "LoadImage":
+            return
+        widgets = node.get("widgets_values") or []
+        if widgets:
+            widgets[0] = filename
+        else:
+            node["widgets_values"] = [filename, "image"]
+
+    if model_name:
+        node = node_map.get(1)
+        if node and node.get("type") == "CheckpointLoaderSimple":
+            widgets = node.get("widgets_values") or []
+            if widgets:
+                widgets[0] = model_name
+            else:
+                node["widgets_values"] = [model_name]
+            log(f"🎨 Updated SD Model: {model_name}")
+
+    _set_widget_text(2, pos1)
+    _set_widget_text(3, neg1)
+    _set_widget_text(77, pos2)
+    _set_widget_text(76, neg2)
+    log("✅ Updated M2 prompts (nodes format)")
+
+    _set_load_image(4, uploaded_filename)
+    _set_load_image(72, reference_uploaded_filename)
+    log("✅ Updated image filenames (nodes format)")
+
+    return workflow
 
 def _update_m2_v10_workflow(
     workflow: dict,
@@ -264,38 +337,7 @@ def _update_m2_v10_workflow(
     _update_reference_image_nodes(workflow, reference_uploaded_filename, log)
 
     if m2_plan:
-        ks1 = m2_plan.get("ksampler1", {})
-        ks2 = m2_plan.get("ksampler2", {})
-        cn_union = m2_plan.get("controlnet_union", {})
-        cn_openpose = m2_plan.get("controlnet_openpose", {})
-        ip = m2_plan.get("ip_adapter", {})
-
-        if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
-            workflow["5"]["inputs"]["steps"] = ks1.get("steps", workflow["5"]["inputs"].get("steps"))
-            workflow["5"]["inputs"]["cfg"] = ks1.get("cfg", workflow["5"]["inputs"].get("cfg"))
-            workflow["5"]["inputs"]["denoise"] = ks1.get("denoise", workflow["5"]["inputs"].get("denoise"))
-            log("✅ Updated M2 KSampler1 params")
-
-        if "55" in workflow and workflow["55"].get("class_type") == "KSampler":
-            workflow["55"]["inputs"]["steps"] = ks2.get("steps", workflow["55"]["inputs"].get("steps"))
-            workflow["55"]["inputs"]["cfg"] = ks2.get("cfg", workflow["55"]["inputs"].get("cfg"))
-            workflow["55"]["inputs"]["denoise"] = ks2.get("denoise", workflow["55"]["inputs"].get("denoise"))
-            log("✅ Updated M2 KSampler2 params")
-
-        if "62" in workflow and workflow["62"].get("class_type") == "ControlNetApplyAdvanced":
-            workflow["62"]["inputs"]["strength"] = cn_union.get("strength", workflow["62"]["inputs"].get("strength"))
-            workflow["62"]["inputs"]["end_percent"] = cn_union.get("end_percent", workflow["62"]["inputs"].get("end_percent"))
-            log("✅ Updated M2 ControlNet Union params")
-
-        if "79" in workflow and workflow["79"].get("class_type") == "ControlNetApplyAdvanced":
-            workflow["79"]["inputs"]["strength"] = cn_openpose.get("strength", workflow["79"]["inputs"].get("strength"))
-            workflow["79"]["inputs"]["end_percent"] = cn_openpose.get("end_percent", workflow["79"]["inputs"].get("end_percent"))
-            log("✅ Updated M2 OpenPose params")
-
-        if "66" in workflow and workflow["66"].get("class_type") == "IPAdapterAdvanced":
-            workflow["66"]["inputs"]["weight"] = ip.get("weight", workflow["66"]["inputs"].get("weight"))
-            workflow["66"]["inputs"]["end_at"] = ip.get("end_at", workflow["66"]["inputs"].get("end_at"))
-            log("✅ Updated M2 IP-Adapter params")
+        log("ℹ️ Skipping dynamic parameter updates; using workflow defaults")
 
     return workflow
 

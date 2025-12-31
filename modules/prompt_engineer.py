@@ -187,13 +187,12 @@ def run_prompt_engineer_m2(
     subject = _extract_subject_details(report)
     pose = _extract_pose(report)
     if subject:
-        match = re.search(r"\b\d+girl\b|\b\d+boy\b|\bgirl\b|\bboy\b", pos1, re.IGNORECASE)
-        if match:
-            pos1 = pos1[:match.start()].rstrip(" ,") + f", {subject}"
-        else:
-            pos1 = f"{pos1}, {subject}".strip(", ")
+        # Prefer analyst-driven subject details over template text.
+        pos1 = subject
     if pose:
         pos1 = f"{pos1}, {pose}".strip(", ")
+    if subject:
+        pos2 = f"{pos2}, {subject}".strip(", ")
 
     line_quality = (report.get("line_quality") or "").lower().strip()
     if line_quality == "messy":
