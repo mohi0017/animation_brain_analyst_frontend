@@ -218,6 +218,15 @@ def run_prompt_engineer_m2(
     neg1 = _append_unique_tags(neg1, color_block_negatives_stage1)
     neg2 = _append_unique_tags(neg2, color_block_negatives_stage2)
     neg2 = _append_unique_tags(neg2, tone_block_negatives_stage2)
+    # Block dotted or broken lines
+    line_break_negatives = [
+        "(dotted lines:1.4)",
+        "(broken lines:1.4)",
+        "(sketchy lines:1.3)",
+        "(stippling:1.2)",
+    ]
+    neg1 = _append_unique_tags(neg1, line_break_negatives)
+    neg2 = _append_unique_tags(neg2, line_break_negatives)
     # Keep only colored background negatives; remove plain "background" tag.
     neg1 = _remove_conflicting_tags(neg1, ["background"])
     neg2 = _remove_conflicting_tags(neg2, ["background"])
@@ -228,6 +237,8 @@ def run_prompt_engineer_m2(
             [
                 "solid black lines",
                 "continuous and smooth lines",
+                "unbroken linework",
+                "single clean stroke",
                 "pure white background",
             ],
         )
@@ -288,6 +299,8 @@ def run_prompt_engineer_m2(
         [
             "solid black lines",
             "continuous and smooth lines",
+            "unbroken linework",
+            "single clean stroke",
             "pure white background",
         ],
     )
@@ -296,6 +309,8 @@ def run_prompt_engineer_m2(
         [
             "solid black lines",
             "continuous and smooth lines",
+            "unbroken linework",
+            "single clean stroke",
             "pure white background",
         ],
     )
