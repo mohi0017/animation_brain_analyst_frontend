@@ -27,8 +27,10 @@ These are the best current parameter values used by the M2 workflow files.
 ## Auto-Adaptive Rules (Implemented)
 
 ### Core Safe Constraints (never break)
-- OpenPose end >= 0.80
-- Union end <= OpenPose end - 0.15
+- OpenPose strength >= 0.90
+- Union strength >= 0.60
+- OpenPose end fixed at 0.00 (background safety)
+- Union end gap rule applies only when OpenPose end > 0
 - IP-Adapter end < Union end
 - KSampler2 denoise < KSampler1 denoise
 

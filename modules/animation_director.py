@@ -80,6 +80,11 @@ def create_parameter_plan_m2(
     def _clamp(val, lo, hi):
         return max(lo, min(val, hi))
 
+    # Enforce minimums requested by user
+    cn_union_strength = max(cn_union_strength, 0.6)
+    openpose_strength = max(openpose_strength, 0.9)
+    openpose_end = 0.0
+
     # Messy lines -> more structure lock, less style
     if line_quality == "messy":
         ks1_denoise = min(0.85, ks1_denoise + 0.1)
@@ -154,9 +159,10 @@ def create_parameter_plan_m2(
         ks2_denoise = _clamp(ks2_denoise + 0.05, 0.1, 0.6)
         cn_union_strength = _clamp(cn_union_strength + 0.1, 0.2, 1.0)
 
-    # Core safe constraints
-    openpose_end = max(0.80, openpose_end)
-    cn_union_end = min(cn_union_end, openpose_end - 0.15)
+    # Core safe constraints (skip gap rule when OpenPose end is 0.0)
+    if openpose_end > 0:
+        openpose_end = max(0.80, openpose_end)
+        cn_union_end = min(cn_union_end, openpose_end - 0.15)
     cn_union_end = _clamp(cn_union_end, 0.2, 0.9)
     if ip_end >= cn_union_end:
         ip_end = max(0.20, cn_union_end - 0.05)
