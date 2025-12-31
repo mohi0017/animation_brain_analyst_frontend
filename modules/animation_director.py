@@ -80,8 +80,7 @@ def create_parameter_plan_m2(
     def _clamp(val, lo, hi):
         return max(lo, min(val, hi))
 
-    # Enforce union/openpose clamps requested by user
-    cn_union_strength = _clamp(cn_union_strength, 0.3, 0.6)
+    # Enforce openpose minimum requested by user (union clamp applied at end)
     openpose_strength = max(openpose_strength, 0.9)
     ks1_cfg = _clamp(ks1_cfg, 8.0, 10.0)
     ks2_cfg = _clamp(ks2_cfg, 8.0, 10.0)
@@ -170,6 +169,7 @@ def create_parameter_plan_m2(
     openpose_end = _clamp(openpose_end, 0.0, 0.05)
     if openpose_end > 0.05:
         cn_union_end = min(cn_union_end, openpose_end - 0.15)
+    cn_union_strength = _clamp(cn_union_strength, 0.3, 0.6)
     cn_union_end = _clamp(cn_union_end, 0.2, 0.9)
     ks1_steps = int(_clamp(ks1_steps, 35, 40))
     ks2_steps = int(_clamp(ks2_steps, 35, 40))
