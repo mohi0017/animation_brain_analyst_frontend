@@ -120,6 +120,19 @@ def _remove_conflicting_tags(prompt: str, conflicts: list[str]) -> str:
     return ", ".join(filtered)
 
 
+def _dedupe_tags(prompt: str) -> str:
+    tags = [t.strip() for t in prompt.split(",") if t.strip()]
+    seen = set()
+    deduped = []
+    for tag in tags:
+        key = tag.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(tag)
+    return ", ".join(deduped)
+
+
 def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
     if not workflow_path:
         return None
@@ -367,8 +380,12 @@ def run_prompt_engineer_m2(
     )
 
     pos1 = _ensure_score_tags(pos1)
+    pos1 = _dedupe_tags(pos1)
     pos1 = _cap_prompt_tokens(pos1, max_tokens=75)
+    neg1 = _dedupe_tags(neg1)
     neg1 = _cap_prompt_tokens(neg1, max_tokens=75)
+    pos2 = _dedupe_tags(pos2)
+    neg2 = _dedupe_tags(neg2)
 
     rationale = f"Stage1: {rationale1} Stage2: {rationale2}"
     logger.info(f"M2 Prompts generated. Rationale: {rationale}")
