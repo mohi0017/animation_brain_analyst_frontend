@@ -186,20 +186,26 @@ def run_prompt_engineer_m2(
         neg1 = _append_unique_tags(neg1, rescue_negatives)
         neg2 = _append_unique_tags(neg2, rescue_negatives)
 
-    # Strong no-color negatives (use score-style emphasis, no background contradiction)
-    color_block_negatives = [
-        "(color:1.8)",
-        "(coloring:1.6)",
-        "(color fill:1.6)",
-        "(flat colors:1.6)",
-        "(flat colour:1.6)",
-        "(cel shading:1.6)",
-        "(painted:1.4)",
-        "(colored lines:1.4)",
+    # Color blocking: keep Stage 1 lighter, Stage 2 stronger (avoid noisy artifacts)
+    color_block_negatives_stage1 = [
+        "(color:1.2)",
+        "(color fill:1.2)",
+        "(flat colors:1.2)",
+        "(cel shading:1.2)",
+    ]
+    color_block_negatives_stage2 = [
+        "(color:1.6)",
+        "(coloring:1.4)",
+        "(color fill:1.4)",
+        "(flat colors:1.4)",
+        "(flat colour:1.4)",
+        "(cel shading:1.4)",
+        "(painted:1.3)",
+        "(colored lines:1.3)",
         "(pastel:1.2)",
     ]
-    neg1 = _append_unique_tags(neg1, color_block_negatives)
-    neg2 = _append_unique_tags(neg2, color_block_negatives)
+    neg1 = _append_unique_tags(neg1, color_block_negatives_stage1)
+    neg2 = _append_unique_tags(neg2, color_block_negatives_stage2)
     # Keep only colored background negatives; remove plain "background" tag.
     neg1 = _remove_conflicting_tags(neg1, ["background"])
     neg2 = _remove_conflicting_tags(neg2, ["background"])
