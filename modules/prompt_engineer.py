@@ -271,6 +271,9 @@ def run_prompt_engineer_m2(
                 "continuous and smooth lines",
                 "unbroken linework",
                 "single clean stroke",
+                "bold line weight",
+                "thick outline",
+                "solid ink strokes",
                 "pure white background",
             ],
         )
@@ -333,6 +336,9 @@ def run_prompt_engineer_m2(
             "continuous and smooth lines",
             "unbroken linework",
             "single clean stroke",
+            "bold line weight",
+            "thick outline",
+            "solid ink strokes",
             "pure white background",
         ],
     )
@@ -343,6 +349,9 @@ def run_prompt_engineer_m2(
             "continuous and smooth lines",
             "unbroken linework",
             "single clean stroke",
+            "bold line weight",
+            "thick outline",
+            "solid ink strokes",
             "pure white background",
         ],
     )
