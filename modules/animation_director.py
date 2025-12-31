@@ -26,26 +26,26 @@ def create_parameter_plan_m2(
 
     matrix = {
         "Roughs->Tie Down": {
-            "ks1_denoise": (0.50, 0.60),
+            "ks1_denoise": (0.55, 0.65),
             "ks1_cfg": (6.5, 7.5),
             "ks2_denoise": (0.20, 0.25),
-            "cn_union": (0.4, 0.5, 0.50),
-            "openpose": (0.8, 0.80),
+            "cn_union": (0.55, 0.65, 0.50),
+            "openpose": (0.9, 0.80),
             "ip": (0.4, 0.5, 0.40),
         },
         "Roughs->CleanUp": {
-            "ks1_denoise": (0.65, 0.75),
-            "ks1_cfg": (8.0, 9.0),
+            "ks1_denoise": (0.70, 0.80),
+            "ks1_cfg": (7.0, 8.0),
             "ks2_denoise": (0.30, 0.35),
-            "cn_union": (0.7, 0.8, 0.65),
+            "cn_union": (0.7, 0.8, 0.50),
             "openpose": (1.0, 0.85),
             "ip": (0.6, 0.8, 0.60),
         },
         "Tie Down->CleanUp": {
-            "ks1_denoise": (0.40, 0.50),
+            "ks1_denoise": (0.35, 0.45),
             "ks1_cfg": (7.0, 8.0),
             "ks2_denoise": (0.20, 0.30),
-            "cn_union": (0.5, 0.6, 0.75),
+            "cn_union": (0.5, 0.6, 0.80),
             "openpose": (0.8, 0.90),
             "ip": (0.5, 0.7, 0.50),
         },
@@ -71,8 +71,11 @@ def create_parameter_plan_m2(
 
     # Rule C: messy lines increase KS1 denoise
     if line_quality == "messy":
-        ks1_denoise = min(cfg["ks1_denoise"][1], ks1_denoise + 0.1)
-        cn_union_end = min(cn_union_end, 0.65)
+        # Aggressive Rescue Strategy
+        # Force high denoise to ignore construction lines
+        ks1_denoise = 0.82 
+        # Cut off ControlNet early to let model hallucinate clean lines
+        cn_union_end = 0.55
         # Reduce style transfer for messy inputs to avoid color/style bleed
         ip_weight = min(ip_weight, 0.4)
         ip_end = min(ip_end, 0.4)

@@ -164,6 +164,17 @@ def run_prompt_engineer_m2(
             )
         elif "solid black lines" not in pos2.lower():
             pos2 = f"{pos2}, (solid black lines:1.5)"
+        
+        # Inject Rescue Strategy negatives
+        rescue_negatives = [
+            "(construction lines:1.3)",
+            "(graphite:1.2)",
+            "(sketch artifacts:1.2)",
+            "(smudge:1.2)",
+            "(guidelines:1.1)",
+        ]
+        neg1 = _append_unique_tags(neg1, rescue_negatives)
+        neg2 = _append_unique_tags(neg2, rescue_negatives)
 
     if dest_phase in ("Tie Down", "CleanUp"):
         neg1 = _append_unique_tags(

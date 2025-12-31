@@ -19,9 +19,9 @@ These drive AD-Agent parameter selection.
 
 | Transition | KS1 Denoise | KS1 CFG | KS2 Denoise | Union Str/End | OpenPose Str/End | IP-Adapter Wt/End |
 |---|---|---|---|---|---|---|
-| Roughs → Tie Down | 0.50–0.60 | 6.5–7.5 | 0.20–0.25 | 0.4–0.5 / 0.50 | 0.8 / 0.80 | 0.4–0.5 / 0.40 |
-| Roughs → CleanUp | 0.65–0.75 | 8.0–9.0 | 0.30–0.35 | 0.7–0.8 / 0.65 | 1.0 / 0.85 | 0.6–0.8 / 0.60 |
-| Tie Down → CleanUp | 0.40–0.50 | 7.0–8.0 | 0.20–0.30 | 0.5–0.6 / 0.75 | 0.8 / 0.90 | 0.5–0.7 / 0.50 |
+| Roughs → Tie Down | 0.55–0.65 | 6.5–7.5 | 0.20–0.25 | 0.55–0.65 / 0.50 | 0.9 / 0.80 | 0.4–0.5 / 0.40 |
+| Roughs → CleanUp | 0.70–0.80 | 7.0–8.0 | 0.30–0.35 | 0.7–0.8 / 0.50 | 1.0 / 0.85 | 0.6–0.8 / 0.60 |
+| Tie Down → CleanUp | 0.35–0.45 | 7.0–8.0 | 0.20–0.30 | 0.5–0.6 / 0.80 | 0.8 / 0.90 | 0.5–0.7 / 0.50 |
 
 ---
 
@@ -35,9 +35,11 @@ These drive AD-Agent parameter selection.
 - OpenPose end >= 0.80
 - Union end = OpenPose end - 0.15
 
-**Rule C (Messy Lines):**
-- KS1 denoise +0.1 (capped)
-- Union end <= 0.65
+**Rule C (Messy Lines / Rescue Strategy):**
+- **Denoise:** KS1 forced to 0.82 (High hallucination)
+- **ControlNet:** Union end forced to 0.55 (Early cutoff)
+- **Negatives:** "construction lines", "graphite", "smudge" injected
+- **Style:** IP-Adapter capped at 0.4 weight
 
 ---
 

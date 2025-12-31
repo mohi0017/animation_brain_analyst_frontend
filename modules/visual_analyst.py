@@ -22,6 +22,8 @@ def run_visual_analyst_m2(
     image_bytes: bytes,
     mime: str,
     cfg: AnalysisConfig,
+    reference_bytes: Optional[bytes] = None,
+    reference_mime: Optional[str] = None,
 ) -> dict:
     """
     Run Visual Analyst for M2 using input + reference image.
@@ -44,10 +46,19 @@ def run_visual_analyst_m2(
             "line_quality": "",
             "anatomy_risk": "",
             "complexity": "",
+            "reference_quality": "none",
         }
 
     model_name = get_model_name()
     image_part = genai_types.Part.from_bytes(data=image_bytes, mime_type=mime)
+    
+    contents = [image_part]
+    
+    # Add reference image if available
+    if reference_bytes:
+        ref_part = genai_types.Part.from_bytes(data=reference_bytes, mime_type=reference_mime or "image/png")
+        contents.append(ref_part)
+        prompt += "\n\n(Note: The second image provided is the REFERENCE image)"
 
     config_block = f"""
 SOURCE_PHASE: {cfg.source_phase}
@@ -57,11 +68,12 @@ STYLE_LOCK: {cfg.style_lock}
 ANATOMICAL_LEVEL: {cfg.anatomical_level}
 """
     full_prompt = f"{prompt}\n\n{config_block}"
+    contents.append(full_prompt)
 
     try:
         response = client.models.generate_content(
             model=model_name,
-            contents=[image_part, full_prompt],
+            contents=contents,
             config=genai_types.GenerateContentConfig(
                 temperature=0.2,
                 thinking_config=get_thinking_config(),
