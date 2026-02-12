@@ -1,10 +1,10 @@
-# ControlNet Anatomy Strategy (M2)
+# ControlNet Anatomy Strategy (M3)
 ## Motion-Lock Engine with Sequential Gap
 
 ---
 
 ## Core Idea
-M2 uses a **sequential ControlNet chain** to preserve pose while allowing cleanup:
+M3 uses a **sequential ControlNet chain** to preserve pose while allowing cleanup:
 
 1) **ControlNet Union XL** defines the line/shape boundary
 2) **OpenPose** locks joints and skeleton
@@ -22,17 +22,18 @@ The **end_percent gap** is critical:
 This lets the model fix line quality while keeping pose locked.
 
 **Rule:**
-- `ip_adapter.end_at < controlnet_union.end_percent < openpose.end_percent`
+- Adaptive-path intent: `ip_adapter.end_at < controlnet_union.end_percent < openpose.end_percent`
+- Preset-path exception: some explicit presets pin multiple `end_percent` values to 1.0 for trace-like behavior.
 
 ---
 
 ## Required Limits
-- **OpenPose end_percent**: `>= 0.80` (always)
+- **OpenPose end_percent**: typically `>= 0.85` when pose lock is desired (often 1.0)
 - **Union end_percent**:
-  - `<= 0.65` for messy roughs
+  - `<= ~0.65` for messy/high-construction roughs
   - can be higher for clean tie-down
 - **IP-Adapter end_at**:
-  - always before Union
+  - typically before Union in the adaptive path
 
 ---
 
@@ -44,4 +45,4 @@ This lets the model fix line quality while keeping pose locked.
 ---
 
 ## Summary
-This strategy preserves motion while allowing high-quality cleanup. It is the core of the M2 Motion-Lock Engine.
+This strategy preserves motion while allowing high-quality cleanup. It is the core of the M3 Motion-Lock Engine.

@@ -1,10 +1,10 @@
-# M2 Technical Report
-## AI Animation Studio - Milestone 2
+# M3 Technical Report
+## AI Animation Studio - Milestone 3
 
 ---
 
 ## Quick Summary
-Milestone 2 introduces a **dual-stage pipeline** that decouples pose preservation from line cleanup using a sequential ControlNet chain and dual KSamplers.
+Milestone 3 introduces a **dual-stage pipeline** that decouples pose preservation from line cleanup using a sequential ControlNet chain and dual KSamplers.
 
 ---
 
@@ -14,6 +14,8 @@ Milestone 2 introduces a **dual-stage pipeline** that decouples pose preservatio
 - Reads the input sketch
 - Outputs structured buckets:
   - `line_quality`, `anatomy_risk`, `complexity`, `subject_details`
+  - `entity_type`, `entity_examples`
+  - `construction_lines`, `broken_lines`
 
 ### 2) AD-Agent (Director)
 - Computes dynamic parameters per transition
@@ -25,13 +27,13 @@ Milestone 2 introduces a **dual-stage pipeline** that decouples pose preservatio
 - Stage 2: Cleanup/inK template with priority lock for messy lines
 
 ### 4) ComfyUI (Executor)
-- Runs `ANIMATION_M2_Api.json`
+- Runs `Animation_Workflow_M3_Api.json`
 - Uses dual KSampler process with ControlNet chain
 - Outputs transparent and original PNG
 
 ---
 
-## Workflow (M2)
+## Workflow (M3)
 
 ### Key Nodes
 - `2/3` → Stage 1 prompts
@@ -51,15 +53,15 @@ Input image → Visual Analyst → AD-Agent params → Prompt Engineer → Comfy
 ---
 
 ## Key Guarantees
-- Pose preservation via OpenPose end >= 0.80
-- Union ends before OpenPose (cleanup gap)
-- IP-Adapter ends before Union (style decay)
+- Pose preservation via strong OpenPose (often strength=1.0) when pose lock is desired
+- Adaptive path typically uses a sequential end_percent gap (IP-Adapter < Union < OpenPose)
+- Preset paths may intentionally pin end_percent values to 1.0 for trace-like behavior
 
 ---
 
 ## Project Structure
 ```
-M2/
+M3/
 ├── app.py
 ├── modules/
 │   ├── animation_director.py
@@ -69,8 +71,8 @@ M2/
 │   ├── config.py
 │   └── utils.py
 ├── workflows/
-│   ├── ANIMATION_M2_Api.json
-│   └── ANIMATION_M2.json
+│   ├── Animation_Workflow_M3_Api.json
+│   └── (optional) other workflow variants
 ├── docs/
 │   ├── COMFYUI_INTEGRATION.md
 │   ├── CONTROLNET_ANATOMY_STRATEGY.md

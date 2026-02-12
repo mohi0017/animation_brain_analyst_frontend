@@ -24,10 +24,10 @@ from modules import (
     AnalysisConfig,
     load_image_bytes,
     normalize_report,
-    run_visual_analyst_m2,
-    run_prompt_engineer_m2,
+    run_visual_analyst_m3,
+    run_prompt_engineer_m3,
     call_comfyui,
-    create_parameter_plan_m2,
+    create_parameter_plan_m3,
     get_workflow_spec,
 )
 
@@ -83,11 +83,11 @@ with st.sidebar:
     )
     if comfy_url:
         st.caption(f"✅ Connected to: {comfy_url}")
-    
+
     st.markdown("**Workflow Settings**")
 
-    # Workflow selection (M2 only)
-    workflow_spec = get_workflow_spec("M2")
+    # Workflow selection (M3 only)
+    workflow_spec = get_workflow_spec("M3")
     st.caption(f"✅ Selected: {workflow_spec.label}")
     st.caption(f"📄 Workflow file: {workflow_spec.api_path}")
     
@@ -102,7 +102,7 @@ with st.sidebar:
         workflow_path_input = st.text_input(
             "Workflow File Name on Server",
             value=os.getenv("COMFYUI_WORKFLOW_PATH", ""),
-            help="Example: ANIMATION_M2_Api.json"
+            help="Example: Animation_Workflow_M3_Api.json"
         )
         if workflow_url_input:
             os.environ["COMFYUI_WORKFLOW_URL"] = workflow_url_input
@@ -118,6 +118,12 @@ with st.sidebar:
                 "⚠️ Selected workflow file not found. "
                 "Please add the file locally or use the server workflow settings above."
             )
+    st.markdown("**Debug Settings**")
+    debug_mode = st.checkbox(
+        "Show Step-by-Step Debug Images",
+        value=True,
+        help="ON: show raw and processed images by steps. OFF: show final image only (production mode).",
+    )
 
 # ---------- Section 1: Input & Upload ----------
 st.header("1️⃣ Upload Your Image")
@@ -135,9 +141,9 @@ if uploaded:
 reference_uploaded = None
 if workflow_spec.requires_reference:
     reference_uploaded = st.file_uploader(
-        "Upload Reference Style Image (Required for M2)",
+        "Upload Reference Style Image (Required for M3)",
         type=["png", "jpg", "jpeg"],
-        help="Used by IP-Adapter to inject style for M2"
+        help="Used by IP-Adapter to inject style for M3"
     )
     if reference_uploaded:
         st.markdown("**Reference Image Preview**")
@@ -184,26 +190,26 @@ anat_level = st.slider(
 )
 
 # Model Selection
-from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M2_MODEL
+from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
 
 st.markdown("**🎨 Stable Diffusion Model**")
-m2_options = [DEFAULT_M2_MODEL]
-m2_labels = [
+m3_options = [DEFAULT_M3_MODEL]
+m3_labels = [
     f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
-    for m in m2_options
+    for m in m3_options
 ]
-model_key = "m2_model_choice"
-auto_key = "m2_model_auto"
-if auto_key in st.session_state and st.session_state[auto_key] in m2_options:
+model_key = "m3_model_choice"
+auto_key = "m3_model_auto"
+if auto_key in st.session_state and st.session_state[auto_key] in m3_options:
     st.session_state[model_key] = st.session_state[auto_key]
 selected_model = st.selectbox(
-    "Select Model (M2):",
-    m2_options,
-    format_func=lambda m: m2_labels[m2_options.index(m)],
+    "Select Model (M3):",
+    m3_options,
+    format_func=lambda m: m3_labels[m3_options.index(m)],
     key=model_key,
-    help="Animagine XL 3.1 is the locked M2 model."
+    help="Animagine XL 3.1 is the locked M3 model."
 )
-st.caption("Model is locked to Animagine XL 3.1 for M2.")
+st.caption("Model is locked to Animagine XL 3.1 for M3.")
 
 # ---------- Section 3: Generation Control & Output ----------
 st.header("3️⃣ Generate Your Animation Frame")
@@ -218,7 +224,7 @@ if generate:
     if not uploaded:
         st.warning("⚠️ Please upload an image first before generating.")
     elif workflow_spec.requires_reference and not reference_uploaded:
-        st.warning("⚠️ Please upload a reference image for M2 workflow.")
+        st.warning("⚠️ Please upload a reference image for M3 workflow.")
     else:
         # Load image
         image_bytes, mime = load_image_bytes(uploaded)
@@ -241,7 +247,7 @@ if generate:
             selected_workflow_path = None if use_server_workflow else workflow_spec.api_path
             # Step 1: Visual Analyst
             status.write("🔍 Step 1: Analyzing your image with AI...")
-            raw_report = run_visual_analyst_m2(
+            raw_report = run_visual_analyst_m3(
                 image_bytes,
                 mime,
                 cfg,
@@ -249,11 +255,19 @@ if generate:
                 reference_mime=reference_mime,
             )
             report = normalize_report(raw_report)
-
-            required_fields = ["subject_details", "line_quality", "anatomy_risk", "complexity"]
+            required_fields = [
+                "subject_details",
+                "entity_type",
+                "construction_lines",
+                "low_construction_sublevel",
+                "broken_lines",
+                "line_quality",
+                "anatomy_risk",
+                "complexity",
+            ]
             missing = [f for f in required_fields if not report.get(f)]
             if missing:
-                status.write("❌ Visual Analyst output incomplete for M2.")
+                status.write("❌ Visual Analyst output incomplete for M3.")
                 st.error(
                     "Image analysis failed. Please re-upload or check your connection "
                     "to ensure anatomy-lock is active."
@@ -264,9 +278,9 @@ if generate:
             if selected_model:
                 model_info = SD_MODELS.get(selected_model, {})
                 model_name_display = model_info.get("name", selected_model)
-                status.write(f"🎨 Using model: {model_name_display} (M2 default)")
-            status.write("🎯 Step 1.5: AD-Agent computing M2 parameters...")
-            m2_plan = create_parameter_plan_m2(
+                status.write(f"🎨 Using model: {model_name_display} (M3 default)")
+            status.write("🎯 Step 1.5: AD-Agent computing M3 parameters...")
+            m3_plan = create_parameter_plan_m3(
                 report=report,
                 source_phase=source_phase,
                 dest_phase=dest_phase,
@@ -279,21 +293,21 @@ if generate:
                 f"anatomy_risk={report.get('anatomy_risk')}, "
                 f"complexity={report.get('complexity')}"
             )
-            if m2_plan:
+            if m3_plan:
                 status.write(
                     "🧭 Director: "
-                    f"CN Union end={m2_plan['controlnet_union']['end_percent']}, "
-                    f"OpenPose end={m2_plan['controlnet_openpose']['end_percent']}, "
-                    f"IP end_at={m2_plan['ip_adapter']['end_at']}"
+                    f"CN Union end={m3_plan['controlnet_union']['end_percent']}, "
+                    f"OpenPose end={m3_plan['controlnet_openpose']['end_percent']}, "
+                    f"IP end_at={m3_plan['ip_adapter']['end_at']}"
                 )
-                if m2_plan.get("model_name"):
-                    selected_model = m2_plan["model_name"]
-                    st.session_state["m2_model_auto"] = selected_model
+                if m3_plan.get("model_name"):
+                    selected_model = m3_plan["model_name"]
+                    st.session_state["m3_model_auto"] = selected_model
                     status.write(f"🧭 Director: model auto-switch → {selected_model}")
 
             # Step 2: Prompt Engineer
             status.write("✍️ Step 2: Creating instructions for image generation...")
-            pos_prompt, neg_prompt, pos_prompt_stage2, neg_prompt_stage2, rationale = run_prompt_engineer_m2(
+            pos_prompt, neg_prompt, pos_prompt_stage2, neg_prompt_stage2, rationale = run_prompt_engineer_m3(
                 report,
                 dest_phase,
                 source_phase=source_phase,
@@ -315,7 +329,8 @@ if generate:
                 status_writer=status,
                 workflow_path=selected_workflow_path,
                 reference_image_bytes=reference_bytes,
-                m2_plan=m2_plan,
+                m3_plan=m3_plan,
+                debug_mode=debug_mode,
             )
 
             status.update(label="✅ Complete! Your image is ready.", state="complete")
@@ -362,7 +377,7 @@ if generate:
         st.markdown("**Why These Instructions Were Created**")
         st.info(rationale or "No explanation available")
 
-        if m2_plan:
+        if m3_plan:
             summary = []
             line_quality = report.get("line_quality", "")
             anatomy_risk = report.get("anatomy_risk", "")
@@ -379,59 +394,85 @@ if generate:
                 summary.append("Dynamic parameters set based on sketch complexity and anatomy risk.")
             st.info(summary[0] if summary else "Waiting for analysis.")
 
-            with st.expander("🧭 AI Strategy (M2 Parameter Plan)"):
+            with st.expander("🧭 AI Strategy (M3 Parameter Plan)"):
                 st.markdown("**Sampler 1: Structural Setup**")
                 st.code(
-                    f"steps: {m2_plan['ksampler1']['steps']}, "
-                    f"cfg: {m2_plan['ksampler1']['cfg']}, "
-                    f"denoise: {m2_plan['ksampler1']['denoise']}"
+                    f"steps: {m3_plan['ksampler1']['steps']}, "
+                    f"cfg: {m3_plan['ksampler1']['cfg']}, "
+                    f"denoise: {m3_plan['ksampler1']['denoise']}"
                 )
                 st.markdown("**Sampler 2: Ink Refinement**")
                 st.code(
-                    f"steps: {m2_plan['ksampler2']['steps']}, "
-                    f"cfg: {m2_plan['ksampler2']['cfg']}, "
-                    f"denoise: {m2_plan['ksampler2']['denoise']}"
+                    f"steps: {m3_plan['ksampler2']['steps']}, "
+                    f"cfg: {m3_plan['ksampler2']['cfg']}, "
+                    f"denoise: {m3_plan['ksampler2']['denoise']}"
                 )
                 st.markdown("**Motion-Lock Engine**")
                 st.code(
-                    f"Union strength: {m2_plan['controlnet_union']['strength']}, "
-                    f"Union end: {m2_plan['controlnet_union']['end_percent']}"
+                    f"Union strength: {m3_plan['controlnet_union']['strength']}, "
+                    f"Union end: {m3_plan['controlnet_union']['end_percent']}"
                 )
                 st.code(
-                    f"OpenPose strength: {m2_plan['controlnet_openpose']['strength']}, "
-                    f"OpenPose end: {m2_plan['controlnet_openpose']['end_percent']}"
+                    f"OpenPose strength: {m3_plan['controlnet_openpose']['strength']}, "
+                    f"OpenPose end: {m3_plan['controlnet_openpose']['end_percent']}"
                 )
                 st.markdown("**Style Injection (IP-Adapter)**")
                 st.code(
-                    f"weight: {m2_plan['ip_adapter']['weight']}, "
-                    f"end_at: {m2_plan['ip_adapter']['end_at']}"
+                    f"weight: {m3_plan['ip_adapter']['weight']}, "
+                    f"end_at: {m3_plan['ip_adapter']['end_at']}"
                 )
-                if m2_plan.get("model_name"):
+                if m3_plan.get("model_name"):
                     st.markdown("**Model Auto-Switch**")
-                    st.code(f"model: {m2_plan['model_name']}")
+                    st.code(f"model: {m3_plan['model_name']}")
         # Display generated images
         if generated_image:
             img_placeholder.empty()  # Clear placeholder
-            if isinstance(generated_image, tuple) and len(generated_image) == 2:
-                # transparent_img and original_img are PNG bytes from ComfyUI
-                transparent_img, original_img = generated_image
+            debug_payload = None
+            if isinstance(generated_image, dict):
+                debug_payload = generated_image.get("debug")
+                generated_image = generated_image.get("final")
 
-                # Display both images side by side, exactly as generated by the model
-                st.markdown("### 🎨 Your Generated Images")
-                st.markdown("_Two versions of your processed animation frame:_")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.image(
-                        transparent_img,
-                        caption="✨ Transparent Lines Only (no background)",
-                        width='stretch'
-                    )
-                with col2:
-                    st.image(
-                        original_img,
-                        caption="📄 Original Background Generated by Model",
-                        width='stretch',
-                    )
+            if isinstance(generated_image, tuple) and len(generated_image) == 2:
+                # Two returned outputs from ComfyUI/post-process pipeline.
+                output_1, output_2 = generated_image
+                final_output = output_1
+
+                if debug_mode:
+                    st.markdown("### 🧪 Step-by-Step Debug View")
+                    st.markdown("_Pipeline images from input to raw outputs to final cleaned outputs._")
+
+                    st.markdown("**Step 1: Input Image**")
+                    st.image(uploaded, caption="Original input uploaded by user", width='stretch')
+
+                    if reference_uploaded:
+                        st.markdown("**Step 2: Reference Image**")
+                        st.image(reference_uploaded, caption="Reference image sent to IP-Adapter", width='stretch')
+
+                    if debug_payload:
+                        raw_imgs = debug_payload.get("raw", [])
+                        raw_nodes = debug_payload.get("raw_node_ids", [])
+                        processed_imgs = debug_payload.get("processed", [])
+
+                        if raw_imgs:
+                            st.markdown("**Step 3: Raw ComfyUI Outputs (before post-process)**")
+                            cols = st.columns(2)
+                            for i, raw in enumerate(raw_imgs[:2]):
+                                node_label = raw_nodes[i] if i < len(raw_nodes) else "?"
+                                with cols[i % 2]:
+                                    st.image(raw, caption=f"Raw output from Node {node_label}", width='stretch')
+
+                        if processed_imgs:
+                            st.markdown("**Step 4: Post-Processed Outputs (grayscale + threshold + heal)**")
+                            cols = st.columns(2)
+                            for i, proc in enumerate(processed_imgs[:2]):
+                                with cols[i % 2]:
+                                    st.image(proc, caption=f"Processed output #{i+1}", width='stretch')
+
+                    st.markdown("**Step 5: Final Display**")
+                    st.image(final_output, caption="✅ Final primary output (KS2 / Node 54)", width='stretch')
+                else:
+                    st.markdown("### 🎨 Final Generated Image")
+                    st.image(final_output, caption="✅ Final output (KS2 / Node 54, production mode)", width='stretch')
             else:
                 # Fallback for single image (backward compatibility)
                 img_placeholder.image(generated_image, caption="Your Generated Image")

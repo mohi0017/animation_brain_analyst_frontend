@@ -2,14 +2,16 @@
 # This file configures Streamlit app behavior
 
 [server]
-# Disable file watcher for better stability on Streamlit Cloud
-fileWatcherType = "none"
+# Enable robust hot-reload on code changes.
+# "poll" is more reliable than OS watchers on network/external filesystems.
+fileWatcherType = "poll"
+runOnSave = true
 
 # Max upload size (200 MB for large images)
 maxUploadSize = 200
 
-# Enable CORS for API calls
-enableCORS = false
+# Keep CORS compatible with XSRF protection.
+enableCORS = true
 
 # Enable XSRF protection
 enableXsrfProtection = true
@@ -25,4 +27,3 @@ base = "light"
 [logger]
 # Logging level
 level = "info"
-

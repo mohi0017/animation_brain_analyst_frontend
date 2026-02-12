@@ -1,40 +1,35 @@
-# M2 Workflow Parameters (Current Defaults)
+# M3 Workflow Parameters (Implementation Notes)
 
-These are the best current parameter values used by the M2 workflow files.
+This document describes what the app actually does at runtime (dynamic planning + a few explicit presets),
+not static defaults baked into a single workflow JSON.
 
-## IP-Adapter
-- Weight: 0.6
-- End: 0.8
+## Step Policy
+- KSampler1 steps: 40 (locked)
+- KSampler2 steps: 40 by default
+- KSampler2 steps: 50 for some harder presets (single_complex and multi_object cases)
 
-## ControlNet Union
-- Strength: 0.5
-- End: 0.6
+## Typical Ranges (non-preset path)
+- IP-Adapter: weight ~0.2-0.6, end_at ~0.25-0.6
+- ControlNet Union: strength ~0.3-0.6, end_percent ~0.45-0.8
+- ControlNet OpenPose: strength >= 0.9 (often 1.0), end_percent ~0.85-1.0
+- KSampler1: cfg 8.0-10.0, denoise varies by case
+- KSampler2: cfg 8.0-10.0, denoise varies by case
 
-## ControlNet OpenPose
-- Strength: 1.0
-- End: 0.0
+## Preset Overrides (early-return cases)
+The Director may return a full preset plan for specific combinations of:
+`entity_type`, `construction_lines`, `broken_lines`.
 
-## KSampler 1
-- Steps: 40
-- CFG: 9
-- Denoise: 0.8
-
-## KSampler 2
-- Steps: 40
-- CFG: 9
-- Denoise: 0.4
+These presets may intentionally pin some values (including `end_percent=1.0`) to behave like a strong
+"trace/ink" pass. In those presets, the usual sequential-gap constraints do not necessarily apply.
 
 ## Auto-Adaptive Rules (Implemented)
 
-### Core Safe Constraints (never break)
+### Core Constraints (general intent)
 - OpenPose strength >= 0.90
-- Union strength clamped to 0.30–0.60
-- OpenPose end clamped to 0.00–0.05 (background safety)
-- Union end gap rule applies only when OpenPose end > 0
+- (Adaptive path) Union strength typically clamped to ~0.30-0.60
 - KSampler1 CFG clamped to 8.0–10.0
 - KSampler2 CFG clamped to 8.0–10.0
-- KSampler steps clamped to 35–40
-- IP-Adapter end < Union end
+- (Adaptive path) IP-Adapter typically ends before Union
 - KSampler2 denoise < KSampler1 denoise
 
 ### Input-Driven Adjustments

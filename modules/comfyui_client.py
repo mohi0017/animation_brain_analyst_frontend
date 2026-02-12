@@ -1,5 +1,5 @@
 """
-ComfyUI API Client - Submit M2 workflow and download generated images.
+ComfyUI API Client - Submit M3 workflow and download generated images.
 """
 
 from __future__ import annotations
@@ -8,10 +8,12 @@ import os
 import json
 import time
 import uuid
-from typing import Optional, Tuple
+from io import BytesIO
+from typing import Optional, Tuple, Union
 
 import requests
 import streamlit as st
+from PIL import Image, ImageFilter, ImageOps
 
 
 def call_comfyui(
@@ -21,10 +23,11 @@ def call_comfyui(
     status_writer=None,
     workflow_path: Optional[str] = None,
     reference_image_bytes: Optional[bytes] = None,
-    m2_plan: Optional[dict] = None,
-) -> Optional[Tuple[bytes, bytes]]:
+    m3_plan: Optional[dict] = None,
+    debug_mode: bool = False,
+) -> Optional[Union[Tuple[bytes, bytes], dict]]:
     """
-    Submit M2 workflow to ComfyUI API and retrieve generated images.
+    Submit M3 workflow to ComfyUI API and retrieve generated images.
     """
     base_url = os.getenv("COMFYUI_API_URL", "").rstrip("/")
     if not base_url:
@@ -38,7 +41,7 @@ def call_comfyui(
         else:
             st.info(msg)
 
-    log("🎯 M2: Using AD-Agent parameters for workflow node updates")
+    log("🎯 M3: Using AD-Agent parameters for workflow node updates")
 
     try:
         # Step 1: Upload input image
@@ -58,7 +61,7 @@ def call_comfyui(
 
         # Step 2: Upload reference image
         if not reference_image_bytes:
-            st.error("M2 workflow requires a reference image.")
+            st.error("M3 workflow requires a reference image.")
             return None
         log("📤 Uploading reference image to ComfyUI...")
         ref_resp = requests.post(
@@ -86,7 +89,7 @@ def call_comfyui(
             uploaded_filename,
             reference_uploaded_filename,
             model_name,
-            m2_plan,
+            m3_plan,
             log,
         )
         log("✅ Workflow updated with prompts, image, and parameters")
@@ -109,7 +112,7 @@ def call_comfyui(
         log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
 
         # Step 6: Poll and download images
-        return _poll_and_download(base_url, actual_prompt_id, log)
+        return _poll_and_download(base_url, actual_prompt_id, log, debug_mode=debug_mode)
 
     except requests.exceptions.RequestException as exc:
         error_msg = f"ComfyUI API error: {exc}"
@@ -198,12 +201,12 @@ def _update_workflow(
     uploaded_filename: str,
     reference_uploaded_filename: str,
     model_name: Optional[str],
-    m2_plan: Optional[dict],
+    m3_plan: Optional[dict],
     log,
 ) -> dict:
-    """Update M2 v10 workflow with prompts, images, and parameters."""
+    """Update M3 v10 workflow with prompts, images, and parameters."""
     if "nodes" in workflow:
-        return _update_m2_nodes_workflow(
+        return _update_m3_nodes_workflow(
             workflow,
             prompts,
             uploaded_filename,
@@ -211,18 +214,18 @@ def _update_workflow(
             model_name,
             log,
         )
-    return _update_m2_v10_workflow(
+    return _update_m3_v10_workflow(
         workflow,
         prompts,
         uploaded_filename,
         reference_uploaded_filename,
         model_name,
-        m2_plan,
+        m3_plan,
         log,
     )
 
 
-def _update_m2_nodes_workflow(
+def _update_m3_nodes_workflow(
     workflow: dict,
     prompts: dict,
     uploaded_filename: str,
@@ -230,8 +233,8 @@ def _update_m2_nodes_workflow(
     model_name: Optional[str],
     log,
 ) -> dict:
-    """Update M2 workflow in nodes format with prompts and image filenames only."""
-    log("📝 Updating M2 workflow (nodes format)...")
+    """Update M3 workflow in nodes format with prompts and image filenames only."""
+    log("📝 Updating M3 workflow (nodes format)...")
 
     stage1 = prompts.get("stage1", {})
     stage2 = prompts.get("stage2", {})
@@ -277,11 +280,25 @@ def _update_m2_nodes_workflow(
                 node["widgets_values"] = [model_name]
             log(f"🎨 Updated SD Model: {model_name}")
 
+    # Always disable LoRAs for API runs unless explicitly supported by the app.
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        if node.get("type") != "LoraLoader":
+            continue
+        widgets = node.get("widgets_values") or []
+        # Common widget order in ComfyUI: [lora_name, strength_model, strength_clip, ...]
+        if len(widgets) >= 3:
+            widgets[1] = 0.0
+            widgets[2] = 0.0
+            node["widgets_values"] = widgets
+        log("🧼 Disabled LoRA strengths (nodes format)")
+
     _set_widget_text(2, pos1)
     _set_widget_text(3, neg1)
     _set_widget_text(77, pos2)
     _set_widget_text(76, neg2)
-    log("✅ Updated M2 prompts (nodes format)")
+    log("✅ Updated M3 prompts (nodes format)")
 
     _set_load_image(4, uploaded_filename)
     _set_load_image(72, reference_uploaded_filename)
@@ -289,17 +306,17 @@ def _update_m2_nodes_workflow(
 
     return workflow
 
-def _update_m2_v10_workflow(
+def _update_m3_v10_workflow(
     workflow: dict,
     prompts: dict,
     uploaded_filename: str,
     reference_uploaded_filename: str,
     model_name: Optional[str],
-    m2_plan: Optional[dict],
+    m3_plan: Optional[dict],
     log,
 ) -> dict:
-    """Update M2 API workflow (v10) with dual prompts and reference image."""
-    log("📝 Updating M2 workflow (v10 API)...")
+    """Update M3 API workflow (v10) with dual prompts and reference image."""
+    log("📝 Updating M3 workflow (v10 API)...")
 
     stage1 = prompts.get("stage1", {})
     stage2 = prompts.get("stage2", {})
@@ -313,21 +330,32 @@ def _update_m2_v10_workflow(
         workflow["1"]["inputs"]["ckpt_name"] = model_name
         log(f"🎨 Updated SD Model: {old_model} → {model_name}")
 
+    # Always disable LoRAs for API runs unless explicitly supported by the app.
+    for node_id, node in workflow.items():
+        if not (isinstance(node, dict) and node.get("class_type") == "LoraLoader"):
+            continue
+        inputs = node.get("inputs") or {}
+        inputs["strength_model"] = 0.0
+        inputs["strength_clip"] = 0.0
+        node["inputs"] = inputs
+        workflow[node_id] = node
+        log(f"🧼 Disabled LoRA strengths (Node {node_id})")
+
     # Stage 1 prompts
     if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
         workflow["2"]["inputs"]["text"] = pos1
-        log("✅ Updated M2 Stage 1 positive prompt (Node 2)")
+        log("✅ Updated M3 Stage 1 positive prompt (Node 2)")
     if "3" in workflow and workflow["3"].get("class_type") == "CLIPTextEncode":
         workflow["3"]["inputs"]["text"] = neg1
-        log("✅ Updated M2 Stage 1 negative prompt (Node 3)")
+        log("✅ Updated M3 Stage 1 negative prompt (Node 3)")
 
     # Stage 2 prompts
     if "77" in workflow and workflow["77"].get("class_type") == "CLIPTextEncode":
         workflow["77"]["inputs"]["text"] = pos2
-        log("✅ Updated M2 Stage 2 positive prompt (Node 77)")
+        log("✅ Updated M3 Stage 2 positive prompt (Node 77)")
     if "76" in workflow and workflow["76"].get("class_type") == "CLIPTextEncode":
         workflow["76"]["inputs"]["text"] = neg2
-        log("✅ Updated M2 Stage 2 negative prompt (Node 76)")
+        log("✅ Updated M3 Stage 2 negative prompt (Node 76)")
 
     # Main image
     if "4" in workflow and workflow["4"].get("class_type") == "LoadImage":
@@ -336,42 +364,42 @@ def _update_m2_v10_workflow(
 
     _update_reference_image_nodes(workflow, reference_uploaded_filename, log)
 
-    if not m2_plan:
+    if not m3_plan:
         log("ℹ️ Skipping dynamic parameter updates; using workflow defaults")
         return workflow
 
-    ks1 = m2_plan.get("ksampler1", {})
-    ks2 = m2_plan.get("ksampler2", {})
-    cn_union = m2_plan.get("controlnet_union", {})
-    cn_openpose = m2_plan.get("controlnet_openpose", {})
-    ip = m2_plan.get("ip_adapter", {})
+    ks1 = m3_plan.get("ksampler1", {})
+    ks2 = m3_plan.get("ksampler2", {})
+    cn_union = m3_plan.get("controlnet_union", {})
+    cn_openpose = m3_plan.get("controlnet_openpose", {})
+    ip = m3_plan.get("ip_adapter", {})
 
     if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
         workflow["5"]["inputs"]["steps"] = ks1.get("steps", workflow["5"]["inputs"].get("steps"))
         workflow["5"]["inputs"]["cfg"] = ks1.get("cfg", workflow["5"]["inputs"].get("cfg"))
         workflow["5"]["inputs"]["denoise"] = ks1.get("denoise", workflow["5"]["inputs"].get("denoise"))
-        log("✅ Updated M2 KSampler1 params")
+        log("✅ Updated M3 KSampler1 params")
 
     if "55" in workflow and workflow["55"].get("class_type") == "KSampler":
         workflow["55"]["inputs"]["steps"] = ks2.get("steps", workflow["55"]["inputs"].get("steps"))
         workflow["55"]["inputs"]["cfg"] = ks2.get("cfg", workflow["55"]["inputs"].get("cfg"))
         workflow["55"]["inputs"]["denoise"] = ks2.get("denoise", workflow["55"]["inputs"].get("denoise"))
-        log("✅ Updated M2 KSampler2 params")
+        log("✅ Updated M3 KSampler2 params")
 
     if "62" in workflow and workflow["62"].get("class_type") == "ControlNetApplyAdvanced":
         workflow["62"]["inputs"]["strength"] = cn_union.get("strength", workflow["62"]["inputs"].get("strength"))
         workflow["62"]["inputs"]["end_percent"] = cn_union.get("end_percent", workflow["62"]["inputs"].get("end_percent"))
-        log("✅ Updated M2 ControlNet Union params")
+        log("✅ Updated M3 ControlNet Union params")
 
     if "79" in workflow and workflow["79"].get("class_type") == "ControlNetApplyAdvanced":
         workflow["79"]["inputs"]["strength"] = cn_openpose.get("strength", workflow["79"]["inputs"].get("strength"))
         workflow["79"]["inputs"]["end_percent"] = cn_openpose.get("end_percent", workflow["79"]["inputs"].get("end_percent"))
-        log("✅ Updated M2 OpenPose params")
+        log("✅ Updated M3 OpenPose params")
 
     if "66" in workflow and workflow["66"].get("class_type") == "IPAdapterAdvanced":
         workflow["66"]["inputs"]["weight"] = ip.get("weight", workflow["66"]["inputs"].get("weight"))
         workflow["66"]["inputs"]["end_at"] = ip.get("end_at", workflow["66"]["inputs"].get("end_at"))
-        log("✅ Updated M2 IP-Adapter params")
+        log("✅ Updated M3 IP-Adapter params")
 
     return workflow
 
@@ -419,7 +447,7 @@ def _update_reference_image_nodes(workflow: dict, reference_uploaded_filename: s
         log("⚠️ Reference image node not found for IP-Adapter")
 
 
-def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[bytes, bytes]]:
+def _poll_and_download(base_url: str, prompt_id: str, log, debug_mode: bool = False) -> Optional[Union[Tuple[bytes, bytes], dict]]:
     """Poll ComfyUI for completion and download generated images."""
     log("⏳ Waiting for generation (this may take up to 4 minutes)...")
     max_wait = 240
@@ -437,7 +465,7 @@ def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[byt
             status = history[prompt_id]
             if status.get("status", {}).get("completed", False):
                 log("✅ Generation complete! Downloading images...")
-                return _download_images(base_url, status, log)
+                return _download_images(base_url, status, log, debug_mode=debug_mode)
             elif status.get("status", {}).get("error"):
                 error_msg = status.get("status", {}).get("error", "Unknown error")
                 st.error(f"ComfyUI generation error: {error_msg}")
@@ -450,51 +478,140 @@ def _poll_and_download(base_url: str, prompt_id: str, log) -> Optional[Tuple[byt
     return None
 
 
-def _download_images(base_url: str, status: dict, log) -> Optional[Tuple[bytes, bytes]]:
+def _download_images(base_url: str, status: dict, log, debug_mode: bool = False) -> Optional[Union[Tuple[bytes, bytes], dict]]:
     """Download generated images from ComfyUI."""
     outputs = status.get("outputs", {})
-    transparent_image = None
-    original_image = None
+    downloaded: list[bytes] = []
+    raw_downloaded: list[bytes] = []
+    raw_node_ids: list[str] = []
+    downloaded_nodes: set[str] = set()
 
-    if "42" in outputs and "images" in outputs["42"]:
-        for img_info in outputs["42"]["images"]:
+    def _sort_key(k: str):
+        try:
+            return (0, int(k))
+        except Exception:
+            return (1, k)
+
+    def _download_from_node(node_id: str) -> None:
+        out = outputs.get(node_id)
+        if not isinstance(out, dict):
+            return
+        images = out.get("images")
+        if not isinstance(images, list):
+            return
+
+        for img_info in images:
+            if not isinstance(img_info, dict):
+                continue
             filename = img_info.get("filename")
             subfolder = img_info.get("subfolder", "")
-            if filename:
-                view_url = f"{base_url}/view"
-                params = {"filename": filename}
-                if subfolder:
-                    params["subfolder"] = subfolder
-                img_resp = requests.get(view_url, params=params, timeout=30)
-                img_resp.raise_for_status()
-                transparent_image = img_resp.content
-                log("✅ Transparent background image downloaded (Node 42)")
-                break
+            if not filename:
+                continue
 
-    if "54" in outputs and "images" in outputs["54"]:
-        for img_info in outputs["54"]["images"]:
-            filename = img_info.get("filename")
-            subfolder = img_info.get("subfolder", "")
-            if filename:
-                view_url = f"{base_url}/view"
-                params = {"filename": filename}
-                if subfolder:
-                    params["subfolder"] = subfolder
-                img_resp = requests.get(view_url, params=params, timeout=30)
-                img_resp.raise_for_status()
-                original_image = img_resp.content
-                log("✅ Original image downloaded (Node 54)")
-                break
+            view_url = f"{base_url}/view"
+            params = {"filename": filename}
+            if subfolder:
+                params["subfolder"] = subfolder
+            img_resp = requests.get(view_url, params=params, timeout=30)
+            img_resp.raise_for_status()
+            raw_downloaded.append(img_resp.content)
+            raw_node_ids.append(node_id)
+            downloaded.append(img_resp.content)
+            downloaded_nodes.add(node_id)
+            log(f"✅ Output image downloaded (Node {node_id})")
+            if len(downloaded) >= 2:
+                return
 
-    if transparent_image and original_image:
-        log("✅ Both images downloaded successfully!")
-        return (transparent_image, original_image)
-    elif transparent_image:
-        log("⚠️ Only transparent image found, using it for both")
-        return (transparent_image, transparent_image)
-    elif original_image:
-        log("⚠️ Only original image found, using it for both")
-        return (original_image, original_image)
-    else:
-        st.error("No output images found in ComfyUI response")
-        return None
+    # Prefer final outputs when present in this workflow.
+    for preferred_node in ("54", "74"):
+        if preferred_node in outputs and len(downloaded) < 2:
+            _download_from_node(preferred_node)
+
+    # Fallback for other workflows/node IDs.
+    for node_id in sorted(outputs.keys(), key=_sort_key):
+        if len(downloaded) >= 2:
+            break
+        if node_id in downloaded_nodes:
+            continue
+        _download_from_node(node_id)
+
+    if len(downloaded) >= 2:
+        processed: list[bytes] = []
+        for i, img in enumerate(downloaded[:2]):
+            node_id = raw_node_ids[i] if i < len(raw_node_ids) else ""
+            # Apply post-processing only to KS2 output path (Node 54).
+            if node_id == "54":
+                processed.append(_postprocess_line_art_bytes(img, log))
+            else:
+                processed.append(img)
+        log("✅ Two output images downloaded successfully!")
+        if debug_mode:
+            return {
+                "final": (processed[0], processed[1]),
+                "debug": {
+                    "raw": raw_downloaded[:2],
+                    "raw_node_ids": raw_node_ids[:2],
+                    "processed": processed,
+                },
+            }
+        return (processed[0], processed[1])
+    if len(downloaded) == 1:
+        single = _postprocess_line_art_bytes(downloaded[0], log)
+        log("⚠️ Only one output image found, using it for both")
+        if debug_mode:
+            return {
+                "final": (single, single),
+                "debug": {
+                    "raw": raw_downloaded[:1],
+                    "raw_node_ids": raw_node_ids[:1],
+                    "processed": [single],
+                },
+            }
+        return (single, single)
+
+    st.error("No output images found in ComfyUI response")
+    return None
+
+
+def _postprocess_line_art_bytes(image_bytes: bytes, log) -> bytes:
+    """
+    Post-process generated image to suppress color fringes and connect fragmented line art.
+    Pipeline (soft cleanup, non-binary):
+      1) grayscale (remove color fringe)
+      2) mild contrast normalization
+      3) light smoothing (preserve anti-aliased edges; avoid harsh/pixel look)
+      4) border cleanup to remove frame artifacts from raw generations
+    """
+    try:
+        img = Image.open(BytesIO(image_bytes)).convert("RGB")
+        gray = ImageOps.grayscale(img)
+        # Keep smoothing very light so lines stay clean but not over-sharp/pixelated.
+        soft = gray.filter(ImageFilter.GaussianBlur(radius=0.30))
+
+        # Force near-white paper tones to pure white to avoid textured/griddy canvas artifacts.
+        soft = soft.point(lambda p: 255 if p >= 228 else p)
+
+        # Remove border/frame artifacts often present in raw ComfyUI outputs.
+        border = 6
+        px = soft.load()
+        w, h = soft.size
+        for x in range(w):
+            for y in range(min(border, h)):
+                px[x, y] = 255
+            for y in range(max(0, h - border), h):
+                px[x, y] = 255
+        for y in range(h):
+            for x in range(min(border, w)):
+                px[x, y] = 255
+            for x in range(max(0, w - border), w):
+                px[x, y] = 255
+
+        final = soft.convert("RGB")
+
+        out = BytesIO()
+        final.save(out, format="PNG")
+        log("🧼 Applied post-process line-art cleanup (grayscale+threshold+heal)")
+        return out.getvalue()
+    except Exception as exc:
+        log(f"⚠️ Post-process skipped: {exc}")
+        return image_bytes

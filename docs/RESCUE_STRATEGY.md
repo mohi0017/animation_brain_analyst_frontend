@@ -1,4 +1,4 @@
-# M2 Rescue Strategy: Aggressive Cleanup
+# M3 Rescue Strategy: Aggressive Cleanup
 
 ## Overview
 

@@ -10,9 +10,9 @@
   },
   "2": {
     "inputs": {
-      "text": "score_9, (masterpiece), character, sitting, legs stretched out, foreshortening, from below, waving hand, female, sunglasses, crop top, shorts, long legs, prop, crumpled object, clear anatomy, accurate anatomy, well-defined facial features, clean hands, clean feet, clean legs, clean torso, clean hips, clean shoulders, solid black lines, continuous and smooth lines, unbroken linework, single clean stroke, bold line weight, thick outline, solid ink strokes, pure white background",
+      "text": "(masterpiece), score_9,\nclean black ink line art,\nperfect smooth continuous lines,\nsingle unbroken stroke,\nuniform line thickness,\nbold solid black outlines,\npure white background,\nno texture,\nno shading,\nno color,\nvector-style line art,\nanimation clean-up quality,\nstudio inked frame,\nconsistent stroke weight,\nprecise geometry,\nstable silhouette,\nno wobble,\nno jitter,\nprofessional animation linework\n",
       "clip": [
-        "1",
+        "89",
         1
       ]
     },
@@ -23,9 +23,9 @@
   },
   "3": {
     "inputs": {
-      "text": "score_4, score_5, score_6, lowres, bad anatomy, deformed hands, extra fingers, missing limbs, blurry, compression artifacts, jpeg artifacts, (construction lines:1.3), (graphite:1.2), (sketch artifacts:1.2), (smudge:1.2), (guidelines:1.1), (color:1.2), (color fill:1.2), (flat colors:1.2), (cel shading:1.2), (dotted lines:1.4), (broken lines:1.4), (sketchy lines:1.3), (stippling:1.2), color, colored background, fills, gradients, texture",
+      "text": "score_4, score_5, score_6,\ncolor, colors, colored lines,\nshading, shadows, gradients,\nsketch, rough sketch, pencil,\nconstruction lines, guidelines,\ntexture, paper texture, noise,\nhalftone, screen tone, dots,\ncrosshatching, hatching,\nmessy lines, broken lines,\nvariable line weight,\ndouble lines, fuzzy edges,\nblur, lowres,\nrealistic, 3d render,\npainted, watercolor, pastel,\ngray, grayscale, grey,\nbackground clutter\n",
       "clip": [
-        "1",
+        "89",
         1
       ]
     },
@@ -36,7 +36,7 @@
   },
   "4": {
     "inputs": {
-      "image": "Drive_Steering_Roughs_0023.png"
+      "image": "BouncingBall_Roughs_0058.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -45,12 +45,12 @@
   },
   "5": {
     "inputs": {
-      "seed": 153563715982370,
+      "seed": 153563715982472,
       "steps": 40,
       "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.7,
+      "denoise": 0.8,
       "model": [
         "66",
         0
@@ -89,45 +89,6 @@
       "title": "VAE Decode"
     }
   },
-  "42": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "52",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
-  "52": {
-    "inputs": {
-      "rembg_session": [
-        "53",
-        0
-      ],
-      "image": [
-        "41",
-        0
-      ]
-    },
-    "class_type": "ImageRemoveBackground+",
-    "_meta": {
-      "title": "🔧 Image Remove Background"
-    }
-  },
-  "53": {
-    "inputs": {
-      "model": "isnet-general-use: general purpose",
-      "providers": "CUDA"
-    },
-    "class_type": "RemBGSession+",
-    "_meta": {
-      "title": "🔧 RemBG Session"
-    }
-  },
   "54": {
     "inputs": {
       "filename_prefix": "ComfyUI",
@@ -144,11 +105,11 @@
   "55": {
     "inputs": {
       "seed": 153563715982370,
-      "steps": 40,
+      "steps": 50,
       "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.4,
+      "denoise": 0.5,
       "model": [
         "66",
         0
@@ -182,9 +143,9 @@
   },
   "62": {
     "inputs": {
-      "strength": 0.5,
+      "strength": 1,
       "start_percent": 0,
-      "end_percent": 0.6,
+      "end_percent": 1,
       "positive": [
         "2",
         0
@@ -229,14 +190,14 @@
   },
   "66": {
     "inputs": {
-      "weight": 0.6,
+      "weight": 0.4,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0,
-      "end_at": 0.8,
-      "embeds_scaling": "V only",
+      "end_at": 0.6,
+      "embeds_scaling": "K+V",
       "model": [
-        "1",
+        "89",
         0
       ],
       "ipadapter": [
@@ -277,7 +238,7 @@
   },
   "72": {
     "inputs": {
-      "image": "Gemini_Generated_Image_bf3h1obf3h1obf3h.png"
+      "image": "BouncingBall_Lines_0004.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -315,9 +276,9 @@
   },
   "76": {
     "inputs": {
-      "text": "(color:1.6), shading, gradients, shadows, messy lines, rough sketch, pencil texture, gray scale, background noise, realistic, 3d render, (construction lines:1.3), (graphite:1.2), (sketch artifacts:1.2), (smudge:1.2), (guidelines:1.1), (coloring:1.4), (color fill:1.4), (flat colors:1.4), (flat colour:1.4), (cel shading:1.4), (painted:1.3), (colored lines:1.3), (pastel:1.2), (grayscale:1.4), (grey:1.4), (tones:1.3), (halftone:1.3), (screen tone:1.3), (paper texture:1.3), (crosshatching:1.3), (hatching:1.3), (noise texture:1.3), (dotted lines:1.4), (broken lines:1.4), (sketchy lines:1.3), (stippling:1.2), color, colored background, fills, texture",
+      "text": "jagged lines,\nwobble,\nedge noise,\nmicro jitter,\nuneven stroke,\nthick-thin variation,\nink bleed,\nbroken curves,\nover-sharpening,\naliasing,\npixel noise,\ntexture residue\n",
       "clip": [
-        "1",
+        "89",
         1
       ]
     },
@@ -328,9 +289,9 @@
   },
   "77": {
     "inputs": {
-      "text": "(solid black lines:1.5), (vector line art:1.3), sharp edges, pure white background, digital ink, solid black lines, continuous and smooth lines, unbroken linework, single clean stroke, bold line weight, thick outline, solid ink strokes, clear anatomy, accurate anatomy, well-defined facial features, clean hands, clean feet, clean legs, clean torso, clean hips, clean shoulders",
+      "text": "ultra-clean vector ink,\nperfectly smooth curves,\nclosed shapes,\neven stroke thickness,\nhigh contrast black on white,\nanimation final pass,\ninking pass,\nno artifacts,\nno deformation,\nno distortion,\nconsistent line continuity,\nprofessional cel animation linework\n",
       "clip": [
-        "1",
+        "89",
         1
       ]
     },
@@ -362,7 +323,7 @@
     "inputs": {
       "strength": 1,
       "start_percent": 0,
-      "end_percent": 0,
+      "end_percent": 1,
       "positive": [
         "62",
         0
@@ -411,6 +372,25 @@
     "class_type": "PrepImageForClipVision",
     "_meta": {
       "title": "Prep Image For ClipVision"
+    }
+  },
+  "89": {
+    "inputs": {
+      "lora_name": "lora_rough_to_clean_sdxl_v1.safetensors",
+      "strength_model": 0,
+      "strength_clip": 0,
+      "model": [
+        "1",
+        0
+      ],
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA"
     }
   }
 }

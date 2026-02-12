@@ -1,4 +1,4 @@
-# M2 Parameters Guide
+# M3 Parameters Guide
 ## Dynamic Parameters by Phase Transition
 
 ---
@@ -10,6 +10,10 @@ Visual Analyst outputs these fields (from input image only):
 - `anatomy_risk`: low | medium | high
 - `complexity`: simple | detailed
 - `subject_details`: tags for Stage-1 prompt
+- `entity_type`: single_complex | single_simple | multi_object
+- `entity_examples`: short label for the entity/entities (person, car, house, ball, crowd)
+- `construction_lines`: low | medium | high
+- `broken_lines`: low | medium | high
 
 These drive AD-Agent parameter selection.
 
@@ -31,19 +35,19 @@ These drive AD-Agent parameter selection.
 - OpenPose strength forced to 1.0
 - IP-Adapter weight reduced by 0.2
 
-**Rule B (Sequential Gap):**
-- OpenPose end >= 0.80
-- Union end = OpenPose end - 0.15
+**Rule B (Sequential Gap, adaptive path):**
+- Typical intent: `ip_adapter.end_at < union.end_percent < openpose.end_percent`
+- Some explicit presets intentionally pin `end_percent` to 1.0 for trace-like behavior.
 
-**Rule C (Messy Lines / Rescue Strategy):**
-- **Denoise:** KS1 forced to 0.82 (High hallucination)
-- **ControlNet:** Union end forced to 0.55 (Early cutoff)
-- **Negatives:** "construction lines", "graphite", "smudge" injected
-- **Style:** IP-Adapter capped at 0.4 weight
+**Rule C (High Construction/Broken Lines):**
+- Union strength/end reduced
+- IP-Adapter reduced (avoid hallucinated details/objects)
+- OpenPose kept strong (often 1.0) for consistency
+- KS1 denoise typically capped around ~0.70 to avoid over-hallucination
 
 ---
 
-## Prompt Impact (M2)
+## Prompt Impact (M3)
 - Stage 1 prompt: quality tags + subject + pose
 - Stage 2 prompt: inking template
 - If `line_quality == messy`, Stage 2 uses `(solid black lines:1.5)`
@@ -54,3 +58,4 @@ These drive AD-Agent parameter selection.
 - Reference image only feeds IP-Adapter
 - No reference analysis is injected into prompts
 - Output always includes transparent PNG via RemBG
+- Detailed case playbook: `docs/CASE_SINGLE_COMPLEX_CLEANUP_PLAYBOOK.md`

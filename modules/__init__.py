@@ -16,8 +16,8 @@ __all__ = [
     "AnalysisConfig",
     "SD_MODELS",
     "DEFAULT_LINE_ART_MODEL",
-    "DEFAULT_M2_MODEL",
-    "DEFAULT_ANALYST_PROMPT_M2",
+    "DEFAULT_M3_MODEL",
+    "DEFAULT_ANALYST_PROMPT_M3",
     
     # Utils
     "load_image_bytes",
@@ -27,13 +27,13 @@ __all__ = [
     "get_thinking_config",
     "get_model_name",
     # Agents
-    "run_visual_analyst_m2",
-    "run_prompt_engineer_m2",
-    "generate_m2_cleanup_prompts",
+    "run_visual_analyst_m3",
+    "run_prompt_engineer_m3",
+    "generate_m3_cleanup_prompts",
     # Workflow Registry
     "get_workflow_spec",
     # AD-Agent
-    "create_parameter_plan_m2",
+    "create_parameter_plan_m3",
     # ComfyUI
     "call_comfyui",
 ]
@@ -46,30 +46,30 @@ def __getattr__(name):
         if name in ("AnalysisConfig", "SD_MODELS", "DEFAULT_LINE_ART_MODEL"):
             from .config import AnalysisConfig, SD_MODELS, DEFAULT_LINE_ART_MODEL
             return locals()[name]
-        elif name == "DEFAULT_ANALYST_PROMPT_M2":
-            from .config import DEFAULT_ANALYST_PROMPT_M2
-            return DEFAULT_ANALYST_PROMPT_M2
-        elif name == "DEFAULT_M2_MODEL":
-            from .config import DEFAULT_M2_MODEL
-            return DEFAULT_M2_MODEL
+        elif name == "DEFAULT_ANALYST_PROMPT_M3":
+            from .config import DEFAULT_ANALYST_PROMPT_M3
+            return DEFAULT_ANALYST_PROMPT_M3
+        elif name == "DEFAULT_M3_MODEL":
+            from .config import DEFAULT_M3_MODEL
+            return DEFAULT_M3_MODEL
         elif name in ("load_image_bytes", "normalize_report"):
             from .utils import load_image_bytes, normalize_report
             return locals()[name]
         elif name in ("get_genai_client", "get_thinking_config", "get_model_name"):
             from .gemini_client import get_genai_client, get_thinking_config, get_model_name
             return locals()[name]
-        elif name == "run_visual_analyst_m2":
-            from .visual_analyst import run_visual_analyst_m2
-            return run_visual_analyst_m2
-        elif name in ("run_prompt_engineer_m2", "generate_m2_cleanup_prompts"):
-            from .prompt_engineer import run_prompt_engineer_m2, generate_m2_cleanup_prompts
+        elif name == "run_visual_analyst_m3":
+            from .visual_analyst import run_visual_analyst_m3
+            return run_visual_analyst_m3
+        elif name in ("run_prompt_engineer_m3", "generate_m3_cleanup_prompts"):
+            from .prompt_engineer import run_prompt_engineer_m3, generate_m3_cleanup_prompts
             return locals()[name]
-        elif name == "create_parameter_plan_m2":
+        elif name == "create_parameter_plan_m3":
             try:
-                from .animation_director import create_parameter_plan_m2
-                return create_parameter_plan_m2
+                from .animation_director import create_parameter_plan_m3
+                return create_parameter_plan_m3
             except (ImportError, AttributeError) as e:
-                raise ImportError(f"Failed to import create_parameter_plan_m2 from animation_director: {e}.")
+                raise ImportError(f"Failed to import create_parameter_plan_m3 from animation_director: {e}.")
         elif name == "call_comfyui":
             from .comfyui_client import call_comfyui
             return call_comfyui

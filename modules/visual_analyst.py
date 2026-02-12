@@ -11,14 +11,14 @@ try:
 except Exception:
     genai_types = None
 
-from .config import AnalysisConfig, DEFAULT_ANALYST_PROMPT_M2
+from .config import AnalysisConfig, DEFAULT_ANALYST_PROMPT_M3
 from .gemini_client import get_genai_client, get_thinking_config, get_model_name
 from .utils import get_logger, parse_report_blob
 
 logger = get_logger("visual_analyst")
 
 
-def run_visual_analyst_m2(
+def run_visual_analyst_m3(
     image_bytes: bytes,
     mime: str,
     cfg: AnalysisConfig,
@@ -26,13 +26,13 @@ def run_visual_analyst_m2(
     reference_mime: Optional[str] = None,
 ) -> dict:
     """
-    Run Visual Analyst for M2 using input + reference image.
+    Run Visual Analyst for M3 using input + reference image.
     
     Returns:
         Analysis report dictionary with fixes/removes/preserve + style keywords.
     """
     client = get_genai_client()
-    prompt = DEFAULT_ANALYST_PROMPT_M2.strip()
+    prompt = DEFAULT_ANALYST_PROMPT_M3.strip()
 
     if not client:
         # Fallback mock if no key
@@ -43,6 +43,11 @@ def run_visual_analyst_m2(
             "notes": ["Analysis unavailable: missing API key"],
             "issues": [],
             "subject_details": "",
+            "entity_type": "",
+            "entity_examples": "",
+            "construction_lines": "",
+            "low_construction_sublevel": "",
+            "broken_lines": "",
             "phase_goal": f"{cfg.source_phase} to {cfg.dest_phase}",
             "line_quality": "",
             "anatomy_risk": "",
@@ -103,6 +108,11 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
             "notes": [f"Analysis unavailable: {exc}"],
             "issues": [],
             "subject_details": "",
+            "entity_type": "",
+            "entity_examples": "",
+            "construction_lines": "",
+            "low_construction_sublevel": "",
+            "broken_lines": "",
             "phase_goal": f"{cfg.source_phase} to {cfg.dest_phase}",
             "line_quality": "",
             "anatomy_risk": "",

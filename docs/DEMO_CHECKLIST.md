@@ -1,4 +1,4 @@
-# M2 Demo Checklist (Task 2.8)
+# M3 Demo Checklist (Task 2.8)
 
 Use this for recording the final demo. Each case should show the UI logs + output images.
 
@@ -19,8 +19,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 **Expected logs:**
 - `🧭 Director: line_quality=messy, anatomy_risk=high, complexity=...`
-- `🧭 Director: CN Union end=0.65, OpenPose end>=0.80, IP end_at<Union`
-- `🧭 Director: model auto-switch → anything-v5-PrtRE.safetensors`
+- `🧭 Director: CN Union end=..., OpenPose end=..., IP end_at=...`
 
 **Validation pointers:**
 - Confirm no shading/gradients (Stage 2 negatives doing their job)
@@ -28,7 +27,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 **Screenshot targets:**
 - Director Summary
-- AI Strategy (M2 Parameter Plan)
+- AI Strategy (M3 Parameter Plan)
 - Final transparent output
 
 ---
@@ -42,16 +41,14 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 **Expected:**
 - anatomy_risk = high
 - OpenPose strength = 1.0
-- OpenPose end >= 0.80
 - Output pose matches input closely
 
 **Expected logs:**
 - `🧭 Director: line_quality=..., anatomy_risk=high, complexity=...`
-- `🧭 Director: CN Union end<=0.65, OpenPose end>=0.80`
-- `✅ Updated M2 OpenPose params`
+- `✅ Updated M3 OpenPose params`
 
 **Validation pointers:**
-- Confirm OpenPose end >= 0.80 in AI Strategy
+- Confirm OpenPose strength is high and end_percent is not being cut too early
 - Highlight Motion‑Lock in Director Summary
 
 **Screenshot targets:**
@@ -89,7 +86,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 - [ ] `COMFYUI_API_URL` set in `.env`
 - [ ] Gemini API key is active
-- [ ] M2 workflow file exists (`ANIMATION_M2_Api.json`)
+- [ ] M3 workflow file exists (`Animation_Workflow_M3_Api.json`)
 - [ ] Reference image uploaded
 - [ ] Output shows transparent PNG (checkerboard background)
 

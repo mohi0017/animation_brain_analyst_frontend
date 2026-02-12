@@ -1,15 +1,15 @@
-# Plan: Enhance AI Animation System (M2)
+# Plan: Enhance AI Animation System (M3)
 
-I have analyzed the current implementation of the AI Animation Studio (M2). The system is well-structured with a clear pipeline: Visual Analyst → AD-Agent → Prompt Engineer → ComfyUI.
+I have analyzed the current implementation of the AI Animation Studio (M3). The system is well-structured with a clear pipeline: Visual Analyst → AD-Agent → Prompt Engineer → ComfyUI.
 
 ## Proposed Enhancements
 
 ### 1. Robust Prompt Parsing in Visual Analyst
-The [`run_visual_analyst_m2`](modules/visual_analyst.py:18) function currently uses a simple `json.loads` which might fail if Gemini includes markdown code blocks or extra text.
+The [`run_visual_analyst_m3`](modules/visual_analyst.py:18) function currently uses a simple `json.loads` which might fail if Gemini includes markdown code blocks or extra text.
 - **Action**: Implement a more robust JSON extractor that handles markdown code blocks and potential trailing text.
 
 ### 2. Parameter Sensitivity Tuning in AD-Agent
-The [`create_parameter_plan_m2`](modules/animation_director.py:10) function uses fixed ranges for transitions. 
+The [`create_parameter_plan_m3`](modules/animation_director.py:10) function uses fixed ranges for transitions. 
 - **Action**: Add more granularity to the transition matrix, possibly including a "Low Risk" or "Simple" variation for cleaner inputs to avoid over-processing.
 
 ### 3. Prompt Engineer Token Management

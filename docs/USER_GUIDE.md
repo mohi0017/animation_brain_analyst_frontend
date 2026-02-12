@@ -1,12 +1,12 @@
-# AI Animation Studio M2 - User Guide
+# AI Animation Studio M3 - User Guide
 
-Use this guide to run the M2 cleanup pipeline in the web app.
+Use this guide to run the M3 cleanup pipeline in the web app.
 
 Live app: [animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app](https://animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app/)
 
 ---
 
-## 1) What This App Does (M2)
+## 1) What This App Does (M3)
 - Cleans rough or tiedown sketches into clean line art.
 - Preserves pose using a Motion-Lock control chain.
 - Uses a reference image only for style (IP-Adapter).

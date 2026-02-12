@@ -1,10 +1,10 @@
-# ComfyUI Integration (M2)
-## How the M2 Pipeline Works End-to-End
+# ComfyUI Integration (M3)
+## How the M3 Pipeline Works End-to-End
 
 ---
 
 ## Overview
-Milestone 2 uses a dual-stage generation pipeline that separates **structure preservation** from **final inking**.
+Milestone 3 uses a dual-stage generation pipeline that separates **structure preservation** from **final inking**.
 The workflow runs in ComfyUI with two KSamplers and a sequential ControlNet chain:
 
 - **ControlNet Union XL** (line/shape boundary)
@@ -26,7 +26,7 @@ The reference image does NOT affect prompts. It only feeds the IP-Adapter node a
 ## Workflow File
 Use the API workflow (v10 format):
 
-- `workflows/ANIMATION_M2_Api.json`
+- `workflows/Animation_Workflow_M3_Api.json`
 
 This is required for the ComfyUI API submission.
 
@@ -51,7 +51,7 @@ This stage converts the output into clean, solid line art.
 
 ---
 
-## Node Map (M2)
+## Node Map (M3)
 - **CheckpointLoaderSimple**: `1`
 - **Input LoadImage**: `4`
 - **Reference LoadImage**: `72`
@@ -63,8 +63,7 @@ This stage converts the output into clean, solid line art.
 - **Stage 1 Prompts**: `2` / `3`
 - **Stage 2 Prompts**: `77` / `76`
 - **DWPreprocessor**: `78`
-- **Transparent Output**: `42` (ImageRemoveBackground+)
-- **Original Output**: `54`
+- **Outputs**: one or more `SaveImage` nodes (IDs vary by workflow)
 
 ---
 
@@ -78,17 +77,18 @@ The app computes parameters per transition and updates these nodes at runtime:
 - **IP-Adapter**: weight, end_at
 
 Rules enforced:
-- IP-Adapter ends **before** Union
-- Union ends **before** OpenPose
-- OpenPose end >= 0.80
-- Union end <= 0.65 when line_quality is messy
+- In the adaptive path, the Director typically aims for:
+  - IP-Adapter ending before Union
+  - Union ending before OpenPose
+- Some explicit presets intentionally pin end_percent values to 1.0 for trace-like behavior.
+- When construction/broken lines are high, Union and IP-Adapter are reduced to avoid tracing/hallucination.
 
 ---
 
 ## API Submission Flow
 1) Upload input image to `/upload/image`
 2) Upload reference image to `/upload/image`
-3) Load `ANIMATION_M2_Api.json`
+3) Load `Animation_Workflow_M3_Api.json`
 4) Update prompts + nodes
 5) Submit to `/prompt`
 6) Poll `/history/{prompt_id}`
@@ -99,5 +99,5 @@ Rules enforced:
 ## Troubleshooting
 - **No output**: Check `COMFYUI_API_URL` in `.env`
 - **Wrong workflow**: Ensure v10 API format
-- **Bad pose lock**: Check OpenPose end_percent >= 0.80
+- **Bad pose lock**: Check OpenPose strength is high (often 1.0) and end_percent is not being cut too early
 - **Over-stylized output**: Reduce IP-Adapter weight

@@ -1,5 +1,5 @@
 """
-Prompt Engineer Agent - M2 dual-stage prompt builder.
+Prompt Engineer Agent - M3 dual-stage prompt builder.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from .utils import get_logger
 logger = get_logger("prompt_engineer")
 
 
-def generate_m2_cleanup_prompts() -> Tuple[str, str, str]:
+def generate_m3_cleanup_prompts() -> Tuple[str, str, str]:
     pos = (
         "(masterpiece), (ultra-clean lineart:1.5), (vector line art:1.3), "
         "high contrast, solid black lines, pure white background, sharp edges, "
@@ -22,7 +22,7 @@ def generate_m2_cleanup_prompts() -> Tuple[str, str, str]:
         "(color:1.6), shading, gradients, shadows, blurry, messy lines, "
         "rough sketch, pencil texture, gray scale, background noise, artifacts"
     )
-    rationale = "M2 Stage 2 cleanup prompt focused on ink quality and line purity."
+    rationale = "M3 Stage 2 cleanup prompt focused on ink quality and line purity."
     return pos, neg, rationale
 
 
@@ -133,7 +133,35 @@ def _dedupe_tags(prompt: str) -> str:
     return ", ".join(deduped)
 
 
-def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
+def _remove_exact_tags(prompt: str, tags_to_remove: list[str]) -> str:
+    tags = [t.strip() for t in prompt.split(",") if t.strip()]
+    remove_set = {t.lower().strip() for t in tags_to_remove}
+    kept = [t for t in tags if t.lower().strip() not in remove_set]
+    return ", ".join(kept)
+
+
+def _drop_plain_when_weighted_exists(prompt: str, base_terms: list[str]) -> str:
+    tags = [t.strip() for t in prompt.split(",") if t.strip()]
+    lowered = [t.lower() for t in tags]
+    weighted_present = {
+        term.lower(): any((f"({term.lower()}:" in t) for t in lowered)
+        for term in base_terms
+    }
+    kept = []
+    for tag in tags:
+        tag_l = tag.lower().strip()
+        remove_plain = False
+        for term in base_terms:
+            term_l = term.lower()
+            if weighted_present.get(term_l) and tag_l == term_l:
+                remove_plain = True
+                break
+        if not remove_plain:
+            kept.append(tag)
+    return ", ".join(kept)
+
+
+def _load_m3_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
     if not workflow_path:
         return None
     try:
@@ -164,7 +192,27 @@ def _load_m2_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
     }
 
 
-def run_prompt_engineer_m2(
+def _infer_subject_profile(report: dict, subject: str) -> str:
+    entity_type = (report.get("entity_type") or "").lower().strip()
+    text = " ".join(
+        [
+            subject or "",
+            str(report.get("subject_details") or ""),
+            str(report.get("entity_examples") or ""),
+        ]
+    ).lower()
+    if any(k in text for k in ("circle", "ball", "sphere", "oval", "ring", "shape", "logo", "icon")):
+        return "geometry"
+    if any(k in text for k in ("car", "truck", "bus", "bike", "vehicle", "house", "building", "object", "prop")):
+        return "object"
+    if entity_type in ("single_complex", "multi_object") or any(k in text for k in ("character", "person", "woman", "man", "human")):
+        return "character"
+    if entity_type == "single_simple":
+        return "geometry"
+    return "generic"
+
+
+def run_prompt_engineer_m3(
     report: dict,
     dest_phase: str,
     source_phase: str = "Roughs",
@@ -172,17 +220,17 @@ def run_prompt_engineer_m2(
     style_lock: bool = True,
     workflow_path: Optional[str] = None,
 ) -> Tuple[str, str, str, str, str]:
-    templates = _load_m2_prompt_templates(workflow_path)
+    templates = _load_m3_prompt_templates(workflow_path)
     if templates:
         pos1 = templates.get("pos1", "") or ""
         neg1 = templates.get("neg1", "") or ""
         pos2 = templates.get("pos2", "") or ""
         neg2 = templates.get("neg2", "") or ""
-        rationale1 = "Stage 1 prompts from M2 workflow template."
-        rationale2 = "Stage 2 prompts from M2 workflow template."
+        rationale1 = "Stage 1 prompts from M3 workflow template."
+        rationale2 = "Stage 2 prompts from M3 workflow template."
     else:
         pos1, neg1, rationale1 = "", "", "Stage 1 prompts missing template."
-        pos2, neg2, rationale2 = generate_m2_cleanup_prompts()
+        pos2, neg2, rationale2 = generate_m3_cleanup_prompts()
 
     subject = _extract_subject_details(report)
     pose = _extract_pose(report)
@@ -203,6 +251,55 @@ def run_prompt_engineer_m2(
             pos1 = pose
 
     line_quality = (report.get("line_quality") or "").lower().strip()
+    construction_lines = (report.get("construction_lines") or "").lower().strip()
+    broken_lines = (report.get("broken_lines") or "").lower().strip()
+    entity_type = (report.get("entity_type") or "").lower().strip()
+    subject_profile = _infer_subject_profile(report, subject)
+
+    # Extra signal: construction/broken line intensity lets us scale the rescue negatives.
+    def _construction_negatives(level: str) -> list[str]:
+        if level == "high":
+            return [
+                "(construction lines:1.6)",
+                "(guidelines:1.4)",
+                "(graphite:1.3)",
+                "(sketch artifacts:1.3)",
+                "(smudge:1.2)",
+            ]
+        if level == "medium":
+            return [
+                "(construction lines:1.4)",
+                "(guidelines:1.2)",
+                "(graphite:1.2)",
+                "(sketch artifacts:1.2)",
+            ]
+        if level == "low":
+            return []
+        return []
+
+    def _broken_line_negatives(level: str) -> list[str]:
+        if level == "high":
+            return [
+                "(broken lines:1.7)",
+                "(dotted lines:1.6)",
+                "(sketchy lines:1.4)",
+                "(stippling:1.3)",
+            ]
+        if level == "medium":
+            return [
+                "(broken lines:1.5)",
+                "(dotted lines:1.4)",
+                "(sketchy lines:1.3)",
+            ]
+        if level == "low":
+            return []
+        return []
+
+    extra_negatives = _construction_negatives(construction_lines) + _broken_line_negatives(broken_lines)
+    if extra_negatives:
+        neg1 = _append_unique_tags(neg1, extra_negatives)
+        neg2 = _append_unique_tags(neg2, extra_negatives)
+
     if line_quality == "messy":
         if "solid black lines" in pos2 and "solid black lines:1.5" not in pos2:
             pos2 = re.sub(
@@ -214,16 +311,18 @@ def run_prompt_engineer_m2(
         elif "solid black lines" not in pos2.lower():
             pos2 = f"{pos2}, (solid black lines:1.5)"
         
-        # Inject Rescue Strategy negatives
-        rescue_negatives = [
-            "(construction lines:1.3)",
-            "(graphite:1.2)",
-            "(sketch artifacts:1.2)",
-            "(smudge:1.2)",
-            "(guidelines:1.1)",
-        ]
-        neg1 = _append_unique_tags(neg1, rescue_negatives)
-        neg2 = _append_unique_tags(neg2, rescue_negatives)
+        # Inject Rescue Strategy negatives only when construction/broken levels are missing/unknown,
+        # otherwise we may end up with conflicting duplicate weights (e.g. both 1.6 and 1.3).
+        if not construction_lines and not broken_lines:
+            rescue_negatives = [
+                "(construction lines:1.3)",
+                "(graphite:1.2)",
+                "(sketch artifacts:1.2)",
+                "(smudge:1.2)",
+                "(guidelines:1.1)",
+            ]
+            neg1 = _append_unique_tags(neg1, rescue_negatives)
+            neg2 = _append_unique_tags(neg2, rescue_negatives)
 
     # Color blocking: keep Stage 1 lighter, Stage 2 stronger (avoid noisy artifacts)
     color_block_negatives_stage1 = [
@@ -334,6 +433,29 @@ def run_prompt_engineer_m2(
         else:
             pos1 = ", ".join(lineart_tags)
 
+    # For geometry/object cleanup, strictly lock canvas/background and only clean subject lines.
+    if subject_profile in ("geometry", "object"):
+        canvas_lock_pos = [
+            "unchanged white canvas",
+            "preserve original canvas",
+            "no background alteration",
+            "subject-only cleanup",
+        ]
+        canvas_lock_neg = [
+            "(background change:1.6)",
+            "(canvas texture:1.6)",
+            "(paper grain:1.5)",
+            "(background pattern:1.5)",
+            "(frame border:1.6)",
+            "(dirty background:1.5)",
+            "(vignette:1.4)",
+            "(lighting gradient:1.4)",
+        ]
+        pos1 = _append_unique_tags(pos1, canvas_lock_pos)
+        pos2 = _append_unique_tags(pos2, canvas_lock_pos)
+        neg1 = _append_unique_tags(neg1, canvas_lock_neg)
+        neg2 = _append_unique_tags(neg2, canvas_lock_neg)
+
     if dest_phase == "CleanUp":
         anatomy_focus = [
             "clear anatomy",
@@ -346,8 +468,69 @@ def run_prompt_engineer_m2(
             "clean hips",
             "clean shoulders",
         ]
-        pos1 = _append_unique_tags(pos1, anatomy_focus)
-        pos2 = _append_unique_tags(pos2, anatomy_focus)
+        if subject_profile == "character":
+            pos1 = _append_unique_tags(pos1, anatomy_focus)
+            pos2 = _append_unique_tags(pos2, anatomy_focus)
+            pos2 = _append_unique_tags(pos2, ["clean hand anatomy", "clear finger separation", "single decisive contour per limb"])
+        if entity_type == "single_complex":
+            pos2 = _append_unique_tags(
+                pos2,
+                [
+                    "solid ink",
+                    "deep black lines",
+                    "high-contrast",
+                    "clean-cut edges",
+                    "monochrome line art",
+                    "absolute black #000000",
+                    "knife-sharp edges",
+                ],
+            )
+            neg2 = _append_unique_tags(
+                neg2,
+                [
+                    "(chromatic aberration:1.5)",
+                    "(color fringe:1.5)",
+                    "(yellow edges:1.5)",
+                    "(blue edges:1.5)",
+                    "(dotted lines:1.8)",
+                    "(pixel jitter:1.4)",
+                    "(multicolored edges:1.8)",
+                    "(anti-aliasing artifacts:1.5)",
+                    "(pixelated lines:1.5)",
+                    "(halftone dots:1.6)",
+                    "jittery lines",
+                    "sketchy residue",
+                ],
+            )
+
+    # Character cleanup quality: remove rigid geometric constraints that make lines stiff.
+    if subject_profile == "character":
+        rigid_terms = [
+            "precise geometry",
+            "stable silhouette",
+            "single unbroken stroke",
+            "uniform line thickness",
+        ]
+        pos1 = _remove_exact_tags(pos1, rigid_terms)
+        pos2 = _remove_exact_tags(pos2, rigid_terms)
+    elif subject_profile in ("geometry", "object"):
+        # Remove character/anatomy-specific tags for non-character cleanup.
+        simple_cleanup_removals = [
+            "clear anatomy",
+            "accurate anatomy",
+            "well-defined facial features",
+            "clean hands",
+            "clean feet",
+            "clean legs",
+            "clean torso",
+            "clean hips",
+            "clean shoulders",
+            "clean hand anatomy",
+            "clear finger separation",
+            "single decisive contour per limb",
+        ]
+        pos1 = _remove_exact_tags(pos1, simple_cleanup_removals)
+        pos2 = _remove_exact_tags(pos2, simple_cleanup_removals)
 
     # Keep clean-line enforcement limited to Tie Down / CleanUp phases.
     # Remove "rough sketch" language when aiming for clean output
@@ -384,13 +567,24 @@ def run_prompt_engineer_m2(
     )
 
     pos1 = _ensure_score_tags(pos1)
+    # Drop sentence-like long tags that dilute prompt quality.
+    pos1 = ", ".join([t for t in [x.strip() for x in pos1.split(",") if x.strip()] if not re.search(r"[.?!;:]", t)])
+    pos2 = ", ".join([t for t in [x.strip() for x in pos2.split(",") if x.strip()] if not re.search(r"[.?!;:]", t)])
     pos1 = _dedupe_tags(pos1)
     pos1 = _cap_prompt_tokens(pos1, max_tokens=75)
     neg1 = _dedupe_tags(neg1)
+    neg1 = _drop_plain_when_weighted_exists(
+        neg1,
+        ["broken lines", "dotted lines", "construction lines", "guidelines", "sketchy lines"],
+    )
     neg1 = _cap_prompt_tokens(neg1, max_tokens=75)
     pos2 = _dedupe_tags(pos2)
     neg2 = _dedupe_tags(neg2)
+    neg2 = _drop_plain_when_weighted_exists(
+        neg2,
+        ["broken lines", "dotted lines", "construction lines", "guidelines", "sketchy lines"],
+    )
 
     rationale = f"Stage1: {rationale1} Stage2: {rationale2}"
-    logger.info(f"M2 Prompts generated. Rationale: {rationale}")
+    logger.info(f"M3 Prompts generated. Rationale: {rationale}")
     return pos1, neg1, pos2, neg2, rationale

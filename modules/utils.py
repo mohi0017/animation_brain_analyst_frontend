@@ -92,6 +92,11 @@ def normalize_report(report: dict) -> dict:
     style_keywords = report.get("style_keywords") or []
     style_notes = report.get("style_notes") or []
     subject_details = report.get("subject_details")
+    entity_type = report.get("entity_type")
+    entity_examples = report.get("entity_examples")
+    construction_lines = report.get("construction_lines")
+    low_construction_sublevel = report.get("low_construction_sublevel")
+    broken_lines = report.get("broken_lines")
     phase_goal = report.get("phase_goal")
     line_quality = report.get("line_quality")
     anatomy_risk = report.get("anatomy_risk")
@@ -118,6 +123,14 @@ def normalize_report(report: dict) -> dict:
                     style_keywords = style_keywords or parsed.get("style_keywords", style_keywords)
                     style_notes = style_notes or parsed.get("style_notes", style_notes)
                     subject_details = subject_details or parsed.get("subject_details", subject_details)
+                    entity_type = entity_type or parsed.get("entity_type", entity_type)
+                    entity_examples = entity_examples or parsed.get("entity_examples", entity_examples)
+                    construction_lines = construction_lines or parsed.get("construction_lines", construction_lines)
+                    low_construction_sublevel = low_construction_sublevel or parsed.get(
+                        "low_construction_sublevel",
+                        low_construction_sublevel,
+                    )
+                    broken_lines = broken_lines or parsed.get("broken_lines", broken_lines)
                     phase_goal = phase_goal or parsed.get("phase_goal", phase_goal)
                     line_quality = line_quality or parsed.get("line_quality", line_quality)
                     anatomy_risk = anatomy_risk or parsed.get("anatomy_risk", anatomy_risk)
@@ -146,6 +159,11 @@ def normalize_report(report: dict) -> dict:
         "style_keywords": style_keywords,
         "style_notes": style_notes,
         "subject_details": subject_details,
+        "entity_type": entity_type,
+        "entity_examples": entity_examples,
+        "construction_lines": construction_lines,
+        "low_construction_sublevel": low_construction_sublevel,
+        "broken_lines": broken_lines,
         "phase_goal": phase_goal,
         "line_quality": line_quality,
         "anatomy_risk": anatomy_risk,
