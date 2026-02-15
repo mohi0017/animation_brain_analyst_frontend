@@ -268,6 +268,15 @@ def run_prompt_engineer_m3(
     conflict_penalty = max(0.0, min(1.0, conflict_penalty))
     reference_mode = (report.get("reference_mode") or "").lower().strip()
     transition = f"{source_phase} -> {dest_phase}"
+    ip_dual = report.get("ip_adapter_dual") or {}
+    try:
+        ip_ks1_w = float((ip_dual.get("ksampler1") or {}).get("weight", report.get("ip_weight") or 0.0))
+    except Exception:
+        ip_ks1_w = 0.0
+    try:
+        ip_ks2_w = float((ip_dual.get("ksampler2") or {}).get("weight", report.get("ip_weight") or 0.0))
+    except Exception:
+        ip_ks2_w = 0.0
 
     # Extra signal: construction/broken line intensity lets us scale the rescue negatives.
     def _construction_negatives(level: str) -> list[str]:
@@ -488,7 +497,7 @@ def run_prompt_engineer_m3(
             )
 
         # If reference influence is low, avoid injecting any style/identity language into KS1.
-        if influence_scalar is not None and influence_scalar < 0.4:
+        if (influence_scalar is not None and influence_scalar < 0.4) or ip_ks1_w < 0.6:
             ks1_style_hint: list[str] = []
         else:
             ks1_style_hint = ["subtle reference line influence"] if influence_scalar is not None else []
@@ -501,6 +510,9 @@ def run_prompt_engineer_m3(
             "improve line consistency",
             "clean and unify line quality",
         ]
+        # If KS2 IP is low, avoid strong reference identity language even if mode says identity.
+        if ip_ks2_w < 0.35 and reference_mode == "identity":
+            reference_mode = "style"
         if reference_mode == "identity":
             ks2_refine.extend(
                 [

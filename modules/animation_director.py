@@ -98,6 +98,20 @@ def create_parameter_plan_m3(
         ip["weight"] = round(desired_ip_w, 2)
         ip["end_at"] = round(desired_ip_end, 2)
 
+        # "Dual IP" logical roles (KS1 vs KS2). Current ComfyUI graph has a single IPAdapter node,
+        # so this is used for prompt intensity + logging today. If we later duplicate IPAdapter
+        # nodes per sampler, these values can be applied directly.
+        ip_ks1_w = max(0.15, min(0.8, float(ip["weight"]) * 1.0))
+        ip_ks1_end = max(0.30, min(0.95, float(ip["end_at"]) * 0.9))
+        ip_ks2_w = max(0.15, min(0.8, float(ip["weight"]) * 0.55))
+        ip_ks2_end = max(0.30, min(0.95, float(ip["end_at"]) * 0.75))
+        if conflict_penalty > 0.4:
+            ip_ks2_end = min(ip_ks2_end, 0.50)
+        plan["ip_adapter_dual"] = {
+            "ksampler1": {"weight": round(ip_ks1_w, 2), "end_at": round(ip_ks1_end, 2)},
+            "ksampler2": {"weight": round(ip_ks2_w, 2), "end_at": round(ip_ks2_end, 2)},
+        }
+
         # Master influence scalar (single control variable).
         plan["_influence_scalar"] = round(I_final, 3)
 

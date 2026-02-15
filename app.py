@@ -290,6 +290,8 @@ if generate:
                     report["ip_end_at"] = float(m3_plan["ip_adapter"]["end_at"])
                 except Exception:
                     pass
+                if m3_plan.get("ip_adapter_dual"):
+                    report["ip_adapter_dual"] = m3_plan["ip_adapter_dual"]
                 status.write(
                     "🧭 Director: "
                     f"CN Union end={m3_plan['controlnet_union']['end_percent']}, "
