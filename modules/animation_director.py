@@ -238,11 +238,11 @@ def create_parameter_plan_m3(
                 "model_name": DEFAULT_M3_MODEL,
                 # High construction + medium/high broken lines: allow some redraw for cleanup,
                 # but don't over-lock Union or it starts tracing construction marks.
-                "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.80},
-                "ksampler2": {"steps": 50, "cfg": 7.0, "denoise": 0.40},
+                "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 1.00},
+                "ksampler2": {"steps": 50, "cfg": 7.0, "denoise": 0.60},
                 "controlnet_union": {"strength": 0.50, "end_percent": 0.80},
                 "controlnet_openpose": {"strength": 1.0, "end_percent": 1.0},
-                "ip_adapter": {"weight": 0.70, "end_at": 0.90},
+                "ip_adapter": {"weight": 0.60, "end_at": 1.00},
             }
             logger.info(
                 "Parameter plan created (single_complex+construction high/medium_or_high override): "
