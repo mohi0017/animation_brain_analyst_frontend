@@ -447,6 +447,20 @@ if generate:
                         st.markdown("**Step 2: Reference Image**")
                         st.image(reference_uploaded, caption="Reference image sent to IP-Adapter", width='stretch')
 
+                    # Director diagnostics (signals + modes) for tuning.
+                    if m3_plan:
+                        diags = m3_plan.get("diagnostics")
+                        if diags:
+                            st.markdown("**Diagnostics: Control Signals (S/R/D/P/H)**")
+                            st.json(diags)
+                        meta = {
+                            "_influence_scalar": m3_plan.get("_influence_scalar"),
+                            "reference_mode": m3_plan.get("reference_mode"),
+                            "ip_adapter_dual": m3_plan.get("ip_adapter_dual"),
+                        }
+                        st.markdown("**Diagnostics: Modes / Influence**")
+                        st.json(meta)
+
                     if debug_payload:
                         raw_imgs = debug_payload.get("raw", [])
                         raw_nodes = debug_payload.get("raw_node_ids", [])
