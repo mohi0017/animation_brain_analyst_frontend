@@ -183,11 +183,8 @@ with col_lock2:
         help="If checked, the art style and proportions will be preserved."
     )
 
-anat_level = st.slider(
-    "How Much to Fix Anatomy", 
-    0, 100, 70,
-    help="0 = Don't fix anatomy issues, 100 = Fix all anatomy problems strictly"
-)
+# Anatomy fix level is controlled by the agent/presets; keep it out of the UI to avoid conflicts.
+anat_level = 70
 
 # Model Selection
 from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
