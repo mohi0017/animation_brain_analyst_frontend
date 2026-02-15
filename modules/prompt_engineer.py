@@ -255,6 +255,19 @@ def run_prompt_engineer_m3(
     broken_lines = (report.get("broken_lines") or "").lower().strip()
     entity_type = (report.get("entity_type") or "").lower().strip()
     subject_profile = _infer_subject_profile(report, subject)
+    influence_scalar = report.get("_influence_scalar")
+    try:
+        influence_scalar = float(influence_scalar) if influence_scalar is not None else None
+    except Exception:
+        influence_scalar = None
+    influence_scalar = None if influence_scalar is None else max(0.0, min(1.0, influence_scalar))
+    try:
+        conflict_penalty = float(report.get("reference_conflict_penalty") or 0.0)
+    except Exception:
+        conflict_penalty = 0.0
+    conflict_penalty = max(0.0, min(1.0, conflict_penalty))
+    reference_mode = (report.get("reference_mode") or "").lower().strip()
+    transition = f"{source_phase} -> {dest_phase}"
 
     # Extra signal: construction/broken line intensity lets us scale the rescue negatives.
     def _construction_negatives(level: str) -> list[str]:
@@ -455,6 +468,94 @@ def run_prompt_engineer_m3(
         pos2 = _append_unique_tags(pos2, canvas_lock_pos)
         neg1 = _append_unique_tags(neg1, canvas_lock_neg)
         neg2 = _append_unique_tags(neg2, canvas_lock_neg)
+
+    # ---------- Stage-aware semantic layering (KS1 vs KS2 responsibilities) ----------
+    # We keep templates as the base, then add *different* layers per stage.
+    if subject_profile == "character":
+        # KS1 = structure authority (conservative).
+        ks1_structure_lock = [
+            "preserve original pose exactly",
+            "maintain original proportions",
+            "retain original accessories",
+            "do not redesign character",
+        ]
+        if conflict_penalty > 0.4:
+            ks1_structure_lock.extend(
+                [
+                    "do not alter facial features",
+                    "strictly follow input structure",
+                ]
+            )
+
+        # If reference influence is low, avoid injecting any style/identity language into KS1.
+        if influence_scalar is not None and influence_scalar < 0.4:
+            ks1_style_hint: list[str] = []
+        else:
+            ks1_style_hint = ["subtle reference line influence"] if influence_scalar is not None else []
+
+        pos1 = _append_unique_tags(pos1, ks1_structure_lock + ks1_style_hint)
+
+        # KS2 = refinement authority (style/cleanup).
+        ks2_refine = [
+            "refine contours with confident strokes",
+            "improve line consistency",
+            "clean and unify line quality",
+        ]
+        if reference_mode == "identity":
+            ks2_refine.extend(
+                [
+                    "match reference line weight",
+                    "follow reference stroke confidence",
+                ]
+            )
+        elif reference_mode == "style":
+            ks2_refine.extend(
+                [
+                    "adopt reference stroke clarity",
+                    "subtle reference influence",
+                ]
+            )
+        elif reference_mode == "style_lite":
+            ks2_refine.extend(
+                [
+                    "focus on clean uniform lines",
+                    "no identity transfer",
+                ]
+            )
+
+        if conflict_penalty > 0.4:
+            ks2_refine.extend(
+                [
+                    "avoid color tint shifts",
+                    "no added background tones",
+                    "no additional design elements",
+                ]
+            )
+
+        pos2 = _append_unique_tags(pos2, ks2_refine)
+
+        # Phase / transition semantics.
+        if transition.lower() == "roughs -> tie down":
+            pos1 = _append_unique_tags(pos1, ["resolve rough sketch into stable structure", "clarify construction", "remove sketch noise"])
+            pos2 = _append_unique_tags(pos2, ["tighten anatomy", "convert rough strokes into clean tied-down lines"])
+        elif transition.lower() == "roughs -> cleanup":
+            pos1 = _append_unique_tags(pos1, ["resolve rough sketch into stable structure"])
+            pos2 = _append_unique_tags(pos2, ["convert rough strokes into final clean lines"])
+        elif transition.lower() == "tie down -> cleanup":
+            pos1 = _append_unique_tags(pos1, ["preserve tied-down structure"])
+            pos2 = _append_unique_tags(pos2, ["final clean ink", "uniform stroke width", "professional animation-ready line art"])
+
+        # Negatives: add halo/fringe suppression when conflict is high.
+        if conflict_penalty > 0.4:
+            halo_negs = [
+                "(chromatic aberration:1.6)",
+                "(color fringe:1.6)",
+                "(colored outlines:1.6)",
+                "(edge halos:1.6)",
+                "double lines",
+            ]
+            neg1 = _append_unique_tags(neg1, halo_negs)
+            neg2 = _append_unique_tags(neg2, halo_negs)
 
     if dest_phase == "CleanUp":
         anatomy_focus = [

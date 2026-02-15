@@ -283,6 +283,13 @@ if generate:
                     report["prompt_modifiers"] = m3_plan["prompt_modifiers"]
                 if m3_plan.get("reference_mode"):
                     report["reference_mode"] = m3_plan["reference_mode"]
+                if m3_plan.get("_influence_scalar") is not None:
+                    report["_influence_scalar"] = m3_plan["_influence_scalar"]
+                try:
+                    report["ip_weight"] = float(m3_plan["ip_adapter"]["weight"])
+                    report["ip_end_at"] = float(m3_plan["ip_adapter"]["end_at"])
+                except Exception:
+                    pass
                 status.write(
                     "🧭 Director: "
                     f"CN Union end={m3_plan['controlnet_union']['end_percent']}, "
