@@ -46,13 +46,14 @@ def create_parameter_plan_m3(
         """
         Scale IP-Adapter + related parameters based on input-vs-reference similarity.
 
-        We rely on a lightweight similarity signal computed in the app:
-          report['reference_similarity'] in [0,1] (higher = more similar).
+        We rely on a multi-layer similarity signal computed in the app:
+          report['reference_final_score'] in [0,1] (higher = more similar).
+          report['reference_conflict_penalty'] in [0,1] (higher = more conflict).
 
         When the reference conflicts with the sketch, strong IP often introduces
         chromatic fringing and background tint. When it matches, IP helps line quality.
         """
-        sim = report.get("reference_similarity")
+        sim = report.get("reference_final_score")
         if sim is None:
             return plan
         try:
@@ -61,23 +62,37 @@ def create_parameter_plan_m3(
             return plan
         sim = max(0.0, min(1.0, sim))
 
-        style_compat = (report.get("style_compatibility") or "").lower().strip()
+        try:
+            conflict_penalty = float(report.get("reference_conflict_penalty") or 0.0)
+        except Exception:
+            conflict_penalty = 0.0
+        conflict_penalty = max(0.0, min(1.0, conflict_penalty))
+
+        # Phase awareness: later phases can tolerate more reference influence.
+        if dest_phase.lower() in ("roughs", "skeleton"):
+            phase_factor = 0.6
+        elif dest_phase.lower() in ("tie down", "tiedown"):
+            phase_factor = 0.8
+        else:
+            phase_factor = 1.0
+
+        I_final = sim * phase_factor * (1.0 - conflict_penalty)
+        I_final = max(0.0, min(1.0, float(I_final)))
 
         ip = dict(plan.get("ip_adapter", {}) or {})
         cn_union = dict(plan.get("controlnet_union", {}) or {})
         ks2 = dict(plan.get("ksampler2", {}) or {})
 
-        # Base desired IP from similarity.
-        desired_ip_w = 0.2 + 0.8 * sim
-        desired_ip_end = 0.4 + 0.6 * sim
+        # Continuous scaling (stable, no buckets).
+        desired_ip_w = 0.15 + 0.65 * I_final
+        desired_ip_end = 0.30 + 0.60 * I_final
 
-        # If analyst says style conflicts, cap reference influence hard.
-        if style_compat == "conflict":
-            desired_ip_w = min(desired_ip_w, 0.30)
-            desired_ip_end = min(desired_ip_end, 0.40)
+        # Early-only influence for conflict cases (prevents late-stage tint bleeding).
+        if conflict_penalty > 0.40:
+            desired_ip_end = min(desired_ip_end, 0.50)
 
-        desired_ip_w = max(0.0, min(0.70, desired_ip_w))
-        desired_ip_end = max(0.0, min(1.0, desired_ip_end))
+        desired_ip_w = max(0.15, min(0.80, desired_ip_w))
+        desired_ip_end = max(0.30, min(0.95, desired_ip_end))
 
         ip["weight"] = round(desired_ip_w, 2)
         ip["end_at"] = round(desired_ip_end, 2)
@@ -92,6 +107,8 @@ def create_parameter_plan_m3(
         elif ip["weight"] <= 0.30:
             cn_union["strength"] = min(1.0, float(cn_union.get("strength", 0.7)) + 0.05)
             ks2["cfg"] = min(9.5, float(ks2.get("cfg", 8.0)) + 0.3)
+            # If the reference is weak/conflicting, avoid pushing denoise too low or cleanup won't happen.
+            ks2["denoise"] = max(0.30, float(ks2.get("denoise", 0.4)))
 
         plan["ip_adapter"] = ip
         plan["controlnet_union"] = cn_union
