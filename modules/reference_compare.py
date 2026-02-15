@@ -25,6 +25,10 @@ class ReferenceComparison:
     feature_match_score: float
     # Conflict penalty (0..1; higher = more conflict)
     conflict_penalty: float
+    # Accessory mismatch score (0..1)
+    accessory_mismatch: float
+    # Whether the reference looks colored (vs mostly grayscale)
+    reference_is_colored: bool
     # Style distance (0..1; higher = more different in stroke/contrast)
     style_distance: float
     # Fused final similarity score (0..1)
@@ -123,6 +127,31 @@ def _feature_match_score(subject_details: str, reference_summary: str) -> tuple[
     return feature_match, conflict_penalty
 
 
+def _upper_face_dark_blob_ratio(png_bytes: bytes, size: int = 256) -> float:
+    """
+    Heuristic: detect sunglasses-like dark blob density in upper face region.
+    Returns ratio of near-black pixels in the top 40% of the frame.
+    """
+    img = Image.open(io.BytesIO(png_bytes)).convert("L").resize((size, size), Image.Resampling.BICUBIC)
+    h = size
+    region = img.crop((0, 0, size, int(h * 0.40)))
+    arr = np.asarray(region, dtype=np.uint8)
+    # Near-black threshold (tolerant).
+    return float((arr <= 50).mean())
+
+
+def _is_colored_reference(png_bytes: bytes, size: int = 256) -> bool:
+    """
+    Heuristic: reference is 'colored' if saturation is meaningfully present.
+    This protects against tint/fringing when using a color guide as an IP reference.
+    """
+    img = Image.open(io.BytesIO(png_bytes)).convert("RGB").resize((size, size), Image.Resampling.BICUBIC)
+    hsv = img.convert("HSV")
+    s = np.asarray(hsv, dtype=np.uint8)[:, :, 1].astype(np.float32) / 255.0
+    # If saturation mean is above a small threshold, treat as colored.
+    return bool(float(s.mean()) >= 0.08)
+
+
 def compare_input_reference(
     input_png: bytes,
     reference_png: bytes,
@@ -141,6 +170,18 @@ def compare_input_reference(
     structural = _edge_cosine_similarity(input_png, reference_png)
     proportion = _proportion_similarity(input_png, reference_png)
     feature_match, conflict_penalty = _feature_match_score(subject_details, reference_summary)
+
+    # Image-level accessory mismatch: sunglasses-like dark blob in input but not in reference.
+    blob_in = _upper_face_dark_blob_ratio(input_png)
+    blob_ref = _upper_face_dark_blob_ratio(reference_png)
+    # Thresholds tuned for black-filled sunglasses vs line-only glasses.
+    accessory_mismatch = 1.0 if (blob_in >= 0.006 and blob_ref < 0.003) else 0.0
+    conflict_penalty = max(conflict_penalty, 0.6 if accessory_mismatch else 0.0)
+
+    reference_is_colored = _is_colored_reference(reference_png)
+    if reference_is_colored:
+        # Colored reference is more likely to introduce tint/halos; treat as mild conflict.
+        conflict_penalty = max(conflict_penalty, 0.2)
 
     # Style distance: edge density + grayscale contrast delta (robust to tint).
     def _edge_density(png_bytes: bytes, size: int = 256) -> float:
@@ -171,6 +212,8 @@ def compare_input_reference(
         proportion_score=float(proportion),
         feature_match_score=float(feature_match),
         conflict_penalty=float(conflict_penalty),
+        accessory_mismatch=float(accessory_mismatch),
+        reference_is_colored=bool(reference_is_colored),
         style_distance=float(style_distance),
         final_score=float(final_score),
     )

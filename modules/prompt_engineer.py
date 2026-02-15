@@ -617,13 +617,21 @@ def run_prompt_engineer_m3(
             )
 
     # Director-driven prompt modifiers (dynamic guardrails / style notes).
+    # Some modifiers are KS2-only and must never pollute KS1.
     prompt_mods = report.get("prompt_modifiers") or []
     if isinstance(prompt_mods, list):
         prompt_mods = [str(x).strip() for x in prompt_mods if str(x).strip()]
     else:
         prompt_mods = []
     if prompt_mods:
-        pos1 = _append_unique_tags(pos1, prompt_mods)
+        ks2_only = {
+            "match reference line weight",
+            "follow reference stroke confidence",
+            "adopt reference stroke clarity",
+            "subtle reference influence",
+            "refine contours with confident strokes",
+        }
+        pos1 = _append_unique_tags(pos1, [m for m in prompt_mods if m.lower() not in ks2_only])
         pos2 = _append_unique_tags(pos2, prompt_mods)
 
     # Character cleanup quality: remove rigid geometric constraints that make lines stiff.

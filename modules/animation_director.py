@@ -286,6 +286,7 @@ def create_parameter_plan_m3(
             conflict = float(report.get("reference_conflict_penalty") or 0.0)
         except Exception:
             conflict = 0.0
+        reference_is_colored = bool(report.get("reference_is_colored") or False)
         sim = max(0.0, min(1.0, sim))
         conflict = max(0.0, min(1.0, conflict))
         R = max(0.0, min(1.0, sim * (1.0 - conflict)))
@@ -319,6 +320,11 @@ def create_parameter_plan_m3(
         ip1 = max(0.30, min(0.80, ip1))
         ip2 = 0.2 + 0.3 * R - 0.5 * conflict
         ip2 = max(0.15, min(0.50, ip2))
+        # Hard asymmetry: KS2 must be more conservative than KS1 in risky scenarios.
+        ip2 = min(ip2, max(0.15, ip1 - 0.10))
+        # Colored reference safety: cap KS2 IP and end_at to reduce tint/halo bleed.
+        if reference_is_colored:
+            ip2 = min(ip2, 0.35)
 
         # KSampler1 (structure pass)
         cfg1 = 7.5 - 0.7 * conflict
@@ -361,15 +367,22 @@ def create_parameter_plan_m3(
             "H_hallucination_risk": round(H, 3),
             "conflict_penalty": round(conflict, 3),
             "reference_final_score": round(sim, 3),
+            "reference_is_colored": bool(reference_is_colored),
         }
 
         plan["controlnet_union"] = cn_union
         plan["controlnet_openpose"] = cn_pose
         plan["ksampler1"] = ks1
         plan["ksampler2"] = ks2
+        ip1_end = min(0.95, 0.30 + 0.60 * R)
+        ip2_end = min(0.90, 0.25 + 0.65 * R)
+        if conflict > 0.4:
+            ip2_end = min(ip2_end, 0.50)
+        if reference_is_colored:
+            ip2_end = min(ip2_end, 0.60)
         plan["ip_adapter_dual"] = {
-            "ksampler1": {"weight": round(ip1, 2), "end_at": round(min(0.95, 0.30 + 0.60 * R), 2)},
-            "ksampler2": {"weight": round(ip2, 2), "end_at": round(min(0.90, 0.25 + 0.65 * R), 2)},
+            "ksampler1": {"weight": round(ip1, 2), "end_at": round(ip1_end, 2)},
+            "ksampler2": {"weight": round(ip2, 2), "end_at": round(ip2_end, 2)},
         }
         # Keep single IP for backwards compatibility (use KS1 by default).
         plan["ip_adapter"] = dict(plan.get("ip_adapter", {}) or {})

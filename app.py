@@ -236,6 +236,8 @@ if generate:
                     report["reference_proportion_score"] = comp.proportion_score
                     report["reference_feature_match_score"] = comp.feature_match_score
                     report["reference_conflict_penalty"] = comp.conflict_penalty
+                    report["reference_accessory_mismatch"] = comp.accessory_mismatch
+                    report["reference_is_colored"] = comp.reference_is_colored
                     report["reference_style_distance"] = comp.style_distance
                     report["reference_final_score"] = comp.final_score
                 except Exception:
