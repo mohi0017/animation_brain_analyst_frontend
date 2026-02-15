@@ -178,7 +178,7 @@ from modules import DEFAULT_M3_MODEL
 selected_model = DEFAULT_M3_MODEL
 
 # ---------- Section 3: Generation Control & Output ----------
-st.header("3️⃣ Generate Your Animation Frame")
+st.header("2️⃣ Generate Your Animation Frame")
 st.markdown("_Click the button below to start processing_")
 
 generate = st.button("🚀 Start Generation", type="primary", use_container_width=True)
