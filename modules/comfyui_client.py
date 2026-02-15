@@ -15,6 +15,7 @@ import requests
 import streamlit as st
 from PIL import Image, ImageFilter, ImageOps
 
+from .line_quality_analyzer import analyze_line_quality
 
 def call_comfyui(
     image_bytes: bytes,
@@ -112,7 +113,80 @@ def call_comfyui(
         log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
 
         # Step 6: Poll and download images
-        return _poll_and_download(base_url, actual_prompt_id, log, debug_mode=debug_mode)
+        result = _poll_and_download(base_url, actual_prompt_id, log, debug_mode=debug_mode)
+
+        # Optional closed-loop feedback: analyze KS2 output and (at most once) re-run with adjusted KS2/IP2.
+        max_retries = int(os.getenv("M3_FEEDBACK_MAX_RETRIES", "0") or "0")
+        if max_retries > 0 and m3_plan and reference_image_bytes and result:
+            try:
+                if isinstance(result, dict):
+                    ks2_bytes = result.get("final", (None, None))[0]
+                else:
+                    ks2_bytes = result[0]
+
+                metrics = analyze_line_quality(ks2_bytes, reference_png=reference_image_bytes)
+                log(
+                    "📏 LineQuality: "
+                    f"density={metrics.edge_density:.3f} noise={metrics.noise_ratio:.3f} "
+                    f"th_var={metrics.thickness_variance:.4f} ref_sim="
+                    f"{(metrics.reference_edge_similarity if metrics.reference_edge_similarity is not None else -1):.3f}"
+                )
+
+                # Targets (tunable via env). Defaults are conservative.
+                tgt_noise = float(os.getenv("M3_TGT_NOISE_RATIO", "0.08"))
+                tgt_density_hi = float(os.getenv("M3_TGT_EDGE_DENSITY_HI", "0.14"))
+                tgt_density_lo = float(os.getenv("M3_TGT_EDGE_DENSITY_LO", "0.02"))
+
+                needs_retry = (
+                    metrics.noise_ratio > tgt_noise
+                    or metrics.edge_density > tgt_density_hi
+                    or metrics.edge_density < tgt_density_lo
+                )
+
+                if needs_retry and max_retries >= 1:
+                    log("🔁 Feedback: quality out of range; re-running once with dampened KS2/IP2...")
+                    # Dampeners: reduce KS2 cfg a bit, reduce IP2, and slightly reduce denoise to preserve structure.
+                    m3_plan2 = json.loads(json.dumps(m3_plan))
+                    ks2 = m3_plan2.get("ksampler2", {})
+                    ks2["cfg"] = max(5.5, float(ks2.get("cfg", 8.0)) - 0.5)
+                    ks2["denoise"] = max(0.2, float(ks2.get("denoise", 0.4)) - 0.05)
+                    m3_plan2["ksampler2"] = ks2
+                    ipd = (m3_plan2.get("ip_adapter_dual") or {})
+                    if isinstance(ipd, dict):
+                        ip2 = dict(ipd.get("ksampler2") or {})
+                        ip2["weight"] = max(0.15, float(ip2.get("weight", 0.25)) - 0.05)
+                        ip2["end_at"] = min(float(ip2.get("end_at", 0.5)), 0.5)
+                        ipd["ksampler2"] = ip2
+                        m3_plan2["ip_adapter_dual"] = ipd
+
+                    # Rebuild workflow with updated params and resubmit (no re-upload needed).
+                    wf2 = _load_workflow(base_url, log, workflow_path)
+                    wf2 = _update_workflow(
+                        wf2,
+                        prompts,
+                        uploaded_filename,
+                        reference_uploaded_filename,
+                        model_name,
+                        m3_plan2,
+                        log,
+                    )
+                    log("🚀 Submitting feedback-adjusted workflow to ComfyUI...")
+                    prompt_id2 = str(uuid.uuid4())
+                    submit_resp2 = requests.post(
+                        f"{base_url}/prompt",
+                        json={"prompt": wf2, "client_id": prompt_id2},
+                        timeout=30,
+                    )
+                    submit_resp2.raise_for_status()
+                    submit_data2 = submit_resp2.json()
+                    actual_prompt_id2 = submit_data2.get("prompt_id")
+                    if actual_prompt_id2:
+                        log(f"✅ Feedback workflow submitted (ID: {actual_prompt_id2[:8]}...)")
+                        return _poll_and_download(base_url, actual_prompt_id2, log, debug_mode=debug_mode)
+            except Exception as exc:
+                log(f"⚠️ Feedback loop skipped: {exc}")
+
+        return result
 
     except requests.exceptions.RequestException as exc:
         error_msg = f"ComfyUI API error: {exc}"
