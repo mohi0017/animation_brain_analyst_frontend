@@ -236,12 +236,13 @@ def create_parameter_plan_m3(
             plan = {
                 "transition": transition,
                 "model_name": DEFAULT_M3_MODEL,
-                # Emergency V2 preset: minimize segmentation/fringing under heavy roughness.
-                "ksampler1": {"steps": 40, "cfg": 6.5, "denoise": 0.75},
-                "ksampler2": {"steps": 50, "cfg": 6.5, "denoise": 0.30},
-                "controlnet_union": {"strength": 0.90, "end_percent": 1.0},
+                # High construction + medium/high broken lines: allow some redraw for cleanup,
+                # but don't over-lock Union or it starts tracing construction marks.
+                "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.80},
+                "ksampler2": {"steps": 50, "cfg": 7.0, "denoise": 0.40},
+                "controlnet_union": {"strength": 0.50, "end_percent": 0.80},
                 "controlnet_openpose": {"strength": 1.0, "end_percent": 1.0},
-                "ip_adapter": {"weight": 0.0, "end_at": 0.0},
+                "ip_adapter": {"weight": 0.70, "end_at": 0.90},
             }
             logger.info(
                 "Parameter plan created (single_complex+construction high/medium_or_high override): "
@@ -255,10 +256,10 @@ def create_parameter_plan_m3(
                 "transition": transition,
                 "model_name": DEFAULT_M3_MODEL,
                 "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.70},
-                "ksampler2": {"steps": 50, "cfg": 7.0, "denoise": 0.40},
+                "ksampler2": {"steps": 50, "cfg": 9.0, "denoise": 0.40},
                 "controlnet_union": {"strength": 0.70, "end_percent": 0.8},
                 "controlnet_openpose": {"strength": 1.0, "end_percent": 1.0},
-                "ip_adapter": {"weight": 0.0, "end_at": 0.0},
+                "ip_adapter": {"weight": 0.70, "end_at": 1.0},
             }
             logger.info(
                 "Parameter plan created (single_complex+construction medium+broken low_or_medium override): "
