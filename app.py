@@ -30,6 +30,7 @@ from modules import (
     create_parameter_plan_m3,
     get_workflow_spec,
 )
+from modules.reference_compare import edge_cosine_similarity
 
 # Load environment variables from .env file
 load_dotenv()
@@ -221,6 +222,14 @@ if generate:
                 reference_mime=reference_mime,
             )
             report = normalize_report(raw_report)
+            # Compute a lightweight input-vs-reference similarity signal so the director can
+            # scale IP-Adapter/Union/denoise when the reference conflicts with the sketch.
+            if reference_bytes:
+                try:
+                    comp = edge_cosine_similarity(image_bytes, reference_bytes)
+                    report["reference_similarity"] = comp.similarity
+                except Exception:
+                    report["reference_similarity"] = None
             required_fields = [
                 "subject_details",
                 "entity_type",

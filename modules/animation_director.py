@@ -42,6 +42,62 @@ def create_parameter_plan_m3(
         for key in ("circle", "ball", "football", "sphere", "oval", "shape", "ring")
     )
 
+    def _apply_reference_correlation(plan: dict) -> dict:
+        """
+        Scale IP-Adapter + related parameters based on input-vs-reference similarity.
+
+        We rely on a lightweight similarity signal computed in the app:
+          report['reference_similarity'] in [0,1] (higher = more similar).
+
+        When the reference conflicts with the sketch, strong IP often introduces
+        chromatic fringing and background tint. When it matches, IP helps line quality.
+        """
+        sim = report.get("reference_similarity")
+        if sim is None:
+            return plan
+        try:
+            sim = float(sim)
+        except Exception:
+            return plan
+        sim = max(0.0, min(1.0, sim))
+
+        style_compat = (report.get("style_compatibility") or "").lower().strip()
+
+        ip = dict(plan.get("ip_adapter", {}) or {})
+        cn_union = dict(plan.get("controlnet_union", {}) or {})
+        ks2 = dict(plan.get("ksampler2", {}) or {})
+
+        # Base desired IP from similarity.
+        desired_ip_w = 0.2 + 0.8 * sim
+        desired_ip_end = 0.4 + 0.6 * sim
+
+        # If analyst says style conflicts, cap reference influence hard.
+        if style_compat == "conflict":
+            desired_ip_w = min(desired_ip_w, 0.30)
+            desired_ip_end = min(desired_ip_end, 0.40)
+
+        desired_ip_w = max(0.0, min(0.70, desired_ip_w))
+        desired_ip_end = max(0.0, min(1.0, desired_ip_end))
+
+        ip["weight"] = round(desired_ip_w, 2)
+        ip["end_at"] = round(desired_ip_end, 2)
+
+        # Correlated tweaks:
+        # - Higher IP => reduce refinement aggression a bit (cuts fringing/tint).
+        # - Lower IP  => rely more on ControlNet / CFG to keep structure.
+        if ip["weight"] >= 0.60:
+            cn_union["strength"] = max(0.40, float(cn_union.get("strength", 0.7)) - 0.05)
+            ks2["cfg"] = max(6.0, float(ks2.get("cfg", 8.0)) - 0.5)
+            ks2["denoise"] = max(0.25, float(ks2.get("denoise", 0.4)) - 0.05)
+        elif ip["weight"] <= 0.30:
+            cn_union["strength"] = min(1.0, float(cn_union.get("strength", 0.7)) + 0.05)
+            ks2["cfg"] = min(9.5, float(ks2.get("cfg", 8.0)) + 0.3)
+
+        plan["ip_adapter"] = ip
+        plan["controlnet_union"] = cn_union
+        plan["ksampler2"] = ks2
+        return plan
+
     def _apply_issue_overrides(plan: dict) -> dict:
         """
         Apply issue-driven tweaks even for early-return overrides.
@@ -51,6 +107,7 @@ def create_parameter_plan_m3(
           - controlnet_union/openpose: {strength,end_percent}
           - ip_adapter: {weight,end_at}
         """
+        plan = _apply_reference_correlation(plan)
         if not issue_text:
             return plan
 
