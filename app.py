@@ -166,22 +166,9 @@ with col_dst:
     )
 
 # ---------- Section 2: Phase Configuration ----------
-st.header("2️⃣ Settings & Options")
-st.markdown("_Configure how the AI should process your image_")
-
-col_lock1, col_lock2 = st.columns(2)
-with col_lock1:
-    pose_lock = st.checkbox(
-        "Keep Same Pose", 
-        value=True,
-        help="If checked, the character's pose and motion will stay the same. Only fixes anatomy issues."
-    )
-with col_lock2:
-    style_lock = st.checkbox(
-        "Keep Same Style", 
-        value=True,
-        help="If checked, the art style and proportions will be preserved."
-    )
+# These options are agent-controlled for M3; keep them out of the UI to avoid conflicts.
+pose_lock = True
+style_lock = True
 
 # Anatomy fix level is controlled by the agent/presets; keep it out of the UI to avoid conflicts.
 anat_level = 70
