@@ -278,6 +278,11 @@ if generate:
                 f"complexity={report.get('complexity')}"
             )
             if m3_plan:
+                # Allow director to drive prompt guardrails / reference handling.
+                if m3_plan.get("prompt_modifiers"):
+                    report["prompt_modifiers"] = m3_plan["prompt_modifiers"]
+                if m3_plan.get("reference_mode"):
+                    report["reference_mode"] = m3_plan["reference_mode"]
                 status.write(
                     "🧭 Director: "
                     f"CN Union end={m3_plan['controlnet_union']['end_percent']}, "

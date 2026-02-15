@@ -81,6 +81,7 @@ def create_parameter_plan_m3(
 
         ip = dict(plan.get("ip_adapter", {}) or {})
         cn_union = dict(plan.get("controlnet_union", {}) or {})
+        ks1 = dict(plan.get("ksampler1", {}) or {})
         ks2 = dict(plan.get("ksampler2", {}) or {})
 
         # Continuous scaling (stable, no buckets).
@@ -97,21 +98,62 @@ def create_parameter_plan_m3(
         ip["weight"] = round(desired_ip_w, 2)
         ip["end_at"] = round(desired_ip_end, 2)
 
-        # Correlated tweaks:
-        # - Higher IP => reduce refinement aggression a bit (cuts fringing/tint).
-        # - Lower IP  => rely more on ControlNet / CFG to keep structure.
-        if ip["weight"] >= 0.60:
-            cn_union["strength"] = max(0.40, float(cn_union.get("strength", 0.7)) - 0.05)
-            ks2["cfg"] = max(6.0, float(ks2.get("cfg", 8.0)) - 0.5)
-            ks2["denoise"] = max(0.25, float(ks2.get("denoise", 0.4)) - 0.05)
-        elif ip["weight"] <= 0.30:
-            cn_union["strength"] = min(1.0, float(cn_union.get("strength", 0.7)) + 0.05)
-            ks2["cfg"] = min(9.5, float(ks2.get("cfg", 8.0)) + 0.3)
-            # If the reference is weak/conflicting, avoid pushing denoise too low or cleanup won't happen.
-            ks2["denoise"] = max(0.30, float(ks2.get("denoise", 0.4)))
+        # Master influence scalar (single control variable).
+        plan["_influence_scalar"] = round(I_final, 3)
+
+        # Reference mode switching (used for later logic + debugging).
+        if I_final >= 0.7:
+            plan["reference_mode"] = "identity"
+        elif I_final >= 0.4:
+            plan["reference_mode"] = "style"
+        else:
+            plan["reference_mode"] = "style_lite"
+
+        # Prompt modifiers (consumed by prompt_engineer).
+        prompt_modifiers: list[str] = []
+        if conflict_penalty > 0.4:
+            prompt_modifiers.extend(
+                [
+                    "preserve original pose exactly",
+                    "preserve original facial proportions",
+                    "keep original accessories",
+                ]
+            )
+        if I_final > 0.6:
+            prompt_modifiers.extend(
+                [
+                    "match reference line weight",
+                    "follow reference stroke confidence",
+                ]
+            )
+        if prompt_modifiers:
+            plan["prompt_modifiers"] = prompt_modifiers
+
+        # Union coupling: lower influence -> stronger structure lock; higher influence -> allow style shaping.
+        base_union = float(cn_union.get("strength", 0.7) or 0.7)
+        union_strength = base_union * (0.7 + 0.6 * (1.0 - I_final))
+        cn_union["strength"] = max(0.35, min(1.0, union_strength))
+
+        # KSampler coupling:
+        # KS1 (structure pass) should trust the sketch more when reference is unreliable.
+        base_ks1_cfg = float(ks1.get("cfg", 8.0) or 8.0)
+        base_ks1_den = float(ks1.get("denoise", 0.7) or 0.7)
+        ks1["cfg"] = max(5.0, min(10.0, base_ks1_cfg - 0.6 * conflict_penalty))
+        ks1["denoise"] = max(0.1, min(1.0, min(0.6, base_ks1_den + 0.2 * (1.0 - I_final))))
+
+        # KS2 (refinement pass) takes full influence scalar but stays safe under conflicts.
+        base_ks2_cfg = float(ks2.get("cfg", 8.0) or 8.0)
+        base_ks2_den = float(ks2.get("denoise", 0.4) or 0.4)
+        ks2["cfg"] = max(5.0, min(10.0, base_ks2_cfg + 0.5 * I_final - 0.5 * conflict_penalty))
+        ks2["denoise"] = max(0.1, min(1.0, base_ks2_den - 0.15 * I_final))
+
+        # Extra fringing protection: when conflict is high, reduce KS2 cfg slightly.
+        if conflict_penalty > 0.5:
+            ks2["cfg"] = max(5.0, float(ks2["cfg"]) - 0.5)
 
         plan["ip_adapter"] = ip
         plan["controlnet_union"] = cn_union
+        plan["ksampler1"] = ks1
         plan["ksampler2"] = ks2
         return plan
 

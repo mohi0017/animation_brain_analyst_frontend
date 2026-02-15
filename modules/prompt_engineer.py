@@ -503,6 +503,16 @@ def run_prompt_engineer_m3(
                 ],
             )
 
+    # Director-driven prompt modifiers (dynamic guardrails / style notes).
+    prompt_mods = report.get("prompt_modifiers") or []
+    if isinstance(prompt_mods, list):
+        prompt_mods = [str(x).strip() for x in prompt_mods if str(x).strip()]
+    else:
+        prompt_mods = []
+    if prompt_mods:
+        pos1 = _append_unique_tags(pos1, prompt_mods)
+        pos2 = _append_unique_tags(pos2, prompt_mods)
+
     # Character cleanup quality: remove rigid geometric constraints that make lines stiff.
     if subject_profile == "character":
         rigid_terms = [
