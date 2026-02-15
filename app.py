@@ -174,7 +174,7 @@ style_lock = True
 anat_level = 70
 
 # Model is locked for M3; don't show model selection UI.
-from modules import DEFAULT_M3_MODEL
+from modules import DEFAULT_M3_MODEL, SD_MODELS
 selected_model = DEFAULT_M3_MODEL
 
 # ---------- Section 3: Generation Control & Output ----------
