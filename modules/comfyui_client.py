@@ -373,6 +373,7 @@ def _update_m3_v10_workflow(
     cn_union = m3_plan.get("controlnet_union", {})
     cn_openpose = m3_plan.get("controlnet_openpose", {})
     ip = m3_plan.get("ip_adapter", {})
+    ip_dual = m3_plan.get("ip_adapter_dual") or {}
 
     if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
         workflow["5"]["inputs"]["steps"] = ks1.get("steps", workflow["5"]["inputs"].get("steps"))
@@ -396,10 +397,19 @@ def _update_m3_v10_workflow(
         workflow["79"]["inputs"]["end_percent"] = cn_openpose.get("end_percent", workflow["79"]["inputs"].get("end_percent"))
         log("✅ Updated M3 OpenPose params")
 
+    # IP-Adapter (supports dual-IP workflows):
+    # - Node 66 typically feeds KS1 model input.
+    # - Node 90 (if present) typically feeds KS2 model input.
     if "66" in workflow and workflow["66"].get("class_type") == "IPAdapterAdvanced":
-        workflow["66"]["inputs"]["weight"] = ip.get("weight", workflow["66"]["inputs"].get("weight"))
-        workflow["66"]["inputs"]["end_at"] = ip.get("end_at", workflow["66"]["inputs"].get("end_at"))
-        log("✅ Updated M3 IP-Adapter params")
+        ip1 = (ip_dual.get("ksampler1") or {}) if isinstance(ip_dual, dict) else {}
+        workflow["66"]["inputs"]["weight"] = ip1.get("weight", ip.get("weight", workflow["66"]["inputs"].get("weight")))
+        workflow["66"]["inputs"]["end_at"] = ip1.get("end_at", ip.get("end_at", workflow["66"]["inputs"].get("end_at")))
+        log("✅ Updated M3 IP-Adapter params (KS1)")
+    if "90" in workflow and workflow["90"].get("class_type") == "IPAdapterAdvanced":
+        ip2 = (ip_dual.get("ksampler2") or {}) if isinstance(ip_dual, dict) else {}
+        workflow["90"]["inputs"]["weight"] = ip2.get("weight", ip.get("weight", workflow["90"]["inputs"].get("weight")))
+        workflow["90"]["inputs"]["end_at"] = ip2.get("end_at", ip.get("end_at", workflow["90"]["inputs"].get("end_at")))
+        log("✅ Updated M3 IP-Adapter params (KS2)")
 
     return workflow
 
