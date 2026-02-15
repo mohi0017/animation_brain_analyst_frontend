@@ -186,27 +186,9 @@ with col_lock2:
 # Anatomy fix level is controlled by the agent/presets; keep it out of the UI to avoid conflicts.
 anat_level = 70
 
-# Model Selection
-from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
-
-st.markdown("**🎨 Stable Diffusion Model**")
-m3_options = [DEFAULT_M3_MODEL]
-m3_labels = [
-    f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
-    for m in m3_options
-]
-model_key = "m3_model_choice"
-auto_key = "m3_model_auto"
-if auto_key in st.session_state and st.session_state[auto_key] in m3_options:
-    st.session_state[model_key] = st.session_state[auto_key]
-selected_model = st.selectbox(
-    "Select Model (M3):",
-    m3_options,
-    format_func=lambda m: m3_labels[m3_options.index(m)],
-    key=model_key,
-    help="Animagine XL 3.1 is the locked M3 model."
-)
-st.caption("Model is locked to Animagine XL 3.1 for M3.")
+# Model is locked for M3; don't show model selection UI.
+from modules import DEFAULT_M3_MODEL
+selected_model = DEFAULT_M3_MODEL
 
 # ---------- Section 3: Generation Control & Output ----------
 st.header("3️⃣ Generate Your Animation Frame")
