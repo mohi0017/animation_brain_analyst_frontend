@@ -25,6 +25,8 @@ class ReferenceComparison:
     feature_match_score: float
     # Conflict penalty (0..1; higher = more conflict)
     conflict_penalty: float
+    # Style distance (0..1; higher = more different in stroke/contrast)
+    style_distance: float
     # Fused final similarity score (0..1)
     final_score: float
 
@@ -140,6 +142,26 @@ def compare_input_reference(
     proportion = _proportion_similarity(input_png, reference_png)
     feature_match, conflict_penalty = _feature_match_score(subject_details, reference_summary)
 
+    # Style distance: edge density + grayscale contrast delta (robust to tint).
+    def _edge_density(png_bytes: bytes, size: int = 256) -> float:
+        v = _to_edge_vector(png_bytes, size=size)
+        # density of "strong-ish" edges
+        return float((v >= 0.25).mean())
+
+    def _gray_contrast(png_bytes: bytes, size: int = 256) -> float:
+        img = Image.open(io.BytesIO(png_bytes)).convert("L").resize((size, size), Image.Resampling.BICUBIC)
+        arr = (np.asarray(img, dtype=np.float32) / 255.0).reshape(-1)
+        return float(arr.std())
+
+    ed_in = _edge_density(input_png)
+    ed_ref = _edge_density(reference_png)
+    cd_in = _gray_contrast(input_png)
+    cd_ref = _gray_contrast(reference_png)
+
+    edge_delta = abs(ed_in - ed_ref) / max(ed_in, ed_ref, 1e-6)
+    contrast_delta = abs(cd_in - cd_ref) / max(cd_in, cd_ref, 1e-6)
+    style_distance = max(0.0, min(1.0, float(0.6 * edge_delta + 0.4 * contrast_delta)))
+
     # Weighted fusion (tunable)
     final_score = 0.5 * structural + 0.3 * proportion + 0.2 * feature_match
     final_score = max(0.0, min(1.0, float(final_score)))
@@ -149,5 +171,6 @@ def compare_input_reference(
         proportion_score=float(proportion),
         feature_match_score=float(feature_match),
         conflict_penalty=float(conflict_penalty),
+        style_distance=float(style_distance),
         final_score=float(final_score),
     )

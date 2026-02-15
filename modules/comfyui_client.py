@@ -330,16 +330,33 @@ def _update_m3_v10_workflow(
         workflow["1"]["inputs"]["ckpt_name"] = model_name
         log(f"🎨 Updated SD Model: {old_model} → {model_name}")
 
-    # Always disable LoRAs for API runs unless explicitly supported by the app.
+    # LoRA policy:
+    # - Default: disabled (historical behavior, safe for production).
+    # - Optional: enable via env `M3_ENABLE_LORA=true` and a director-provided `m3_plan['lora_strength']`.
+    enable_lora = os.getenv("M3_ENABLE_LORA", "false").strip().lower() in ("1", "true", "yes", "on")
+    plan_lora_strength = None
+    if enable_lora and m3_plan:
+        try:
+            plan_lora_strength = float(m3_plan.get("lora_strength"))
+        except Exception:
+            plan_lora_strength = None
+        if plan_lora_strength is not None:
+            plan_lora_strength = max(0.0, min(1.0, plan_lora_strength))
+
+    # Always disable LoRAs unless explicitly enabled.
     for node_id, node in workflow.items():
         if not (isinstance(node, dict) and node.get("class_type") == "LoraLoader"):
             continue
         inputs = node.get("inputs") or {}
-        inputs["strength_model"] = 0.0
-        inputs["strength_clip"] = 0.0
+        strength = plan_lora_strength if plan_lora_strength is not None else 0.0
+        inputs["strength_model"] = strength
+        inputs["strength_clip"] = strength
         node["inputs"] = inputs
         workflow[node_id] = node
-        log(f"🧼 Disabled LoRA strengths (Node {node_id})")
+        if strength == 0.0:
+            log(f"🧼 Disabled LoRA strengths (Node {node_id})")
+        else:
+            log(f"🧩 Enabled LoRA strengths={strength:.2f} (Node {node_id})")
 
     # Stage 1 prompts
     if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":

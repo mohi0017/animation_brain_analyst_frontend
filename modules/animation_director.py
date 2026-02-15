@@ -181,6 +181,12 @@ def create_parameter_plan_m3(
           - ip_adapter: {weight,end_at}
         """
         plan = _apply_reference_correlation(plan)
+        # Apply full adaptive control system for complex cases even when there are no explicit issues.
+        if entity_type == "single_complex":
+            try:
+                plan = _apply_adaptive_control(plan)
+            except Exception:
+                pass
         if not issue_text:
             return plan
 
@@ -240,6 +246,143 @@ def create_parameter_plan_m3(
         plan["ip_adapter"] = ip
         plan["ksampler1"] = ks1
         plan["ksampler2"] = ks2
+        return plan
+
+    def _apply_adaptive_control(plan: dict) -> dict:
+        """
+        Formal adaptive control system mapping image-aware signals -> node values.
+
+        Signals:
+          S: structure confidence (0..1)  (higher => trust sketch)
+          R: reference reliability (0..1) (higher => trust reference)
+          D: style distance (0..1)        (higher => rough vs ref mismatch)
+          P: pose risk (0..1)             (higher => pose/anatomy unstable)
+          H: hallucination risk (0..1)    (higher => likely extra objects/fringing)
+        """
+        # --- Compute signals ---
+        c = construction_lines
+        b = broken_lines
+        lq = line_quality
+        ar = anatomy_risk
+
+        # Structure confidence S: penalize construction/broken lines; reward clean line quality.
+        c_pen = {"low": 0.1, "medium": 0.45, "high": 0.8}.get(c, 0.45)
+        b_pen = {"low": 0.1, "medium": 0.4, "high": 0.75}.get(b, 0.4)
+        lq_bonus = {"clean": 0.25, "structured": 0.15, "messy": 0.0}.get(lq, 0.1)
+        S = 1.0 - (0.55 * c_pen + 0.45 * b_pen)
+        S = max(0.0, min(1.0, S + lq_bonus))
+
+        # Pose risk P: driven by anatomy risk; simple proxy for now.
+        P = {"low": 0.25, "medium": 0.55, "high": 0.85}.get(ar, 0.55)
+        if pose_lock:
+            P = min(1.0, P + 0.05)
+
+        # Reference reliability R: final_score tempered by conflict.
+        try:
+            sim = float(report.get("reference_final_score") or 0.0)
+        except Exception:
+            sim = 0.0
+        try:
+            conflict = float(report.get("reference_conflict_penalty") or 0.0)
+        except Exception:
+            conflict = 0.0
+        sim = max(0.0, min(1.0, sim))
+        conflict = max(0.0, min(1.0, conflict))
+        R = max(0.0, min(1.0, sim * (1.0 - conflict)))
+
+        # Style distance D from reference compare (0..1), default 0.0 when no reference.
+        try:
+            D = float(report.get("reference_style_distance") or 0.0)
+        except Exception:
+            D = 0.0
+        D = max(0.0, min(1.0, D))
+
+        # --- Map signals -> nodes ---
+        ks1 = dict(plan.get("ksampler1", {}) or {})
+        ks2 = dict(plan.get("ksampler2", {}) or {})
+        cn_union = dict(plan.get("controlnet_union", {}) or {})
+        cn_pose = dict(plan.get("controlnet_openpose", {}) or {})
+
+        # ControlNet Union (structure)
+        union_strength = 0.5 + 0.4 * (1.0 - S)
+        union_strength = max(0.35, min(1.0, union_strength))
+        cn_union["strength"] = round(union_strength, 2)
+
+        # ControlNet OpenPose (pose lock)
+        pose_strength = 0.6 + 0.4 * P
+        pose_strength = max(0.5, min(1.0, pose_strength))
+        cn_pose["strength"] = round(pose_strength, 2)
+        cn_pose["end_percent"] = round(max(float(cn_pose.get("end_percent", 1.0)), 0.9 if P > 0.6 else 0.75), 2)
+
+        # Dual IP
+        ip1 = 0.4 + 0.5 * R - 0.4 * P
+        ip1 = max(0.30, min(0.80, ip1))
+        ip2 = 0.2 + 0.3 * R - 0.5 * conflict
+        ip2 = max(0.15, min(0.50, ip2))
+
+        # KSampler1 (structure pass)
+        cfg1 = 7.5 - 0.7 * conflict
+        denoise1 = 0.6 + 0.3 * (1.0 - R)
+
+        # KSampler2 (polish pass)
+        cfg2 = 7.5 + 0.5 * R - 0.6 * conflict
+        denoise2 = 0.45 - 0.2 * R
+
+        # Style distance adjustments: messy->clean needs more refinement + optional LoRA
+        if D > 0.5:
+            denoise2 = min(0.65, denoise2 + 0.08)
+            ip2 = min(0.50, ip2 + 0.05)
+
+        cfg1 = max(5.5, min(9.0, cfg1))
+        cfg2 = max(5.5, min(9.0, cfg2))
+        denoise1 = max(0.3, min(1.0, denoise1))
+        denoise2 = max(0.2, min(0.8, denoise2))
+
+        ks1["cfg"] = round(cfg1, 2)
+        ks1["denoise"] = round(denoise1, 2)
+        ks2["cfg"] = round(cfg2, 2)
+        ks2["denoise"] = round(denoise2, 2)
+
+        # Hallucination risk H: if too high, dampen KS2 cfg + IP2 a bit.
+        # Normalize cfg/denoise into 0..1-ish range.
+        cfg2_n = (float(ks2["cfg"]) - 5.5) / (9.0 - 5.5)
+        den2_n = (float(ks2["denoise"]) - 0.2) / (0.8 - 0.2)
+        H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
+        if H > 0.6:
+            ks2["cfg"] = round(max(5.5, float(ks2["cfg"]) - 0.5), 2)
+            ip2 = max(0.15, ip2 - 0.10)
+
+        # Store diagnostics for UI/debug.
+        plan["diagnostics"] = {
+            "S_structure_confidence": round(S, 3),
+            "R_reference_reliability": round(R, 3),
+            "D_style_distance": round(D, 3),
+            "P_pose_risk": round(P, 3),
+            "H_hallucination_risk": round(H, 3),
+            "conflict_penalty": round(conflict, 3),
+            "reference_final_score": round(sim, 3),
+        }
+
+        plan["controlnet_union"] = cn_union
+        plan["controlnet_openpose"] = cn_pose
+        plan["ksampler1"] = ks1
+        plan["ksampler2"] = ks2
+        plan["ip_adapter_dual"] = {
+            "ksampler1": {"weight": round(ip1, 2), "end_at": round(min(0.95, 0.30 + 0.60 * R), 2)},
+            "ksampler2": {"weight": round(ip2, 2), "end_at": round(min(0.90, 0.25 + 0.65 * R), 2)},
+        }
+        # Keep single IP for backwards compatibility (use KS1 by default).
+        plan["ip_adapter"] = dict(plan.get("ip_adapter", {}) or {})
+        plan["ip_adapter"]["weight"] = plan["ip_adapter_dual"]["ksampler1"]["weight"]
+        plan["ip_adapter"]["end_at"] = plan["ip_adapter_dual"]["ksampler1"]["end_at"]
+
+        # LoRA strength (optional): keep disabled by default unless enabled in environment.
+        # This is only a plan field; comfyui_client decides whether to apply.
+        if D > 0.5:
+            plan["lora_strength"] = 0.4
+        else:
+            plan["lora_strength"] = 0.15
+
         return plan
 
     def _low_construction_union_strength(default_strength: float) -> float:
