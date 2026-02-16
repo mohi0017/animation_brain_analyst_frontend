@@ -29,7 +29,10 @@ try:
     from .prompt_engineer import run_prompt_engineer_m4
 except ImportError:  # pragma: no cover - compatibility path
     from .prompt_engineer import run_prompt_engineer_m3 as run_prompt_engineer_m4
-from .prompt_engineer import generate_m4_cleanup_prompts
+try:
+    from .prompt_engineer import generate_m4_cleanup_prompts
+except ImportError:  # pragma: no cover - compatibility path
+    from .prompt_engineer import generate_m3_cleanup_prompts as generate_m4_cleanup_prompts
 
 # Workflow registry path compatibility.
 try:
