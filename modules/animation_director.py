@@ -339,14 +339,10 @@ def create_parameter_plan_m3(
         )
         strict_hits = sum(1 for p in strict_phrases if p in issue_text)
         intent_strength = max(0.0, min(1.0, strict_hits / 4.0))
-        # Keep CFG in stable mid-ranges for guided dual-IP workflows.
-        cfg1 = max(cfg1, 7.0 + 1.2 * intent_strength)
-        cfg2 = max(cfg2, 7.0 + 0.8 * intent_strength)
-
-        # If IP/Union already strong, slightly relax CFG to avoid over-constrained artifacts.
-        if ip1 > 0.7 or union_strength > 0.8:
-            cfg1 -= 0.3
-            cfg2 -= 0.3
+        # Global policy: CFG is always allowed in [7, 10], while effective limits stay adaptive.
+        base_cfg = 7.2 + (1.8 * intent_strength)
+        cfg1 = max(cfg1, base_cfg)
+        cfg2 = max(cfg2, base_cfg - 0.5)
 
         # --- Dynamic bound profiles by case ---
         # object_scale can be provided by analyst; fallback from case.
@@ -370,6 +366,8 @@ def create_parameter_plan_m3(
                 "cfg1": [7.0, 10.0],
                 "cfg2": [7.0, 10.0],
             }
+            cfg1_eff_max = 9.6
+            cfg2_eff_max = 8.5
         elif entity_type == "multi_object":
             bounds = {
                 "union": [0.55, 0.90],
@@ -381,6 +379,8 @@ def create_parameter_plan_m3(
                 "cfg1": [7.0, 10.0],
                 "cfg2": [7.0, 10.0],
             }
+            cfg1_eff_max = 9.2
+            cfg2_eff_max = 8.2
         else:  # single_complex default
             bounds = {
                 "union": [0.40, 0.70],
@@ -392,6 +392,8 @@ def create_parameter_plan_m3(
                 "cfg1": [7.0, 10.0],
                 "cfg2": [7.0, 10.0],
             }
+            cfg1_eff_max = 9.2
+            cfg2_eff_max = 8.5
 
         # --- Signal-based bound adjustments ---
         if conflict > 0.4:
@@ -426,12 +428,24 @@ def create_parameter_plan_m3(
         cfg1 = _clamp(cfg1, bounds["cfg1"][0], bounds["cfg1"][1])
         cfg2 = _clamp(cfg2, bounds["cfg2"][0], bounds["cfg2"][1])
 
+        # Stage envelopes under global [7,10] allowance.
+        cfg1 = min(cfg1, cfg1_eff_max)
+        cfg2 = min(cfg2, cfg2_eff_max)
+
+        # Strong structure locks already constrain geometry; relax CFG1 a bit.
+        if union_strength > 0.75 or pose_strength > 0.90:
+            cfg1 = _clamp(cfg1 - 0.4, bounds["cfg1"][0], min(bounds["cfg1"][1], cfg1_eff_max))
+
         # --- Final hard rules ---
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
         cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
         pose_strength = min(pose_strength, 0.95)
         cfg1 = min(cfg1, 10.0)
         cfg2 = min(cfg2, 10.0)
+        if ip2 > 0.50:
+            cfg2 = min(cfg2, 7.4)
+        elif ip2 > 0.40:
+            cfg2 = min(cfg2, 7.8)
         cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
         ip2 = min(ip2, 0.55)
@@ -445,21 +459,13 @@ def create_parameter_plan_m3(
         cn_pose["strength"] = round(pose_strength, 2)
         cn_pose["end_percent"] = round(max(float(cn_pose.get("end_percent", 1.0)), 0.9 if P > 0.6 else 0.75), 2)
 
-        # Hallucination risk H: if too high, dampen KS2 cfg + IP2 a bit.
-        # Normalize cfg/denoise into 0..1-ish range.
-        cfg2_n = (float(ks2["cfg"]) - 7.0) / max(1e-6, (10.0 - 7.0))
-        den2_n = (float(ks2["denoise"]) - 0.2) / (0.8 - 0.2)
-        H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
-        if H > 0.6:
-            ks2["cfg"] = round(max(5.5, float(ks2["cfg"]) - 0.5), 2)
-            ip2 = max(0.15, ip2 - 0.10)
-
         # Hallucination risk H: if too high, dampen KS2 cfg + IP2 and re-clamp.
         cfg2_n = (float(ks2["cfg"]) - 7.0) / max(1e-6, (10.0 - 7.0))
         den2_n = (float(ks2["denoise"]) - bounds["ks2_den"][0]) / max(1e-6, (bounds["ks2_den"][1] - bounds["ks2_den"][0]))
         H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
         if H > 0.6:
-            ks2["cfg"] = round(_clamp(float(ks2["cfg"]) - 0.5, bounds["cfg2"][0], bounds["cfg2"][1]), 2)
+            ks1["cfg"] = round(_clamp(float(ks1["cfg"]) - 0.3, bounds["cfg1"][0], min(bounds["cfg1"][1], cfg1_eff_max)), 2)
+            ks2["cfg"] = round(_clamp(float(ks2["cfg"]) - 0.5, bounds["cfg2"][0], min(bounds["cfg2"][1], cfg2_eff_max)), 2)
             ip2 = _clamp(ip2 - 0.10, bounds["ip2"][0], bounds["ip2"][1])
             ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))
             ks2["cfg"] = round(min(float(ks2["cfg"]), float(ks1["cfg"])), 2)
@@ -475,6 +481,8 @@ def create_parameter_plan_m3(
             "reference_final_score": round(sim, 3),
             "reference_is_colored": bool(reference_is_colored),
             "intent_strength": round(intent_strength, 3),
+            "cfg1_effective_max": round(cfg1_eff_max, 2),
+            "cfg2_effective_max": round(cfg2_eff_max, 2),
             "case": entity_type,
             "object_scale": object_scale,
         }
