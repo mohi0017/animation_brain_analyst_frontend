@@ -298,56 +298,142 @@ def create_parameter_plan_m3(
             D = 0.0
         D = max(0.0, min(1.0, D))
 
-        # --- Map signals -> nodes ---
+        # --- Map signals -> raw values ---
         ks1 = dict(plan.get("ksampler1", {}) or {})
         ks2 = dict(plan.get("ksampler2", {}) or {})
         cn_union = dict(plan.get("controlnet_union", {}) or {})
         cn_pose = dict(plan.get("controlnet_openpose", {}) or {})
 
-        # ControlNet Union (structure)
+        # Raw node values from signals (before bounds).
         union_strength = 0.5 + 0.4 * (1.0 - S)
-        union_strength = max(0.35, min(1.0, union_strength))
-        cn_union["strength"] = round(union_strength, 2)
-
-        # ControlNet OpenPose (pose lock)
         pose_strength = 0.6 + 0.4 * P
-        pose_strength = max(0.5, min(1.0, pose_strength))
-        cn_pose["strength"] = round(pose_strength, 2)
-        cn_pose["end_percent"] = round(max(float(cn_pose.get("end_percent", 1.0)), 0.9 if P > 0.6 else 0.75), 2)
-
-        # Dual IP
         ip1 = 0.4 + 0.5 * R - 0.4 * P
-        ip1 = max(0.30, min(0.80, ip1))
         ip2 = 0.2 + 0.3 * R - 0.5 * conflict
-        ip2 = max(0.15, min(0.50, ip2))
-        # Hard asymmetry: KS2 must be more conservative than KS1 in risky scenarios.
-        ip2 = min(ip2, max(0.15, ip1 - 0.10))
-        # Colored reference safety: cap KS2 IP and end_at to reduce tint/halo bleed.
-        if reference_is_colored:
-            ip2 = min(ip2, 0.35)
-
-        # KSampler1 (structure pass)
         cfg1 = 7.5 - 0.7 * conflict
         denoise1 = 0.6 + 0.3 * (1.0 - R)
-
-        # KSampler2 (polish pass)
         cfg2 = 7.5 + 0.5 * R - 0.6 * conflict
         denoise2 = 0.45 - 0.2 * R
 
-        # Style distance adjustments: messy->clean needs more refinement + optional LoRA
+        # Style gap: allow a little more KS2 cleanup pressure.
         if D > 0.5:
-            denoise2 = min(0.65, denoise2 + 0.08)
-            ip2 = min(0.50, ip2 + 0.05)
+            denoise2 += 0.08
+            ip2 += 0.05
 
-        cfg1 = max(5.5, min(9.0, cfg1))
-        cfg2 = max(5.5, min(9.0, cfg2))
-        denoise1 = max(0.3, min(1.0, denoise1))
-        denoise2 = max(0.2, min(0.8, denoise2))
+        # Prompt strictness intent (text obedience), used for CFG only.
+        strict_phrases = (
+            "exactly",
+            "unchanged",
+            "preserve original",
+            "no deviation",
+            "strictly",
+            "perfect",
+        )
+        strict_hits = sum(1 for p in strict_phrases if p in issue_text)
+        intent_strength = max(0.0, min(1.0, strict_hits / 4.0))
+        # Keep CFG in stable mid-ranges for guided dual-IP workflows.
+        cfg1 = max(cfg1, 6.8 + 1.2 * intent_strength)
+        cfg2 = max(cfg2, 6.5 + 0.8 * intent_strength)
+
+        # If IP/Union already strong, slightly relax CFG to avoid over-constrained artifacts.
+        if ip1 > 0.7 or union_strength > 0.8:
+            cfg1 -= 0.3
+            cfg2 -= 0.3
+
+        # --- Dynamic bound profiles by case ---
+        # object_scale can be provided by analyst; fallback from case.
+        object_scale = (report.get("object_scale") or "").lower().strip()
+        if not object_scale:
+            if entity_type == "single_simple":
+                object_scale = "small"
+            elif entity_type == "single_complex":
+                object_scale = "large"
+            else:
+                object_scale = "medium"
+
+        if entity_type == "single_simple":
+            bounds = {
+                "union": [0.75, 1.00],
+                "openpose": [0.85, 1.00],
+                "ip1": [0.35, 0.80],
+                "ip2": [0.15, 0.45],
+                "ks1_den": [0.55, 0.90],
+                "ks2_den": [0.25, 0.60],
+                "cfg1": [6.8, 8.8],
+                "cfg2": [6.8, 8.8],
+            }
+        elif entity_type == "multi_object":
+            bounds = {
+                "union": [0.55, 0.90],
+                "openpose": [0.85, 1.00],
+                "ip1": [0.25, 0.60],
+                "ip2": [0.15, 0.40],
+                "ks1_den": [0.50, 0.80],
+                "ks2_den": [0.20, 0.50],
+                "cfg1": [6.0, 8.5],
+                "cfg2": [6.0, 8.5],
+            }
+        else:  # single_complex default
+            bounds = {
+                "union": [0.40, 0.70],
+                "openpose": [0.75, 0.95],
+                "ip1": [0.30, 0.70],
+                "ip2": [0.15, 0.50],
+                "ks1_den": [0.55, 0.85],
+                "ks2_den": [0.22, 0.55],
+                "cfg1": [6.5, 8.5],
+                "cfg2": [6.0, 7.8],
+            }
+
+        # --- Signal-based bound adjustments ---
+        if conflict > 0.4:
+            bounds["ip1"][1] = min(bounds["ip1"][1], 0.55)
+            bounds["ip2"][1] = min(bounds["ip2"][1], 0.30)
+        if reference_is_colored:
+            bounds["ip2"][1] = min(bounds["ip2"][1], 0.35)
+        if LQ := {"clean": 0.85, "structured": 0.6, "messy": 0.3}.get(line_quality, 0.5):
+            if LQ < 0.4:
+                bounds["ks1_den"][1] = min(1.0, bounds["ks1_den"][1] + 0.05)
+                bounds["ip1"][1] = min(0.85, bounds["ip1"][1] + 0.05)
+            elif LQ > 0.75:
+                bounds["ip2"][1] = max(bounds["ip2"][0], bounds["ip2"][1] - 0.10)
+                bounds["ks2_den"][1] = max(bounds["ks2_den"][0], bounds["ks2_den"][1] - 0.05)
+        if P > 0.7:
+            bounds["ip1"][1] = max(bounds["ip1"][0], bounds["ip1"][1] - 0.05)
+        if object_scale == "large":
+            bounds["union"][1] = min(bounds["union"][1], 0.65)
+        elif object_scale == "small":
+            bounds["union"][1] = 1.00
+
+        def _clamp(v, lo, hi):
+            return max(lo, min(hi, v))
+
+        # --- Clamp inside dynamic bounds ---
+        union_strength = _clamp(union_strength, bounds["union"][0], bounds["union"][1])
+        pose_strength = _clamp(pose_strength, bounds["openpose"][0], bounds["openpose"][1])
+        ip1 = _clamp(ip1, bounds["ip1"][0], bounds["ip1"][1])
+        ip2 = _clamp(ip2, bounds["ip2"][0], bounds["ip2"][1])
+        denoise1 = _clamp(denoise1, bounds["ks1_den"][0], bounds["ks1_den"][1])
+        denoise2 = _clamp(denoise2, bounds["ks2_den"][0], bounds["ks2_den"][1])
+        cfg1 = _clamp(cfg1, bounds["cfg1"][0], bounds["cfg1"][1])
+        cfg2 = _clamp(cfg2, bounds["cfg2"][0], bounds["cfg2"][1])
+
+        # --- Final hard rules ---
+        ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
+        cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
+        pose_strength = min(pose_strength, 0.95)
+        cfg1 = min(cfg1, 9.0)
+        cfg2 = min(cfg2, 9.0)
+        ip1 = min(ip1, 0.85)
+        ip2 = min(ip2, 0.55)
+        denoise2 = min(denoise2, 0.60)
 
         ks1["cfg"] = round(cfg1, 2)
         ks1["denoise"] = round(denoise1, 2)
         ks2["cfg"] = round(cfg2, 2)
         ks2["denoise"] = round(denoise2, 2)
+        cn_union["strength"] = round(union_strength, 2)
+        cn_pose["strength"] = round(pose_strength, 2)
+        cn_pose["end_percent"] = round(max(float(cn_pose.get("end_percent", 1.0)), 0.9 if P > 0.6 else 0.75), 2)
 
         # Hallucination risk H: if too high, dampen KS2 cfg + IP2 a bit.
         # Normalize cfg/denoise into 0..1-ish range.
@@ -357,6 +443,15 @@ def create_parameter_plan_m3(
         if H > 0.6:
             ks2["cfg"] = round(max(5.5, float(ks2["cfg"]) - 0.5), 2)
             ip2 = max(0.15, ip2 - 0.10)
+
+        # Hallucination risk H: if too high, dampen KS2 cfg + IP2 and re-clamp.
+        cfg2_n = (float(ks2["cfg"]) - 6.0) / max(1e-6, (9.0 - 6.0))
+        den2_n = (float(ks2["denoise"]) - bounds["ks2_den"][0]) / max(1e-6, (bounds["ks2_den"][1] - bounds["ks2_den"][0]))
+        H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
+        if H > 0.6:
+            ks2["cfg"] = round(_clamp(float(ks2["cfg"]) - 0.5, bounds["cfg2"][0], bounds["cfg2"][1]), 2)
+            ip2 = _clamp(ip2 - 0.10, bounds["ip2"][0], bounds["ip2"][1])
+            ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))
 
         # Store diagnostics for UI/debug.
         plan["diagnostics"] = {
@@ -368,6 +463,9 @@ def create_parameter_plan_m3(
             "conflict_penalty": round(conflict, 3),
             "reference_final_score": round(sim, 3),
             "reference_is_colored": bool(reference_is_colored),
+            "intent_strength": round(intent_strength, 3),
+            "case": entity_type,
+            "object_scale": object_scale,
         }
 
         plan["controlnet_union"] = cn_union
