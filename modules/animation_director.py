@@ -200,6 +200,8 @@ def create_parameter_plan_m3(
             plan["reference_mode"] = "style"
         else:
             plan["reference_mode"] = "style_lite"
+        # Keep KS2 refinement-only semantics aligned with numeric controller.
+        plan["reference_mode_ks2"] = "style" if plan["reference_mode"] == "identity" else plan["reference_mode"]
         mods: list[str] = []
         if float(report.get("reference_conflict_penalty") or 0.0) > 0.4:
             mods.extend(
@@ -209,7 +211,7 @@ def create_parameter_plan_m3(
                     "keep original accessories",
                 ]
             )
-        if plan["reference_mode"] == "identity":
+        if plan.get("reference_mode_ks2") == "identity":
             mods.extend(["match reference line weight", "follow reference stroke confidence"])
         if mods:
             plan["prompt_modifiers"] = mods
@@ -475,7 +477,10 @@ def create_parameter_plan_m3(
             # so KS1 stabilizes structure and KS2 has enough cleanup authority.
             if is_human_subject:
                 bounds["ks1_den"][0] = max(bounds["ks1_den"][0], 0.70)
-                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.50)
+                # Keep KS2 conservative: enough cleanup, but avoid melt/distortion redraw.
+                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.40)
+                if line_quality == "messy":
+                    bounds["ks2_den"][1] = min(bounds["ks2_den"][1], 0.45)
                 clamp_reasons.append("large_human_min_denoise_enforced")
         elif object_scale == "small":
             bounds["union"][1] = 1.00
