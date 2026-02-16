@@ -23,16 +23,19 @@ try:
     from .visual_analyst import run_visual_analyst_m4
 except ImportError:  # pragma: no cover - compatibility path
     from .visual_analyst import run_visual_analyst_m3 as run_visual_analyst_m4
+run_visual_analyst_m3 = run_visual_analyst_m4
 
 # Backward-compatible prompt exports.
 try:
     from .prompt_engineer import run_prompt_engineer_m4
 except ImportError:  # pragma: no cover - compatibility path
     from .prompt_engineer import run_prompt_engineer_m3 as run_prompt_engineer_m4
+run_prompt_engineer_m3 = run_prompt_engineer_m4
 try:
     from .prompt_engineer import generate_m4_cleanup_prompts
 except ImportError:  # pragma: no cover - compatibility path
     from .prompt_engineer import generate_m3_cleanup_prompts as generate_m4_cleanup_prompts
+generate_m3_cleanup_prompts = generate_m4_cleanup_prompts
 
 # Workflow registry path compatibility.
 try:
@@ -45,6 +48,7 @@ try:
     from .animation_director import create_parameter_plan_m4
 except ImportError:  # pragma: no cover - compatibility path
     from .animation_director import create_parameter_plan_m3 as create_parameter_plan_m4
+create_parameter_plan_m3 = create_parameter_plan_m4
 
 from .comfyui_client import call_comfyui
 
@@ -83,9 +87,13 @@ __all__ = [
     "get_thinking_config",
     "get_model_name",
     "run_visual_analyst_m4",
+    "run_visual_analyst_m3",
     "run_prompt_engineer_m4",
+    "run_prompt_engineer_m3",
     "generate_m4_cleanup_prompts",
+    "generate_m3_cleanup_prompts",
     "get_workflow_spec",
     "create_parameter_plan_m4",
+    "create_parameter_plan_m3",
     "call_comfyui",
 ]
