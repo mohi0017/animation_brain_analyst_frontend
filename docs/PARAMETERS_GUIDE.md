@@ -1,31 +1,34 @@
 # M3 Parameters Guide
 ## Dynamic Parameters by Phase Transition
 
+> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`  
+> This file is a quick guide; master document has final policy and latest rules.
+
 ---
 
 ## Analyst Buckets (Input)
-Visual Analyst outputs these fields (from input image only):
+Visual Analyst outputs these fields:
 
 - `line_quality`: messy | structured | clean
 - `anatomy_risk`: low | medium | high
-- `complexity`: simple | detailed
+- `complexity`: simple | complex
 - `subject_details`: tags for Stage-1 prompt
 - `entity_type`: single_complex | single_simple | multi_object
 - `entity_examples`: short label for the entity/entities (person, car, house, ball, crowd)
 - `construction_lines`: low | medium | high
 - `broken_lines`: low | medium | high
 
-These drive AD-Agent parameter selection.
+Reference comparison also contributes dynamic control signals (`reference_final_score`, `reference_conflict_penalty`, `reference_style_distance`, color/accessory conflict indicators).
 
 ---
 
-## Transition Matrix (Core Ranges)
+## Transition Matrix (Core Ranges, Quick View)
 
 | Transition | KS1 Denoise | KS1 CFG | KS2 Denoise | Union Str/End | OpenPose Str/End | IP-Adapter Wt/End |
 |---|---|---|---|---|---|---|
-| Roughs → Tie Down | 0.55–0.65 | 6.5–7.5 | 0.20–0.25 | 0.55–0.65 / 0.50 | 0.9 / 0.80 | 0.4–0.5 / 0.40 |
-| Roughs → CleanUp | 0.70–0.80 | 7.0–8.0 | 0.30–0.35 | 0.7–0.8 / 0.50 | 1.0 / 0.85 | 0.6–0.8 / 0.60 |
-| Tie Down → CleanUp | 0.35–0.45 | 7.0–8.0 | 0.20–0.30 | 0.5–0.6 / 0.80 | 0.8 / 0.90 | 0.5–0.7 / 0.50 |
+| Roughs → Tie Down | dynamic | 7.0–10.0 (effective lower) | dynamic | dynamic | dynamic | dual-IP dynamic |
+| Roughs → CleanUp | dynamic | 7.0–10.0 (effective by case) | dynamic | dynamic | dynamic | dual-IP dynamic |
+| Tie Down → CleanUp | dynamic | 7.0–10.0 (effective by case) | dynamic | dynamic | dynamic | dual-IP dynamic |
 
 ---
 
@@ -35,9 +38,9 @@ These drive AD-Agent parameter selection.
 - OpenPose strength forced to 1.0
 - IP-Adapter weight reduced by 0.2
 
-**Rule B (Sequential Gap, adaptive path):**
-- Typical intent: `ip_adapter.end_at < union.end_percent < openpose.end_percent`
-- Some explicit presets intentionally pin `end_percent` to 1.0 for trace-like behavior.
+**Rule B (Adaptive End Scheduling):**
+- End values are dynamic and can be clamped by conflict/color risk.
+- Sequential behavior is preferred, but controller may pin or cap values for stability.
 
 **Rule C (High Construction/Broken Lines):**
 - Union strength/end reduced
@@ -49,13 +52,14 @@ These drive AD-Agent parameter selection.
 
 ## Prompt Impact (M3)
 - Stage 1 prompt: quality tags + subject + pose
-- Stage 2 prompt: inking template
+- Stage 2 prompt: inking/refinement template
 - If `line_quality == messy`, Stage 2 uses `(solid black lines:1.5)`
+- Director may inject dynamic prompt modifiers (guardrails + reference mode handling).
 
 ---
 
 ## Notes
-- Reference image only feeds IP-Adapter
-- No reference analysis is injected into prompts
-- Output always includes transparent PNG via RemBG
-- Detailed case playbook: `docs/CASE_SINGLE_COMPLEX_CLEANUP_PLAYBOOK.md`
+- Reference image drives dual-IP and dynamic control signals.
+- Reference comparison can indirectly affect prompts via Director modifiers.
+- Global CFG policy: allowed `7–10`; effective caps are case/stage dependent.
+- Detailed final policy: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`

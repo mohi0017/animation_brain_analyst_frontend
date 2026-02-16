@@ -30,6 +30,7 @@ from modules import (
     create_parameter_plan_m3,
     get_workflow_spec,
 )
+from modules.reference_compare import compare_input_reference
 
 # Load environment variables from .env file
 load_dotenv()
@@ -166,53 +167,19 @@ with col_dst:
     )
 
 # ---------- Section 2: Phase Configuration ----------
-st.header("2️⃣ Settings & Options")
-st.markdown("_Configure how the AI should process your image_")
+# These options are agent-controlled for M3; keep them out of the UI to avoid conflicts.
+pose_lock = True
+style_lock = True
 
-col_lock1, col_lock2 = st.columns(2)
-with col_lock1:
-    pose_lock = st.checkbox(
-        "Keep Same Pose", 
-        value=True,
-        help="If checked, the character's pose and motion will stay the same. Only fixes anatomy issues."
-    )
-with col_lock2:
-    style_lock = st.checkbox(
-        "Keep Same Style", 
-        value=True,
-        help="If checked, the art style and proportions will be preserved."
-    )
+# Anatomy fix level is controlled by the agent/presets; keep it out of the UI to avoid conflicts.
+anat_level = 70
 
-anat_level = st.slider(
-    "How Much to Fix Anatomy", 
-    0, 100, 70,
-    help="0 = Don't fix anatomy issues, 100 = Fix all anatomy problems strictly"
-)
-
-# Model Selection
-from modules import SD_MODELS, DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
-
-st.markdown("**🎨 Stable Diffusion Model**")
-m3_options = [DEFAULT_M3_MODEL]
-m3_labels = [
-    f"{SD_MODELS[m]['name']} - {SD_MODELS[m]['category']}" if m in SD_MODELS else m
-    for m in m3_options
-]
-model_key = "m3_model_choice"
-auto_key = "m3_model_auto"
-if auto_key in st.session_state and st.session_state[auto_key] in m3_options:
-    st.session_state[model_key] = st.session_state[auto_key]
-selected_model = st.selectbox(
-    "Select Model (M3):",
-    m3_options,
-    format_func=lambda m: m3_labels[m3_options.index(m)],
-    key=model_key,
-    help="Animagine XL 3.1 is the locked M3 model."
-)
-st.caption("Model is locked to Animagine XL 3.1 for M3.")
+# Model is locked for M3; don't show model selection UI.
+from modules import DEFAULT_M3_MODEL, SD_MODELS
+selected_model = DEFAULT_M3_MODEL
 
 # ---------- Section 3: Generation Control & Output ----------
-st.header("3️⃣ Generate Your Animation Frame")
+st.header("2️⃣ Generate Your Animation Frame")
 st.markdown("_Click the button below to start processing_")
 
 generate = st.button("🚀 Start Generation", type="primary", use_container_width=True)
@@ -255,6 +222,28 @@ if generate:
                 reference_mime=reference_mime,
             )
             report = normalize_report(raw_report)
+            # Compute input-vs-reference signals so the director can scale IP/Union/KS params
+            # when the reference conflicts with the sketch.
+            if reference_bytes:
+                try:
+                    comp = compare_input_reference(
+                        image_bytes,
+                        reference_bytes,
+                        subject_details=report.get("subject_details") or "",
+                        reference_summary=report.get("reference_summary") or "",
+                    )
+                    report["reference_structural_score"] = comp.structural_score
+                    report["reference_proportion_score"] = comp.proportion_score
+                    report["reference_feature_match_score"] = comp.feature_match_score
+                    report["reference_conflict_penalty"] = comp.conflict_penalty
+                    report["reference_text_conflict"] = comp.text_conflict
+                    report["reference_image_conflict"] = comp.image_conflict
+                    report["reference_accessory_mismatch"] = comp.accessory_mismatch
+                    report["reference_is_colored"] = comp.reference_is_colored
+                    report["reference_style_distance"] = comp.style_distance
+                    report["reference_final_score"] = comp.final_score
+                except Exception:
+                    report["reference_final_score"] = None
             required_fields = [
                 "subject_details",
                 "entity_type",
@@ -294,6 +283,22 @@ if generate:
                 f"complexity={report.get('complexity')}"
             )
             if m3_plan:
+                # Allow director to drive prompt guardrails / reference handling.
+                if m3_plan.get("prompt_modifiers"):
+                    report["prompt_modifiers"] = m3_plan["prompt_modifiers"]
+                if m3_plan.get("reference_mode"):
+                    report["reference_mode"] = m3_plan["reference_mode"]
+                if m3_plan.get("reference_mode_ks2"):
+                    report["reference_mode_ks2"] = m3_plan["reference_mode_ks2"]
+                if m3_plan.get("_influence_scalar") is not None:
+                    report["_influence_scalar"] = m3_plan["_influence_scalar"]
+                try:
+                    report["ip_weight"] = float(m3_plan["ip_adapter"]["weight"])
+                    report["ip_end_at"] = float(m3_plan["ip_adapter"]["end_at"])
+                except Exception:
+                    pass
+                if m3_plan.get("ip_adapter_dual"):
+                    report["ip_adapter_dual"] = m3_plan["ip_adapter_dual"]
                 status.write(
                     "🧭 Director: "
                     f"CN Union end={m3_plan['controlnet_union']['end_percent']}, "
@@ -377,6 +382,46 @@ if generate:
         st.markdown("**Why These Instructions Were Created**")
         st.info(rationale or "No explanation available")
 
+        if debug_mode:
+            with st.expander("🧩 Workflow + Controller Info"):
+                st.markdown("**Workflow Source**")
+                st.code(
+                    f"mode: {'server' if use_server_workflow else 'local'}\n"
+                    f"path: {selected_workflow_path or workflow_spec.api_path}\n"
+                    f"requires_reference: {workflow_spec.requires_reference}"
+                )
+                st.markdown("**ComfyUI Node Map (M3 API Workflow)**")
+                st.json(
+                    {
+                        "stage1_prompts": {"positive": 2, "negative": 3},
+                        "stage2_prompts": {"positive": 77, "negative": 76},
+                        "ksampler1": 5,
+                        "ksampler2": 55,
+                        "controlnet_union": 62,
+                        "openpose_controlnet": 79,
+                        "ip_adapter_ks1": 66,
+                        "ip_adapter_ks2": 90,
+                        "input_image": 4,
+                        "reference_image": 72,
+                        "output_nodes_preferred": [54, 74],
+                    }
+                )
+                ref_metrics = {
+                    "reference_structural_score": report.get("reference_structural_score"),
+                    "reference_proportion_score": report.get("reference_proportion_score"),
+                    "reference_feature_match_score": report.get("reference_feature_match_score"),
+                    "reference_conflict_penalty": report.get("reference_conflict_penalty"),
+                    "reference_text_conflict": report.get("reference_text_conflict"),
+                    "reference_image_conflict": report.get("reference_image_conflict"),
+                    "reference_accessory_mismatch": report.get("reference_accessory_mismatch"),
+                    "reference_is_colored": report.get("reference_is_colored"),
+                    "reference_style_distance": report.get("reference_style_distance"),
+                    "reference_final_score": report.get("reference_final_score"),
+                }
+                if any(v is not None for v in ref_metrics.values()):
+                    st.markdown("**Input vs Reference Analysis**")
+                    st.json(ref_metrics)
+
         if m3_plan:
             summary = []
             line_quality = report.get("line_quality", "")
@@ -421,9 +466,47 @@ if generate:
                     f"weight: {m3_plan['ip_adapter']['weight']}, "
                     f"end_at: {m3_plan['ip_adapter']['end_at']}"
                 )
+                ip_dual = m3_plan.get("ip_adapter_dual") or {}
+                if ip_dual:
+                    ks1_ip = ip_dual.get("ksampler1", {})
+                    ks2_ip = ip_dual.get("ksampler2", {})
+                    st.markdown("**Style Injection (Dual IP-Adapter)**")
+                    st.code(
+                        f"KS1 IP: weight={ks1_ip.get('weight')}, end_at={ks1_ip.get('end_at')}\n"
+                        f"KS2 IP: weight={ks2_ip.get('weight')}, end_at={ks2_ip.get('end_at')}"
+                    )
                 if m3_plan.get("model_name"):
                     st.markdown("**Model Auto-Switch**")
                     st.code(f"model: {m3_plan['model_name']}")
+                st.markdown("**Control Diagnostics (Runtime)**")
+                diag = m3_plan.get("diagnostics") or {}
+                if diag:
+                    summary_diag = {
+                        "case": diag.get("case"),
+                        "object_scale": diag.get("object_scale"),
+                        "reference_mode": m3_plan.get("reference_mode"),
+                        "_influence_scalar": m3_plan.get("_influence_scalar"),
+                        "S_structure_confidence": diag.get("S_structure_confidence"),
+                        "R_reference_reliability": diag.get("R_reference_reliability"),
+                        "D_style_distance": diag.get("D_style_distance"),
+                        "P_pose_risk": diag.get("P_pose_risk"),
+                        "H_hallucination_risk": diag.get("H_hallucination_risk"),
+                        "conflict_penalty": diag.get("conflict_penalty"),
+                        "text_conflict": diag.get("text_conflict"),
+                        "image_conflict": diag.get("image_conflict"),
+                        "reference_accessory_mismatch": diag.get("reference_accessory_mismatch"),
+                        "reference_is_colored": diag.get("reference_is_colored"),
+                        "cfg1_effective_max": diag.get("cfg1_effective_max"),
+                        "cfg2_effective_max": diag.get("cfg2_effective_max"),
+                        "clamp_reasons": diag.get("clamp_reasons"),
+                    }
+                    st.json(summary_diag)
+                else:
+                    st.caption("No diagnostics available.")
+
+                if debug_mode:
+                    st.markdown("**Full Parameter Plan (Debug)**")
+                    st.json(m3_plan)
         # Display generated images
         if generated_image:
             img_placeholder.empty()  # Clear placeholder
@@ -448,25 +531,42 @@ if generate:
                         st.markdown("**Step 2: Reference Image**")
                         st.image(reference_uploaded, caption="Reference image sent to IP-Adapter", width='stretch')
 
+                    # Diagnostics are shown in "AI Strategy" and "Workflow + Controller Info".
+
                     if debug_payload:
                         raw_imgs = debug_payload.get("raw", [])
                         raw_nodes = debug_payload.get("raw_node_ids", [])
                         processed_imgs = debug_payload.get("processed", [])
+                        node_role = {
+                            "54": "KSampler 2 Output (Final Pass)",
+                            "74": "KSampler 1 Output (Structure Pass)",
+                        }
 
                         if raw_imgs:
                             st.markdown("**Step 3: Raw ComfyUI Outputs (before post-process)**")
                             cols = st.columns(2)
                             for i, raw in enumerate(raw_imgs[:2]):
                                 node_label = raw_nodes[i] if i < len(raw_nodes) else "?"
+                                role_label = node_role.get(str(node_label), "Output")
                                 with cols[i % 2]:
-                                    st.image(raw, caption=f"Raw output from Node {node_label}", width='stretch')
+                                    st.image(
+                                        raw,
+                                        caption=f"{role_label} — Raw (Node {node_label})",
+                                        width='stretch',
+                                    )
 
                         if processed_imgs:
                             st.markdown("**Step 4: Post-Processed Outputs (grayscale + threshold + heal)**")
                             cols = st.columns(2)
                             for i, proc in enumerate(processed_imgs[:2]):
+                                node_label = raw_nodes[i] if i < len(raw_nodes) else "?"
+                                role_label = node_role.get(str(node_label), "Output")
                                 with cols[i % 2]:
-                                    st.image(proc, caption=f"Processed output #{i+1}", width='stretch')
+                                    st.image(
+                                        proc,
+                                        caption=f"{role_label} — Post-Processed",
+                                        width='stretch',
+                                    )
 
                     st.markdown("**Step 5: Final Display**")
                     st.image(final_output, caption="✅ Final primary output (KS2 / Node 54)", width='stretch')

@@ -255,6 +255,29 @@ def run_prompt_engineer_m3(
     broken_lines = (report.get("broken_lines") or "").lower().strip()
     entity_type = (report.get("entity_type") or "").lower().strip()
     subject_profile = _infer_subject_profile(report, subject)
+    influence_scalar = report.get("_influence_scalar")
+    try:
+        influence_scalar = float(influence_scalar) if influence_scalar is not None else None
+    except Exception:
+        influence_scalar = None
+    influence_scalar = None if influence_scalar is None else max(0.0, min(1.0, influence_scalar))
+    try:
+        conflict_penalty = float(report.get("reference_conflict_penalty") or 0.0)
+    except Exception:
+        conflict_penalty = 0.0
+    conflict_penalty = max(0.0, min(1.0, conflict_penalty))
+    reference_mode = (report.get("reference_mode") or "").lower().strip()
+    reference_mode_ks2 = (report.get("reference_mode_ks2") or reference_mode).lower().strip()
+    transition = f"{source_phase} -> {dest_phase}"
+    ip_dual = report.get("ip_adapter_dual") or {}
+    try:
+        ip_ks1_w = float((ip_dual.get("ksampler1") or {}).get("weight", report.get("ip_weight") or 0.0))
+    except Exception:
+        ip_ks1_w = 0.0
+    try:
+        ip_ks2_w = float((ip_dual.get("ksampler2") or {}).get("weight", report.get("ip_weight") or 0.0))
+    except Exception:
+        ip_ks2_w = 0.0
 
     # Extra signal: construction/broken line intensity lets us scale the rescue negatives.
     def _construction_negatives(level: str) -> list[str]:
@@ -456,6 +479,97 @@ def run_prompt_engineer_m3(
         neg1 = _append_unique_tags(neg1, canvas_lock_neg)
         neg2 = _append_unique_tags(neg2, canvas_lock_neg)
 
+    # ---------- Stage-aware semantic layering (KS1 vs KS2 responsibilities) ----------
+    # We keep templates as the base, then add *different* layers per stage.
+    if subject_profile == "character":
+        # KS1 = structure authority (conservative).
+        ks1_structure_lock = [
+            "preserve original pose exactly",
+            "maintain original proportions",
+            "retain original accessories",
+            "do not redesign character",
+        ]
+        if conflict_penalty > 0.4:
+            ks1_structure_lock.extend(
+                [
+                    "do not alter facial features",
+                    "strictly follow input structure",
+                ]
+            )
+
+        # If reference influence is low, avoid injecting any style/identity language into KS1.
+        if (influence_scalar is not None and influence_scalar < 0.4) or ip_ks1_w < 0.6:
+            ks1_style_hint: list[str] = []
+        else:
+            ks1_style_hint = ["subtle reference line influence"] if influence_scalar is not None else []
+
+        pos1 = _append_unique_tags(pos1, ks1_structure_lock + ks1_style_hint)
+
+        # KS2 = refinement authority (style/cleanup).
+        ks2_refine = [
+            "refine contours with confident strokes",
+            "improve line consistency",
+            "clean and unify line quality",
+        ]
+        # If KS2 IP is low, avoid strong reference identity language even if mode says identity.
+        if ip_ks2_w < 0.35 and reference_mode_ks2 == "identity":
+            reference_mode_ks2 = "style"
+        if reference_mode_ks2 == "identity":
+            ks2_refine.extend(
+                [
+                    "match reference line weight",
+                    "follow reference stroke confidence",
+                ]
+            )
+        elif reference_mode_ks2 == "style":
+            ks2_refine.extend(
+                [
+                    "adopt reference stroke clarity",
+                    "subtle reference influence",
+                ]
+            )
+        elif reference_mode_ks2 == "style_lite":
+            ks2_refine.extend(
+                [
+                    "focus on clean uniform lines",
+                    "no identity transfer",
+                ]
+            )
+
+        if conflict_penalty > 0.4:
+            ks2_refine.extend(
+                [
+                    "avoid color tint shifts",
+                    "no added background tones",
+                    "no additional design elements",
+                ]
+            )
+
+        pos2 = _append_unique_tags(pos2, ks2_refine)
+
+        # Phase / transition semantics.
+        if transition.lower() == "roughs -> tie down":
+            pos1 = _append_unique_tags(pos1, ["resolve rough sketch into stable structure", "clarify construction", "remove sketch noise"])
+            pos2 = _append_unique_tags(pos2, ["tighten anatomy", "convert rough strokes into clean tied-down lines"])
+        elif transition.lower() == "roughs -> cleanup":
+            pos1 = _append_unique_tags(pos1, ["resolve rough sketch into stable structure"])
+            pos2 = _append_unique_tags(pos2, ["convert rough strokes into final clean lines"])
+        elif transition.lower() == "tie down -> cleanup":
+            pos1 = _append_unique_tags(pos1, ["preserve tied-down structure"])
+            pos2 = _append_unique_tags(pos2, ["final clean ink", "uniform stroke width", "professional animation-ready line art"])
+
+        # Negatives: add halo/fringe suppression when conflict is high.
+        if conflict_penalty > 0.4:
+            halo_negs = [
+                "(chromatic aberration:1.6)",
+                "(color fringe:1.6)",
+                "(colored outlines:1.6)",
+                "(edge halos:1.6)",
+                "double lines",
+            ]
+            neg1 = _append_unique_tags(neg1, halo_negs)
+            neg2 = _append_unique_tags(neg2, halo_negs)
+
     if dest_phase == "CleanUp":
         anatomy_focus = [
             "clear anatomy",
@@ -502,6 +616,24 @@ def run_prompt_engineer_m3(
                     "sketchy residue",
                 ],
             )
+
+    # Director-driven prompt modifiers (dynamic guardrails / style notes).
+    # Some modifiers are KS2-only and must never pollute KS1.
+    prompt_mods = report.get("prompt_modifiers") or []
+    if isinstance(prompt_mods, list):
+        prompt_mods = [str(x).strip() for x in prompt_mods if str(x).strip()]
+    else:
+        prompt_mods = []
+    if prompt_mods:
+        ks2_only = {
+            "match reference line weight",
+            "follow reference stroke confidence",
+            "adopt reference stroke clarity",
+            "subtle reference influence",
+            "refine contours with confident strokes",
+        }
+        pos1 = _append_unique_tags(pos1, [m for m in prompt_mods if m.lower() not in ks2_only])
+        pos2 = _append_unique_tags(pos2, prompt_mods)
 
     # Character cleanup quality: remove rigid geometric constraints that make lines stiff.
     if subject_profile == "character":

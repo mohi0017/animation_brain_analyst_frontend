@@ -15,6 +15,7 @@ import requests
 import streamlit as st
 from PIL import Image, ImageFilter, ImageOps
 
+from .line_quality_analyzer import analyze_line_quality
 
 def call_comfyui(
     image_bytes: bytes,
@@ -112,7 +113,80 @@ def call_comfyui(
         log(f"✅ Workflow submitted (ID: {actual_prompt_id[:8]}...)")
 
         # Step 6: Poll and download images
-        return _poll_and_download(base_url, actual_prompt_id, log, debug_mode=debug_mode)
+        result = _poll_and_download(base_url, actual_prompt_id, log, debug_mode=debug_mode)
+
+        # Optional closed-loop feedback: analyze KS2 output and (at most once) re-run with adjusted KS2/IP2.
+        max_retries = int(os.getenv("M3_FEEDBACK_MAX_RETRIES", "0") or "0")
+        if max_retries > 0 and m3_plan and reference_image_bytes and result:
+            try:
+                if isinstance(result, dict):
+                    ks2_bytes = result.get("final", (None, None))[0]
+                else:
+                    ks2_bytes = result[0]
+
+                metrics = analyze_line_quality(ks2_bytes, reference_png=reference_image_bytes)
+                log(
+                    "📏 LineQuality: "
+                    f"density={metrics.edge_density:.3f} noise={metrics.noise_ratio:.3f} "
+                    f"th_var={metrics.thickness_variance:.4f} ref_sim="
+                    f"{(metrics.reference_edge_similarity if metrics.reference_edge_similarity is not None else -1):.3f}"
+                )
+
+                # Targets (tunable via env). Defaults are conservative.
+                tgt_noise = float(os.getenv("M3_TGT_NOISE_RATIO", "0.08"))
+                tgt_density_hi = float(os.getenv("M3_TGT_EDGE_DENSITY_HI", "0.14"))
+                tgt_density_lo = float(os.getenv("M3_TGT_EDGE_DENSITY_LO", "0.02"))
+
+                needs_retry = (
+                    metrics.noise_ratio > tgt_noise
+                    or metrics.edge_density > tgt_density_hi
+                    or metrics.edge_density < tgt_density_lo
+                )
+
+                if needs_retry and max_retries >= 1:
+                    log("🔁 Feedback: quality out of range; re-running once with dampened KS2/IP2...")
+                    # Dampeners: reduce KS2 cfg a bit, reduce IP2, and slightly reduce denoise to preserve structure.
+                    m3_plan2 = json.loads(json.dumps(m3_plan))
+                    ks2 = m3_plan2.get("ksampler2", {})
+                    ks2["cfg"] = max(8.5, float(ks2.get("cfg", 8.5)) - 0.5)
+                    ks2["denoise"] = max(0.2, float(ks2.get("denoise", 0.4)) - 0.05)
+                    m3_plan2["ksampler2"] = ks2
+                    ipd = (m3_plan2.get("ip_adapter_dual") or {})
+                    if isinstance(ipd, dict):
+                        ip2 = dict(ipd.get("ksampler2") or {})
+                        ip2["weight"] = max(0.15, float(ip2.get("weight", 0.25)) - 0.05)
+                        ip2["end_at"] = min(float(ip2.get("end_at", 0.5)), 0.5)
+                        ipd["ksampler2"] = ip2
+                        m3_plan2["ip_adapter_dual"] = ipd
+
+                    # Rebuild workflow with updated params and resubmit (no re-upload needed).
+                    wf2 = _load_workflow(base_url, log, workflow_path)
+                    wf2 = _update_workflow(
+                        wf2,
+                        prompts,
+                        uploaded_filename,
+                        reference_uploaded_filename,
+                        model_name,
+                        m3_plan2,
+                        log,
+                    )
+                    log("🚀 Submitting feedback-adjusted workflow to ComfyUI...")
+                    prompt_id2 = str(uuid.uuid4())
+                    submit_resp2 = requests.post(
+                        f"{base_url}/prompt",
+                        json={"prompt": wf2, "client_id": prompt_id2},
+                        timeout=30,
+                    )
+                    submit_resp2.raise_for_status()
+                    submit_data2 = submit_resp2.json()
+                    actual_prompt_id2 = submit_data2.get("prompt_id")
+                    if actual_prompt_id2:
+                        log(f"✅ Feedback workflow submitted (ID: {actual_prompt_id2[:8]}...)")
+                        return _poll_and_download(base_url, actual_prompt_id2, log, debug_mode=debug_mode)
+            except Exception as exc:
+                log(f"⚠️ Feedback loop skipped: {exc}")
+
+        return result
 
     except requests.exceptions.RequestException as exc:
         error_msg = f"ComfyUI API error: {exc}"
@@ -330,16 +404,33 @@ def _update_m3_v10_workflow(
         workflow["1"]["inputs"]["ckpt_name"] = model_name
         log(f"🎨 Updated SD Model: {old_model} → {model_name}")
 
-    # Always disable LoRAs for API runs unless explicitly supported by the app.
+    # LoRA policy:
+    # - Default: disabled (historical behavior, safe for production).
+    # - Optional: enable via env `M3_ENABLE_LORA=true` and a director-provided `m3_plan['lora_strength']`.
+    enable_lora = os.getenv("M3_ENABLE_LORA", "false").strip().lower() in ("1", "true", "yes", "on")
+    plan_lora_strength = None
+    if enable_lora and m3_plan:
+        try:
+            plan_lora_strength = float(m3_plan.get("lora_strength"))
+        except Exception:
+            plan_lora_strength = None
+        if plan_lora_strength is not None:
+            plan_lora_strength = max(0.0, min(1.0, plan_lora_strength))
+
+    # Always disable LoRAs unless explicitly enabled.
     for node_id, node in workflow.items():
         if not (isinstance(node, dict) and node.get("class_type") == "LoraLoader"):
             continue
         inputs = node.get("inputs") or {}
-        inputs["strength_model"] = 0.0
-        inputs["strength_clip"] = 0.0
+        strength = plan_lora_strength if plan_lora_strength is not None else 0.0
+        inputs["strength_model"] = strength
+        inputs["strength_clip"] = strength
         node["inputs"] = inputs
         workflow[node_id] = node
-        log(f"🧼 Disabled LoRA strengths (Node {node_id})")
+        if strength == 0.0:
+            log(f"🧼 Disabled LoRA strengths (Node {node_id})")
+        else:
+            log(f"🧩 Enabled LoRA strengths={strength:.2f} (Node {node_id})")
 
     # Stage 1 prompts
     if "2" in workflow and workflow["2"].get("class_type") == "CLIPTextEncode":
@@ -373,6 +464,7 @@ def _update_m3_v10_workflow(
     cn_union = m3_plan.get("controlnet_union", {})
     cn_openpose = m3_plan.get("controlnet_openpose", {})
     ip = m3_plan.get("ip_adapter", {})
+    ip_dual = m3_plan.get("ip_adapter_dual") or {}
 
     if "5" in workflow and workflow["5"].get("class_type") == "KSampler":
         workflow["5"]["inputs"]["steps"] = ks1.get("steps", workflow["5"]["inputs"].get("steps"))
@@ -396,10 +488,19 @@ def _update_m3_v10_workflow(
         workflow["79"]["inputs"]["end_percent"] = cn_openpose.get("end_percent", workflow["79"]["inputs"].get("end_percent"))
         log("✅ Updated M3 OpenPose params")
 
+    # IP-Adapter (supports dual-IP workflows):
+    # - Node 66 typically feeds KS1 model input.
+    # - Node 90 (if present) typically feeds KS2 model input.
     if "66" in workflow and workflow["66"].get("class_type") == "IPAdapterAdvanced":
-        workflow["66"]["inputs"]["weight"] = ip.get("weight", workflow["66"]["inputs"].get("weight"))
-        workflow["66"]["inputs"]["end_at"] = ip.get("end_at", workflow["66"]["inputs"].get("end_at"))
-        log("✅ Updated M3 IP-Adapter params")
+        ip1 = (ip_dual.get("ksampler1") or {}) if isinstance(ip_dual, dict) else {}
+        workflow["66"]["inputs"]["weight"] = ip1.get("weight", ip.get("weight", workflow["66"]["inputs"].get("weight")))
+        workflow["66"]["inputs"]["end_at"] = ip1.get("end_at", ip.get("end_at", workflow["66"]["inputs"].get("end_at")))
+        log("✅ Updated M3 IP-Adapter params (KS1)")
+    if "90" in workflow and workflow["90"].get("class_type") == "IPAdapterAdvanced":
+        ip2 = (ip_dual.get("ksampler2") or {}) if isinstance(ip_dual, dict) else {}
+        workflow["90"]["inputs"]["weight"] = ip2.get("weight", ip.get("weight", workflow["90"]["inputs"].get("weight")))
+        workflow["90"]["inputs"]["end_at"] = ip2.get("end_at", ip.get("end_at", workflow["90"]["inputs"].get("end_at")))
+        log("✅ Updated M3 IP-Adapter params (KS2)")
 
     return workflow
 
@@ -576,25 +677,48 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
 def _postprocess_line_art_bytes(image_bytes: bytes, log) -> bytes:
     """
     Post-process generated image to suppress color fringes and connect fragmented line art.
-    Pipeline (soft cleanup, non-binary):
+    Pipeline (line-art cleanup):
       1) grayscale (remove color fringe)
-      2) mild contrast normalization
-      3) light smoothing (preserve anti-aliased edges; avoid harsh/pixel look)
-      4) border cleanup to remove frame artifacts from raw generations
+      2) median + slight blur (reduce jagged micro-noise)
+      3) soft binarization + morphological close (connect broken lines)
+      4) optional thinning pass (prevent over-bold strokes)
+      5) border cleanup (remove raw frame artifacts)
     """
     try:
         img = Image.open(BytesIO(image_bytes)).convert("RGB")
         gray = ImageOps.grayscale(img)
-        # Keep smoothing very light so lines stay clean but not over-sharp/pixelated.
-        soft = gray.filter(ImageFilter.GaussianBlur(radius=0.30))
 
-        # Force near-white paper tones to pure white to avoid textured/griddy canvas artifacts.
-        soft = soft.point(lambda p: 255 if p >= 228 else p)
+        # Tunables (safe defaults; can be overridden from env without code change).
+        pp_thresh = int(os.getenv("M3_PP_THRESHOLD", "210") or "210")
+        pp_white = int(os.getenv("M3_PP_WHITE_CLIP", "228") or "228")
+        pp_close_size = max(3, int(os.getenv("M3_PP_CLOSE_SIZE", "3") or "3"))
+        pp_thin_pass = max(0, int(os.getenv("M3_PP_THIN_PASS", "1") or "1"))
+
+        # 1) Remove small edge noise and mild jaggedness.
+        den = gray.filter(ImageFilter.MedianFilter(size=3))
+        den = den.filter(ImageFilter.GaussianBlur(radius=0.35))
+
+        # 2) Build an ink mask (dark lines only).
+        #    Higher threshold captures faint broken segments that need healing.
+        ink_mask = den.point(lambda p: 0 if p < pp_thresh else 255, mode="L")
+
+        # 3) Morphological close using PIL filters: dilate then erode.
+        #    This joins dotted segments and closes tiny gaps in strokes.
+        closed = ink_mask.filter(ImageFilter.MaxFilter(size=pp_close_size))
+        closed = closed.filter(ImageFilter.MinFilter(size=pp_close_size))
+
+        # 4) Optional thinning so lines do not become overly bold after close.
+        for _ in range(pp_thin_pass):
+            closed = closed.filter(ImageFilter.MinFilter(size=3))
+
+        # 5) Compose final monochrome line-art (pure black lines on clean white canvas).
+        final_gray = closed.point(lambda p: 255 if p >= 128 else 0, mode="L")
+        final_gray = final_gray.point(lambda p: 255 if p >= pp_white else p)
 
         # Remove border/frame artifacts often present in raw ComfyUI outputs.
         border = 6
-        px = soft.load()
-        w, h = soft.size
+        px = final_gray.load()
+        w, h = final_gray.size
         for x in range(w):
             for y in range(min(border, h)):
                 px[x, y] = 255
@@ -606,11 +730,11 @@ def _postprocess_line_art_bytes(image_bytes: bytes, log) -> bytes:
             for x in range(max(0, w - border), w):
                 px[x, y] = 255
 
-        final = soft.convert("RGB")
+        final = final_gray.convert("RGB")
 
         out = BytesIO()
         final.save(out, format="PNG")
-        log("🧼 Applied post-process line-art cleanup (grayscale+threshold+heal)")
+        log("🧼 Applied post-process line-art cleanup (smooth+close+thin)")
         return out.getvalue()
     except Exception as exc:
         log(f"⚠️ Post-process skipped: {exc}")

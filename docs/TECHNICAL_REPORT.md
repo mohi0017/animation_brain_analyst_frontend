@@ -1,6 +1,8 @@
 # M3 Technical Report
 ## AI Animation Studio - Milestone 3
 
+> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+
 ---
 
 ## Quick Summary
@@ -19,16 +21,18 @@ Milestone 3 introduces a **dual-stage pipeline** that decouples pose preservatio
 
 ### 2) AD-Agent (Director)
 - Computes dynamic parameters per transition
-- Enforces sequential gap and motion-lock rules
-- Updates KSampler, ControlNet, and IP-Adapter node parameters
+- Applies adaptive control (`S/R/D/P/H`, dynamic bounds, hard safety rules)
+- Updates KSampler, ControlNet, and dual IP-Adapter node parameters
 
 ### 3) Prompt Engineer (Writer)
-- Stage 1: Structure + subject tags with score_9 sequence
-- Stage 2: Cleanup/inK template with priority lock for messy lines
+- Stage 1: structure authority prompt
+- Stage 2: cleanup/refinement authority prompt
+- Applies director-driven modifiers and stage-safe filtering
 
 ### 4) ComfyUI (Executor)
 - Runs `Animation_Workflow_M3_Api.json`
 - Uses dual KSampler process with ControlNet chain
+- Supports dual IP node updates (`66`, `90`)
 - Outputs transparent and original PNG
 
 ---
@@ -42,13 +46,14 @@ Milestone 3 introduces a **dual-stage pipeline** that decouples pose preservatio
 - `55` → KSampler 2 (inking)
 - `62` → Union XL ControlNet
 - `79` → OpenPose ControlNet
-- `66` → IP-Adapter
+- `66` → IP-Adapter (KS1)
+- `90` → IP-Adapter (KS2)
 - `4/72` → input and reference images
 
 ---
 
 ## Data Flow
-Input image → Visual Analyst → AD-Agent params → Prompt Engineer → ComfyUI workflow update → outputs
+Input image + reference image → Visual Analyst + Reference Compare → AD-Agent params → Prompt Engineer → ComfyUI workflow update → outputs (+ optional feedback rerun)
 
 ---
 

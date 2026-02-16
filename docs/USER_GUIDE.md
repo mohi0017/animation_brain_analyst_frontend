@@ -1,5 +1,7 @@
 # AI Animation Studio M3 - User Guide
 
+> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+
 Use this guide to run the M3 cleanup pipeline in the web app.
 
 Live app: [animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app](https://animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app/)
@@ -37,10 +39,9 @@ Live app: [animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app](h
 - Roughs → CleanUp: aggressive cleanup.
 - Tie Down → CleanUp: final polish.
 
-### D) Control Switches
-- Pose Lock: keeps the pose stable.
-- Style Lock: keeps style consistent with the reference.
-- Anatomical Level: higher = stronger anatomy correction.
+### D) Control Behavior
+- Most advanced settings are now agent-controlled.
+- UI keeps generation flow simple; controller computes parameters automatically.
 
 ### E) Output
 - You get two outputs:
@@ -72,7 +73,7 @@ Live app: [animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app](h
 ## 6) FAQ
 
 **Q: Does the reference image change the prompt?**  
-A: No. It only feeds the IP-Adapter for style.
+A: Mostly via style conditioning, but adaptive guardrails/modifiers may be injected based on reference conflict analysis.
 
 **Q: What is the best reference image?**  
 A: A clean, finished line art frame in your target style, centered and square.

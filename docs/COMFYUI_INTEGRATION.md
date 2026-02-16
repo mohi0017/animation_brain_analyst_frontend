@@ -1,6 +1,8 @@
 # ComfyUI Integration (M3)
 ## How the M3 Pipeline Works End-to-End
 
+> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+
 ---
 
 ## Overview
@@ -19,7 +21,8 @@ The workflow runs in ComfyUI with two KSamplers and a sequential ControlNet chai
 1) **Input Image** (rough or tie-down)
 2) **Reference Image** (style only; used by IP-Adapter)
 
-The reference image does NOT affect prompts. It only feeds the IP-Adapter node and may be analyzed for style compatibility notes (prompts still come from the input sketch).
+Reference is primarily used for dual-IP style conditioning and adaptive control signals.
+Director can also inject prompt guardrails/modifiers based on reference conflicts.
 
 ---
 
@@ -56,6 +59,7 @@ This stage converts the output into clean, solid line art.
 - **Input LoadImage**: `4`
 - **Reference LoadImage**: `72`
 - **IPAdapterAdvanced**: `66`
+- **IPAdapterAdvanced (KS2 path)**: `90`
 - **ControlNet Union XL**: `62`
 - **OpenPose ControlNet**: `79`
 - **KSampler 1**: `5`
@@ -74,7 +78,8 @@ The app computes parameters per transition and updates these nodes at runtime:
 - **KSampler 2**: steps, cfg, denoise
 - **ControlNet Union**: strength, end_percent
 - **OpenPose**: strength, end_percent
-- **IP-Adapter**: weight, end_at
+- **IP-Adapter KS1**: weight, end_at
+- **IP-Adapter KS2**: weight, end_at
 
 Rules enforced:
 - In the adaptive path, the Director typically aims for:
