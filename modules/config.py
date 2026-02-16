@@ -22,7 +22,7 @@ SD_MODELS = {
     "animagine-xl-3.1.safetensors": {
         "name": "Animagine XL 3.1",
         "category": "Anime XL",
-        "description": "High-quality SDXL anime model. Best default for M3 style transfer and motion lock.",
+        "description": "High-quality SDXL anime model. Best default for M4 style transfer and motion lock.",
         "best_for": ["Tie Down", "CleanUp", "Colors"],
         "strengths": "Sharp anime linework, clean cel look, strong character rendering",
         "use_when": "You need strong anime-style output with clean structure",
@@ -33,8 +33,10 @@ SD_MODELS = {
 # Default model for line art phases
 DEFAULT_LINE_ART_MODEL = "animagine-xl-3.1.safetensors"
 
-# Default model for Milestone 3 workflow (SDXL)
-DEFAULT_M3_MODEL = "animagine-xl-3.1.safetensors"
+# Default model for Milestone 4 workflow (SDXL)
+DEFAULT_M4_MODEL = "animagine-xl-3.1.safetensors"
+# Backward-compatible alias.
+DEFAULT_M3_MODEL = DEFAULT_M4_MODEL
 
 
 
