@@ -549,21 +549,36 @@ if generate:
                         raw_imgs = debug_payload.get("raw", [])
                         raw_nodes = debug_payload.get("raw_node_ids", [])
                         processed_imgs = debug_payload.get("processed", [])
+                        node_role = {
+                            "54": "KSampler 2 Output (Final Pass)",
+                            "74": "KSampler 1 Output (Structure Pass)",
+                        }
 
                         if raw_imgs:
                             st.markdown("**Step 3: Raw ComfyUI Outputs (before post-process)**")
                             cols = st.columns(2)
                             for i, raw in enumerate(raw_imgs[:2]):
                                 node_label = raw_nodes[i] if i < len(raw_nodes) else "?"
+                                role_label = node_role.get(str(node_label), "Output")
                                 with cols[i % 2]:
-                                    st.image(raw, caption=f"Raw output from Node {node_label}", width='stretch')
+                                    st.image(
+                                        raw,
+                                        caption=f"{role_label} — Raw (Node {node_label})",
+                                        width='stretch',
+                                    )
 
                         if processed_imgs:
                             st.markdown("**Step 4: Post-Processed Outputs (grayscale + threshold + heal)**")
                             cols = st.columns(2)
                             for i, proc in enumerate(processed_imgs[:2]):
+                                node_label = raw_nodes[i] if i < len(raw_nodes) else "?"
+                                role_label = node_role.get(str(node_label), "Output")
                                 with cols[i % 2]:
-                                    st.image(proc, caption=f"Processed output #{i+1}", width='stretch')
+                                    st.image(
+                                        proc,
+                                        caption=f"{role_label} — Post-Processed",
+                                        width='stretch',
+                                    )
 
                     st.markdown("**Step 5: Final Display**")
                     st.image(final_output, caption="✅ Final primary output (KS2 / Node 54)", width='stretch')
