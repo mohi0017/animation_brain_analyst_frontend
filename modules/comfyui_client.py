@@ -688,7 +688,7 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
         img_resp.raise_for_status()
         return img_resp.content
 
-    def _gif_first_frame_png(gif_bytes: bytes) -> bytes:
+    def _gif_first_frame_png(gif_bytes: bytes) -> bytes | None:
         try:
             with Image.open(BytesIO(gif_bytes)) as im:
                 first = next(ImageSequence.Iterator(im)).convert("RGB")
@@ -696,7 +696,7 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
                 first.save(out, format="PNG")
                 return out.getvalue()
         except Exception:
-            return gif_bytes
+            return None
 
     def _download_from_node(node_id: str) -> None:
         out = outputs.get(node_id)
@@ -741,16 +741,19 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
                 )
                 raw_downloaded.append(media_bytes)
                 raw_node_ids.append(node_id)
-                # Convert gif/video to first frame for image preview in current UI path.
-                preview_bytes = _gif_first_frame_png(media_bytes)
-                downloaded.append(preview_bytes)
-                downloaded_nodes.add(node_id)
+                # Media bytes are not reliable inputs for the line-art image post-process path.
+                # Keep media for playback/download only, and only use GIF first-frame preview when decodable.
+                if media_key == "gif":
+                    preview_bytes = _gif_first_frame_png(media_bytes)
+                    if preview_bytes:
+                        downloaded.append(preview_bytes)
+                        downloaded_nodes.add(node_id)
                 log(f"✅ Output {media_key} downloaded (Node {node_id})")
                 if len(downloaded) >= 2:
                     return
 
-    # Prefer decoded frame outputs first (cleaner path), then media combine fallbacks.
-    for preferred_node in ("41", "73", "100", "99"):
+    # Prefer saved decoded frame outputs first, then decode nodes, then media combine fallbacks.
+    for preferred_node in ("141", "173", "41", "73", "100", "99"):
         if preferred_node in outputs and len(downloaded) < 2:
             _download_from_node(preferred_node)
 

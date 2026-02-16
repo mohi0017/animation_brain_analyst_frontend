@@ -287,7 +287,7 @@
     },
     "class_type": "VHS_LoadImages",
     "_meta": {
-      "title": "Load Images (Upload) 🎥🅥🅗🅢"
+      "title": "Load Images (Upload) \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "97": {
@@ -305,7 +305,7 @@
     },
     "class_type": "ADE_AnimateDiffLoaderGen1",
     "_meta": {
-      "title": "AnimateDiff Loader 🎭🅐🅓①"
+      "title": "AnimateDiff Loader \ud83c\udfad\ud83c\udd50\ud83c\udd53\u2460"
     }
   },
   "98": {
@@ -320,7 +320,7 @@
     },
     "class_type": "ADE_StandardUniformContextOptions",
     "_meta": {
-      "title": "Context Options◆Standard Uniform 🎭🅐🅓"
+      "title": "Context Options\u25c6Standard Uniform \ud83c\udfad\ud83c\udd50\ud83c\udd53"
     }
   },
   "99": {
@@ -342,7 +342,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine 🎥🅥🅗🅢"
+      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "100": {
@@ -364,7 +364,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine 🎥🅥🅗🅢"
+      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "101": {
@@ -373,7 +373,7 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "102": {
@@ -382,7 +382,7 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "103": {
@@ -413,7 +413,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "104": {
@@ -444,7 +444,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "105": {
@@ -475,6 +475,32 @@
     "class_type": "IPAdapterAdvanced",
     "_meta": {
       "title": "IPAdapter Advanced"
+    }
+  },
+  "141": {
+    "inputs": {
+      "filename_prefix": "M4_KS2_Decode",
+      "images": [
+        "41",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image (KS2 Decode)"
+    }
+  },
+  "173": {
+    "inputs": {
+      "filename_prefix": "M4_KS1_Decode",
+      "images": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image (KS1 Decode)"
     }
   }
 }
