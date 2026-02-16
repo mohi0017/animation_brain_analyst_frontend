@@ -367,7 +367,7 @@ def create_parameter_plan_m3(
                 "cfg2": [7.0, 10.0],
             }
             cfg1_eff_max = 9.6
-            cfg2_eff_max = 8.5
+            cfg2_eff_max = 8.6
         elif entity_type == "multi_object":
             bounds = {
                 "union": [0.55, 0.90],
@@ -393,7 +393,7 @@ def create_parameter_plan_m3(
                 "cfg2": [7.0, 10.0],
             }
             cfg1_eff_max = 9.2
-            cfg2_eff_max = 8.5
+            cfg2_eff_max = 8.4
 
         # --- Signal-based bound adjustments ---
         if conflict > 0.4:
