@@ -424,9 +424,47 @@ if generate:
                     f"weight: {m3_plan['ip_adapter']['weight']}, "
                     f"end_at: {m3_plan['ip_adapter']['end_at']}"
                 )
+                ip_dual = m3_plan.get("ip_adapter_dual") or {}
+                if ip_dual:
+                    ks1_ip = ip_dual.get("ksampler1", {})
+                    ks2_ip = ip_dual.get("ksampler2", {})
+                    st.markdown("**Style Injection (Dual IP-Adapter)**")
+                    st.code(
+                        f"KS1 IP: weight={ks1_ip.get('weight')}, end_at={ks1_ip.get('end_at')}\n"
+                        f"KS2 IP: weight={ks2_ip.get('weight')}, end_at={ks2_ip.get('end_at')}"
+                    )
                 if m3_plan.get("model_name"):
                     st.markdown("**Model Auto-Switch**")
                     st.code(f"model: {m3_plan['model_name']}")
+                st.markdown("**Control Diagnostics (Runtime)**")
+                diag = m3_plan.get("diagnostics") or {}
+                if diag:
+                    summary_diag = {
+                        "case": diag.get("case"),
+                        "object_scale": diag.get("object_scale"),
+                        "reference_mode": m3_plan.get("reference_mode"),
+                        "_influence_scalar": m3_plan.get("_influence_scalar"),
+                        "S_structure_confidence": diag.get("S_structure_confidence"),
+                        "R_reference_reliability": diag.get("R_reference_reliability"),
+                        "D_style_distance": diag.get("D_style_distance"),
+                        "P_pose_risk": diag.get("P_pose_risk"),
+                        "H_hallucination_risk": diag.get("H_hallucination_risk"),
+                        "conflict_penalty": diag.get("conflict_penalty"),
+                        "text_conflict": diag.get("text_conflict"),
+                        "image_conflict": diag.get("image_conflict"),
+                        "reference_accessory_mismatch": diag.get("reference_accessory_mismatch"),
+                        "reference_is_colored": diag.get("reference_is_colored"),
+                        "cfg1_effective_max": diag.get("cfg1_effective_max"),
+                        "cfg2_effective_max": diag.get("cfg2_effective_max"),
+                        "clamp_reasons": diag.get("clamp_reasons"),
+                    }
+                    st.json(summary_diag)
+                else:
+                    st.caption("No diagnostics available.")
+
+                if debug_mode:
+                    st.markdown("**Full Parameter Plan (Debug)**")
+                    st.json(m3_plan)
         # Display generated images
         if generated_image:
             img_placeholder.empty()  # Clear placeholder
