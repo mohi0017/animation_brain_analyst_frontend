@@ -477,10 +477,8 @@ def create_parameter_plan_m3(
             # so KS1 stabilizes structure and KS2 has enough cleanup authority.
             if is_human_subject:
                 bounds["ks1_den"][0] = max(bounds["ks1_den"][0], 0.70)
-                # Keep KS2 conservative: enough cleanup, but avoid melt/distortion redraw.
-                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.40)
-                if line_quality == "messy":
-                    bounds["ks2_den"][1] = min(bounds["ks2_den"][1], 0.45)
+                # User policy: KS2 denoise should not go below 0.7 for large human cases.
+                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.70)
                 clamp_reasons.append("large_human_min_denoise_enforced")
         elif object_scale == "small":
             bounds["union"][1] = 1.00
