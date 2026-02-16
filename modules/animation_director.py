@@ -295,9 +295,19 @@ def create_parameter_plan_m3(
             conflict = float(report.get("reference_conflict_penalty") or 0.0)
         except Exception:
             conflict = 0.0
+        try:
+            text_conflict = float(report.get("reference_text_conflict") or 0.0)
+        except Exception:
+            text_conflict = 0.0
+        try:
+            image_conflict = float(report.get("reference_image_conflict") or 0.0)
+        except Exception:
+            image_conflict = 0.0
         reference_is_colored = bool(report.get("reference_is_colored") or False)
         sim = max(0.0, min(1.0, sim))
         conflict = max(0.0, min(1.0, conflict))
+        text_conflict = max(0.0, min(1.0, text_conflict))
+        image_conflict = max(0.0, min(1.0, image_conflict))
         R = max(0.0, min(1.0, sim * (1.0 - conflict)))
 
         # Style distance D from reference compare (0..1), default 0.0 when no reference.
@@ -395,23 +405,31 @@ def create_parameter_plan_m3(
             cfg1_eff_max = 9.2
             cfg2_eff_max = 8.4
 
+        clamp_reasons: list[str] = []
+
         # --- Signal-based bound adjustments ---
         if conflict > 0.4:
             bounds["ip1"][1] = min(bounds["ip1"][1], 0.55)
             bounds["ip2"][1] = min(bounds["ip2"][1], 0.30)
+            clamp_reasons.append("high_conflict_tightened_ip_bounds")
         if reference_is_colored:
             bounds["ip2"][1] = min(bounds["ip2"][1], 0.35)
+            clamp_reasons.append("colored_reference_capped_ip2")
         if LQ := {"clean": 0.85, "structured": 0.6, "messy": 0.3}.get(line_quality, 0.5):
             if LQ < 0.4:
                 bounds["ks1_den"][1] = min(1.0, bounds["ks1_den"][1] + 0.05)
                 bounds["ip1"][1] = min(0.85, bounds["ip1"][1] + 0.05)
+                clamp_reasons.append("low_line_quality_expanded_ks1_repair")
             elif LQ > 0.75:
                 bounds["ip2"][1] = max(bounds["ip2"][0], bounds["ip2"][1] - 0.10)
                 bounds["ks2_den"][1] = max(bounds["ks2_den"][0], bounds["ks2_den"][1] - 0.05)
+                clamp_reasons.append("high_line_quality_reduced_ks2_interference")
         if P > 0.7:
             bounds["ip1"][1] = max(bounds["ip1"][0], bounds["ip1"][1] - 0.05)
+            clamp_reasons.append("high_pose_risk_reduced_ip1")
         if object_scale == "large":
             bounds["union"][1] = min(bounds["union"][1], 0.65)
+            clamp_reasons.append("large_object_capped_union")
         elif object_scale == "small":
             bounds["union"][1] = 1.00
 
@@ -435,6 +453,7 @@ def create_parameter_plan_m3(
         # Strong structure locks already constrain geometry; relax CFG1 a bit.
         if union_strength > 0.75 or pose_strength > 0.90:
             cfg1 = _clamp(cfg1 - 0.4, bounds["cfg1"][0], min(bounds["cfg1"][1], cfg1_eff_max))
+            clamp_reasons.append("strong_structure_lock_relaxed_cfg1")
 
         # --- Final hard rules ---
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
@@ -444,8 +463,10 @@ def create_parameter_plan_m3(
         cfg2 = min(cfg2, 10.0)
         if ip2 > 0.50:
             cfg2 = min(cfg2, 7.4)
+            clamp_reasons.append("ip2_gt_0_50_capped_cfg2_7_4")
         elif ip2 > 0.40:
             cfg2 = min(cfg2, 7.8)
+            clamp_reasons.append("ip2_gt_0_40_capped_cfg2_7_8")
         cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
         ip2 = min(ip2, 0.55)
@@ -469,6 +490,7 @@ def create_parameter_plan_m3(
             ip2 = _clamp(ip2 - 0.10, bounds["ip2"][0], bounds["ip2"][1])
             ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))
             ks2["cfg"] = round(min(float(ks2["cfg"]), float(ks1["cfg"])), 2)
+            clamp_reasons.append("high_H_dampened_cfg_and_ip2")
 
         # Store diagnostics for UI/debug.
         plan["diagnostics"] = {
@@ -478,11 +500,15 @@ def create_parameter_plan_m3(
             "P_pose_risk": round(P, 3),
             "H_hallucination_risk": round(H, 3),
             "conflict_penalty": round(conflict, 3),
+            "text_conflict": round(text_conflict, 3),
+            "image_conflict": round(image_conflict, 3),
+            "reference_accessory_mismatch": round(float(report.get("reference_accessory_mismatch") or 0.0), 3),
             "reference_final_score": round(sim, 3),
             "reference_is_colored": bool(reference_is_colored),
             "intent_strength": round(intent_strength, 3),
             "cfg1_effective_max": round(cfg1_eff_max, 2),
             "cfg2_effective_max": round(cfg2_eff_max, 2),
+            "clamp_reasons": sorted(set(clamp_reasons)),
             "case": entity_type,
             "object_scale": object_scale,
         }

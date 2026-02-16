@@ -25,6 +25,9 @@ class ReferenceComparison:
     feature_match_score: float
     # Conflict penalty (0..1; higher = more conflict)
     conflict_penalty: float
+    # Conflict decomposition for diagnostics
+    text_conflict: float
+    image_conflict: float
     # Accessory mismatch score (0..1)
     accessory_mismatch: float
     # Whether the reference looks colored (vs mostly grayscale)
@@ -122,9 +125,9 @@ def _feature_match_score(subject_details: str, reference_summary: str) -> tuple[
     # Style conflict signal from summary.
     style_conflict = 1.0 if _text_has(ref, "conflict", "conflicting style") else 0.0
 
-    conflict_penalty = max(accessory_mismatch, style_conflict)
-    feature_match = 1.0 - conflict_penalty
-    return feature_match, conflict_penalty
+    text_conflict = max(accessory_mismatch, style_conflict)
+    feature_match = 1.0 - text_conflict
+    return feature_match, text_conflict
 
 
 def _upper_face_dark_blob_ratio(png_bytes: bytes, size: int = 256) -> float:
@@ -169,19 +172,24 @@ def compare_input_reference(
     """
     structural = _edge_cosine_similarity(input_png, reference_png)
     proportion = _proportion_similarity(input_png, reference_png)
-    feature_match, conflict_penalty = _feature_match_score(subject_details, reference_summary)
+    feature_match, text_conflict = _feature_match_score(subject_details, reference_summary)
 
     # Image-level accessory mismatch: sunglasses-like dark blob in input but not in reference.
     blob_in = _upper_face_dark_blob_ratio(input_png)
     blob_ref = _upper_face_dark_blob_ratio(reference_png)
     # Thresholds tuned for black-filled sunglasses vs line-only glasses.
-    accessory_mismatch = 1.0 if (blob_in >= 0.006 and blob_ref < 0.003) else 0.0
-    conflict_penalty = max(conflict_penalty, 0.6 if accessory_mismatch else 0.0)
+    if blob_in >= 0.006 and blob_ref < 0.003:
+        accessory_mismatch = max(0.0, min(1.0, (blob_in - blob_ref) / 0.02))
+    else:
+        accessory_mismatch = 0.0
+    image_conflict = 0.6 * accessory_mismatch
 
     reference_is_colored = _is_colored_reference(reference_png)
     if reference_is_colored:
-        # Colored reference is more likely to introduce tint/halos; treat as mild conflict.
-        conflict_penalty = max(conflict_penalty, 0.2)
+        # Colored reference is more likely to introduce tint/halos; treat as mild image conflict.
+        image_conflict = max(image_conflict, 0.2)
+
+    conflict_penalty = max(0.0, min(1.0, max(text_conflict, image_conflict)))
 
     # Style distance: edge density + grayscale contrast delta (robust to tint).
     def _edge_density(png_bytes: bytes, size: int = 256) -> float:
@@ -212,6 +220,8 @@ def compare_input_reference(
         proportion_score=float(proportion),
         feature_match_score=float(feature_match),
         conflict_penalty=float(conflict_penalty),
+        text_conflict=float(text_conflict),
+        image_conflict=float(image_conflict),
         accessory_mismatch=float(accessory_mismatch),
         reference_is_colored=bool(reference_is_colored),
         style_distance=float(style_distance),
