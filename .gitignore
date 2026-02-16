@@ -40,6 +40,8 @@ uv.lock
 *.swp
 *.swo
 *~
+*.pem
+
 
 # OS
 .DS_Store
