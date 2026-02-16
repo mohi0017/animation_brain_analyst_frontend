@@ -205,7 +205,7 @@ def create_parameter_plan_m3(
         # Over-processed output: slightly reduce refinement aggression + style.
         if "over-processed" in issue_text or "over processed" in issue_text:
             ks2["denoise"] = _clampf(ks2.get("denoise", 0.3) - 0.05, 0.1, 1.0)
-            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) - 0.5, 5.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) - 0.5, 7.0, 10.0)
             ip["weight"] = _clampf(ip.get("weight", 0.5) - 0.1, 0.0, 1.0)
 
         # Guidelines/construction lines being traced.
@@ -237,7 +237,7 @@ def create_parameter_plan_m3(
 
         # Lines too thin/weak.
         if "thin lines" in issue_text or "weak lines" in issue_text:
-            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) + 0.5, 5.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) + 0.5, 7.0, 10.0)
             ks2["denoise"] = _clampf(ks2.get("denoise", 0.3) + 0.05, 0.1, 1.0)
             cn_union["strength"] = _clampf(cn_union.get("strength", 0.6) + 0.10, 0.0, 1.0)
 
@@ -246,10 +246,10 @@ def create_parameter_plan_m3(
         plan["ip_adapter"] = ip
         plan["ksampler1"] = ks1
         plan["ksampler2"] = ks2
-        # Final CFG safety envelope when prompts are already dynamic/strong.
+        # Final CFG safety envelope.
         try:
-            ks1["cfg"] = _clampf(ks1.get("cfg", 7.0), 6.5, 8.2)
-            ks2["cfg"] = _clampf(ks2.get("cfg", 6.8), 6.0, 7.6)
+            ks1["cfg"] = _clampf(ks1.get("cfg", 7.0), 7.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 7.0), 7.0, 10.0)
             ks2["cfg"] = min(ks2["cfg"], ks1["cfg"])
             plan["ksampler1"] = ks1
             plan["ksampler2"] = ks2
@@ -340,8 +340,8 @@ def create_parameter_plan_m3(
         strict_hits = sum(1 for p in strict_phrases if p in issue_text)
         intent_strength = max(0.0, min(1.0, strict_hits / 4.0))
         # Keep CFG in stable mid-ranges for guided dual-IP workflows.
-        cfg1 = max(cfg1, 6.8 + 1.2 * intent_strength)
-        cfg2 = max(cfg2, 6.5 + 0.8 * intent_strength)
+        cfg1 = max(cfg1, 7.0 + 1.2 * intent_strength)
+        cfg2 = max(cfg2, 7.0 + 0.8 * intent_strength)
 
         # If IP/Union already strong, slightly relax CFG to avoid over-constrained artifacts.
         if ip1 > 0.7 or union_strength > 0.8:
@@ -367,8 +367,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.45],
                 "ks1_den": [0.55, 0.90],
                 "ks2_den": [0.25, 0.60],
-                "cfg1": [6.5, 8.2],
-                "cfg2": [6.0, 7.6],
+                "cfg1": [7.0, 10.0],
+                "cfg2": [7.0, 10.0],
             }
         elif entity_type == "multi_object":
             bounds = {
@@ -378,8 +378,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.40],
                 "ks1_den": [0.50, 0.80],
                 "ks2_den": [0.20, 0.50],
-                "cfg1": [6.5, 8.2],
-                "cfg2": [6.0, 7.6],
+                "cfg1": [7.0, 10.0],
+                "cfg2": [7.0, 10.0],
             }
         else:  # single_complex default
             bounds = {
@@ -389,8 +389,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.50],
                 "ks1_den": [0.55, 0.85],
                 "ks2_den": [0.22, 0.55],
-                "cfg1": [6.5, 8.2],
-                "cfg2": [6.0, 7.6],
+                "cfg1": [7.0, 10.0],
+                "cfg2": [7.0, 10.0],
             }
 
         # --- Signal-based bound adjustments ---
@@ -430,8 +430,8 @@ def create_parameter_plan_m3(
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
         cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
         pose_strength = min(pose_strength, 0.95)
-        cfg1 = min(cfg1, 8.5)
-        cfg2 = min(cfg2, 8.5)
+        cfg1 = min(cfg1, 10.0)
+        cfg2 = min(cfg2, 10.0)
         cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
         ip2 = min(ip2, 0.55)
@@ -447,7 +447,7 @@ def create_parameter_plan_m3(
 
         # Hallucination risk H: if too high, dampen KS2 cfg + IP2 a bit.
         # Normalize cfg/denoise into 0..1-ish range.
-        cfg2_n = (float(ks2["cfg"]) - 5.5) / (9.0 - 5.5)
+        cfg2_n = (float(ks2["cfg"]) - 7.0) / max(1e-6, (10.0 - 7.0))
         den2_n = (float(ks2["denoise"]) - 0.2) / (0.8 - 0.2)
         H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
         if H > 0.6:
@@ -455,7 +455,7 @@ def create_parameter_plan_m3(
             ip2 = max(0.15, ip2 - 0.10)
 
         # Hallucination risk H: if too high, dampen KS2 cfg + IP2 and re-clamp.
-        cfg2_n = (float(ks2["cfg"]) - 6.0) / max(1e-6, (9.0 - 6.0))
+        cfg2_n = (float(ks2["cfg"]) - 7.0) / max(1e-6, (10.0 - 7.0))
         den2_n = (float(ks2["denoise"]) - bounds["ks2_den"][0]) / max(1e-6, (bounds["ks2_den"][1] - bounds["ks2_den"][0]))
         H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
         if H > 0.6:
