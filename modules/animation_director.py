@@ -582,6 +582,14 @@ def create_parameter_plan_m3(
         ip2 = min(ip2, 0.35)
         ip2_end = min(ip2_end, 0.60)
         clamp_reasons.append("ks2_refinement_only_ip_cap")
+        # User cap profile for KS2 in problematic large-character cases.
+        if entity_type == "single_complex" and object_scale == "large":
+            ks2["steps"] = 50
+            ks2["cfg"] = round(min(float(ks2.get("cfg", 8.0)), 9.0), 2)
+            ks2["denoise"] = round(min(float(ks2.get("denoise", 0.4)), 0.4), 2)
+            ip2 = min(ip2, 0.20)
+            ip2_end = min(ip2_end, 0.80)
+            clamp_reasons.append("large_single_complex_ks2_user_caps")
         if plan.get("diagnostics"):
             plan["diagnostics"]["clamp_reasons"] = sorted(set(clamp_reasons))
         plan["ip_adapter_dual"] = {
