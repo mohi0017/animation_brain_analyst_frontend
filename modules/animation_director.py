@@ -24,7 +24,7 @@ def create_parameter_plan_m3(
     transition = f"{source_phase} -> {dest_phase}"
     line_quality = (report.get("line_quality") or "structured").lower()
     anatomy_risk = (report.get("anatomy_risk") or "medium").lower()
-    complexity = (report.get("complexity") or "detailed").lower()
+    complexity = (report.get("complexity") or "complex").lower()
     entity_type = (report.get("entity_type") or "").lower().strip()
     entity_examples = (report.get("entity_examples") or "").lower().strip()
     construction_lines = (report.get("construction_lines") or "").lower().strip()
@@ -152,18 +152,18 @@ def create_parameter_plan_m3(
         # KS1 (structure pass) should trust the sketch more when reference is unreliable.
         base_ks1_cfg = float(ks1.get("cfg", 8.0) or 8.0)
         base_ks1_den = float(ks1.get("denoise", 0.7) or 0.7)
-        ks1["cfg"] = max(5.0, min(10.0, base_ks1_cfg - 0.6 * conflict_penalty))
+        ks1["cfg"] = max(7.0, min(10.0, base_ks1_cfg - 0.6 * conflict_penalty))
         ks1["denoise"] = max(0.1, min(1.0, min(0.6, base_ks1_den + 0.2 * (1.0 - I_final))))
 
         # KS2 (refinement pass) takes full influence scalar but stays safe under conflicts.
         base_ks2_cfg = float(ks2.get("cfg", 8.0) or 8.0)
         base_ks2_den = float(ks2.get("denoise", 0.4) or 0.4)
-        ks2["cfg"] = max(5.0, min(10.0, base_ks2_cfg + 0.5 * I_final - 0.5 * conflict_penalty))
+        ks2["cfg"] = max(7.0, min(10.0, base_ks2_cfg + 0.5 * I_final - 0.5 * conflict_penalty))
         ks2["denoise"] = max(0.1, min(1.0, base_ks2_den - 0.15 * I_final))
 
         # Extra fringing protection: when conflict is high, reduce KS2 cfg slightly.
         if conflict_penalty > 0.5:
-            ks2["cfg"] = max(5.0, float(ks2["cfg"]) - 0.5)
+            ks2["cfg"] = max(7.0, float(ks2["cfg"]) - 0.5)
 
         plan["ip_adapter"] = ip
         plan["controlnet_union"] = cn_union
@@ -187,6 +187,32 @@ def create_parameter_plan_m3(
                 plan = _apply_adaptive_control(plan)
             except Exception:
                 pass
+        # Keep semantic controls aligned with the final numeric plan to avoid prompt/parameter drift.
+        try:
+            inf = float(plan.get("_influence_scalar") or 0.0)
+        except Exception:
+            inf = 0.0
+        if inf >= 0.7:
+            plan["reference_mode"] = "identity"
+        elif inf >= 0.4:
+            plan["reference_mode"] = "style"
+        else:
+            plan["reference_mode"] = "style_lite"
+        mods: list[str] = []
+        if float(report.get("reference_conflict_penalty") or 0.0) > 0.4:
+            mods.extend(
+                [
+                    "preserve original pose exactly",
+                    "preserve original facial proportions",
+                    "keep original accessories",
+                ]
+            )
+        if plan["reference_mode"] == "identity":
+            mods.extend(["match reference line weight", "follow reference stroke confidence"])
+        if mods:
+            plan["prompt_modifiers"] = mods
+        else:
+            plan.pop("prompt_modifiers", None)
         if not issue_text:
             return plan
 
@@ -856,7 +882,7 @@ def create_parameter_plan_m3(
     if complexity == "simple":
         ks1_denoise = max(cfg["ks1_denoise"][0], ks1_denoise - 0.05)
         ip_weight = max(cfg["ip"][0], ip_weight - 0.1)
-    elif complexity == "detailed":
+    elif complexity == "complex":
         ks1_denoise = min(cfg["ks1_denoise"][1], ks1_denoise + 0.05)
         ip_weight = min(cfg["ip"][1], ip_weight + 0.1)
         ks1_steps += 2

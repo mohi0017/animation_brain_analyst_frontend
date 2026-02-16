@@ -64,7 +64,7 @@ Required Output JSON keys:
   "phase_goal": "Rough to Tie Down | Rough to CleanUp | Tie Down to CleanUp",
   "line_quality": "messy | structured | clean",
   "anatomy_risk": "low | medium | high",
-  "complexity": "simple | detailed",
+  "complexity": "simple | complex",
   "style_match": "true | false | null",
   "reference_quality": "high | medium | messy | none",
   "style_compatibility": "match | compatible | conflict | none",
