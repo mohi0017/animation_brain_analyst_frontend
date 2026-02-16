@@ -288,6 +288,8 @@ if generate:
                     report["prompt_modifiers"] = m3_plan["prompt_modifiers"]
                 if m3_plan.get("reference_mode"):
                     report["reference_mode"] = m3_plan["reference_mode"]
+                if m3_plan.get("reference_mode_ks2"):
+                    report["reference_mode_ks2"] = m3_plan["reference_mode_ks2"]
                 if m3_plan.get("_influence_scalar") is not None:
                     report["_influence_scalar"] = m3_plan["_influence_scalar"]
                 try:
@@ -537,6 +539,7 @@ if generate:
                         meta = {
                             "_influence_scalar": m3_plan.get("_influence_scalar"),
                             "reference_mode": m3_plan.get("reference_mode"),
+                            "reference_mode_ks2": m3_plan.get("reference_mode_ks2"),
                             "ip_adapter_dual": m3_plan.get("ip_adapter_dual"),
                         }
                         st.markdown("**Diagnostics: Modes / Influence**")

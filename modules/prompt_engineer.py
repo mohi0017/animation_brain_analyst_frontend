@@ -267,6 +267,7 @@ def run_prompt_engineer_m3(
         conflict_penalty = 0.0
     conflict_penalty = max(0.0, min(1.0, conflict_penalty))
     reference_mode = (report.get("reference_mode") or "").lower().strip()
+    reference_mode_ks2 = (report.get("reference_mode_ks2") or reference_mode).lower().strip()
     transition = f"{source_phase} -> {dest_phase}"
     ip_dual = report.get("ip_adapter_dual") or {}
     try:
@@ -511,23 +512,23 @@ def run_prompt_engineer_m3(
             "clean and unify line quality",
         ]
         # If KS2 IP is low, avoid strong reference identity language even if mode says identity.
-        if ip_ks2_w < 0.35 and reference_mode == "identity":
-            reference_mode = "style"
-        if reference_mode == "identity":
+        if ip_ks2_w < 0.35 and reference_mode_ks2 == "identity":
+            reference_mode_ks2 = "style"
+        if reference_mode_ks2 == "identity":
             ks2_refine.extend(
                 [
                     "match reference line weight",
                     "follow reference stroke confidence",
                 ]
             )
-        elif reference_mode == "style":
+        elif reference_mode_ks2 == "style":
             ks2_refine.extend(
                 [
                     "adopt reference stroke clarity",
                     "subtle reference influence",
                 ]
             )
-        elif reference_mode == "style_lite":
+        elif reference_mode_ks2 == "style_lite":
             ks2_refine.extend(
                 [
                     "focus on clean uniform lines",

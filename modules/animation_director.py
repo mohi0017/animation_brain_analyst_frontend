@@ -122,6 +122,8 @@ def create_parameter_plan_m3(
             plan["reference_mode"] = "style"
         else:
             plan["reference_mode"] = "style_lite"
+        # KS2 is cleanup/refinement only; never allow identity-structure adoption in stage 2.
+        plan["reference_mode_ks2"] = "style" if plan["reference_mode"] == "identity" else plan["reference_mode"]
 
         # Prompt modifiers (consumed by prompt_engineer).
         prompt_modifiers: list[str] = []
@@ -571,6 +573,10 @@ def create_parameter_plan_m3(
         if accessory_mismatch >= 0.35:
             ip2_end = min(ip2_end, 0.55)
             clamp_reasons.append("accessory_mismatch_capped_ip2_end_at")
+        # Global KS2 safety: keep stage-2 reference influence refinement-only.
+        ip2 = min(ip2, 0.35)
+        ip2_end = min(ip2_end, 0.60)
+        clamp_reasons.append("ks2_refinement_only_ip_cap")
         if plan.get("diagnostics"):
             plan["diagnostics"]["clamp_reasons"] = sorted(set(clamp_reasons))
         plan["ip_adapter_dual"] = {
