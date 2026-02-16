@@ -246,6 +246,15 @@ def create_parameter_plan_m3(
         plan["ip_adapter"] = ip
         plan["ksampler1"] = ks1
         plan["ksampler2"] = ks2
+        # Final CFG safety envelope when prompts are already dynamic/strong.
+        try:
+            ks1["cfg"] = _clampf(ks1.get("cfg", 7.0), 6.5, 8.2)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 6.8), 6.0, 7.6)
+            ks2["cfg"] = min(ks2["cfg"], ks1["cfg"])
+            plan["ksampler1"] = ks1
+            plan["ksampler2"] = ks2
+        except Exception:
+            pass
         return plan
 
     def _apply_adaptive_control(plan: dict) -> dict:
@@ -358,8 +367,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.45],
                 "ks1_den": [0.55, 0.90],
                 "ks2_den": [0.25, 0.60],
-                "cfg1": [6.8, 8.8],
-                "cfg2": [6.8, 8.8],
+                "cfg1": [6.5, 8.2],
+                "cfg2": [6.0, 7.6],
             }
         elif entity_type == "multi_object":
             bounds = {
@@ -369,8 +378,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.40],
                 "ks1_den": [0.50, 0.80],
                 "ks2_den": [0.20, 0.50],
-                "cfg1": [6.0, 8.5],
-                "cfg2": [6.0, 8.5],
+                "cfg1": [6.5, 8.2],
+                "cfg2": [6.0, 7.6],
             }
         else:  # single_complex default
             bounds = {
@@ -380,8 +389,8 @@ def create_parameter_plan_m3(
                 "ip2": [0.15, 0.50],
                 "ks1_den": [0.55, 0.85],
                 "ks2_den": [0.22, 0.55],
-                "cfg1": [6.5, 8.5],
-                "cfg2": [6.0, 7.8],
+                "cfg1": [6.5, 8.2],
+                "cfg2": [6.0, 7.6],
             }
 
         # --- Signal-based bound adjustments ---
@@ -421,8 +430,9 @@ def create_parameter_plan_m3(
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
         cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
         pose_strength = min(pose_strength, 0.95)
-        cfg1 = min(cfg1, 9.0)
-        cfg2 = min(cfg2, 9.0)
+        cfg1 = min(cfg1, 8.5)
+        cfg2 = min(cfg2, 8.5)
+        cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
         ip2 = min(ip2, 0.55)
         denoise2 = min(denoise2, 0.60)
@@ -452,6 +462,7 @@ def create_parameter_plan_m3(
             ks2["cfg"] = round(_clamp(float(ks2["cfg"]) - 0.5, bounds["cfg2"][0], bounds["cfg2"][1]), 2)
             ip2 = _clamp(ip2 - 0.10, bounds["ip2"][0], bounds["ip2"][1])
             ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))
+            ks2["cfg"] = round(min(float(ks2["cfg"]), float(ks1["cfg"])), 2)
 
         # Store diagnostics for UI/debug.
         plan["diagnostics"] = {
