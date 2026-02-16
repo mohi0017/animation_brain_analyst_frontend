@@ -369,6 +369,11 @@ def create_parameter_plan_m3(
                 object_scale = "large"
             else:
                 object_scale = "medium"
+        subject_text = f"{entity_examples} {subject_details}".lower()
+        is_human_subject = any(
+            k in subject_text
+            for k in ("person", "character", "human", "woman", "women", "man", "men", "female", "male", "girl", "boy")
+        )
 
         if entity_type == "single_simple":
             bounds = {
@@ -438,6 +443,12 @@ def create_parameter_plan_m3(
         if object_scale == "large":
             bounds["union"][1] = min(bounds["union"][1], 0.65)
             clamp_reasons.append("large_object_capped_union")
+            # User policy: for large human subjects, keep denoise floors higher
+            # so KS1 stabilizes structure and KS2 has enough cleanup authority.
+            if is_human_subject:
+                bounds["ks1_den"][0] = max(bounds["ks1_den"][0], 0.70)
+                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.50)
+                clamp_reasons.append("large_human_min_denoise_enforced")
         elif object_scale == "small":
             bounds["union"][1] = 1.00
 
