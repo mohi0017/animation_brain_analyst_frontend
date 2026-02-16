@@ -160,12 +160,12 @@ def create_parameter_plan_m3(
         # KS2 (refinement pass) takes full influence scalar but stays safe under conflicts.
         base_ks2_cfg = float(ks2.get("cfg", 8.0) or 8.0)
         base_ks2_den = float(ks2.get("denoise", 0.4) or 0.4)
-        ks2["cfg"] = max(7.0, min(10.0, base_ks2_cfg + 0.5 * I_final - 0.5 * conflict_penalty))
+        ks2["cfg"] = max(8.5, min(10.0, base_ks2_cfg + 0.5 * I_final - 0.5 * conflict_penalty))
         ks2["denoise"] = max(0.1, min(1.0, base_ks2_den - 0.15 * I_final))
 
         # Extra fringing protection: when conflict is high, reduce KS2 cfg slightly.
         if conflict_penalty > 0.5:
-            ks2["cfg"] = max(7.0, float(ks2["cfg"]) - 0.5)
+            ks2["cfg"] = max(8.5, float(ks2["cfg"]) - 0.5)
 
         plan["ip_adapter"] = ip
         plan["controlnet_union"] = cn_union
@@ -235,7 +235,7 @@ def create_parameter_plan_m3(
         # Over-processed output: slightly reduce refinement aggression + style.
         if "over-processed" in issue_text or "over processed" in issue_text:
             ks2["denoise"] = _clampf(ks2.get("denoise", 0.3) - 0.05, 0.1, 1.0)
-            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) - 0.5, 7.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) - 0.5, 8.5, 10.0)
             ip["weight"] = _clampf(ip.get("weight", 0.5) - 0.1, 0.0, 1.0)
 
         # Guidelines/construction lines being traced.
@@ -267,7 +267,7 @@ def create_parameter_plan_m3(
 
         # Lines too thin/weak.
         if "thin lines" in issue_text or "weak lines" in issue_text:
-            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) + 0.5, 7.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 8.8) + 0.5, 8.5, 10.0)
             ks2["denoise"] = _clampf(ks2.get("denoise", 0.3) + 0.05, 0.1, 1.0)
             cn_union["strength"] = _clampf(cn_union.get("strength", 0.6) + 0.10, 0.0, 1.0)
 
@@ -279,7 +279,7 @@ def create_parameter_plan_m3(
         # Final CFG safety envelope.
         try:
             ks1["cfg"] = _clampf(ks1.get("cfg", 7.0), 7.0, 10.0)
-            ks2["cfg"] = _clampf(ks2.get("cfg", 7.0), 7.0, 10.0)
+            ks2["cfg"] = _clampf(ks2.get("cfg", 8.5), 8.5, 10.0)
             ks2["cfg"] = min(ks2["cfg"], ks1["cfg"])
             plan["ksampler1"] = ks1
             plan["ksampler2"] = ks2
@@ -414,7 +414,7 @@ def create_parameter_plan_m3(
                 "ks1_den": [0.55, 0.90],
                 "ks2_den": [0.25, 0.60],
                 "cfg1": [7.0, 10.0],
-                "cfg2": [7.0, 10.0],
+                "cfg2": [8.5, 10.0],
             }
             cfg1_eff_max = 9.6
             cfg2_eff_max = 8.6
@@ -427,7 +427,7 @@ def create_parameter_plan_m3(
                 "ks1_den": [0.50, 0.80],
                 "ks2_den": [0.20, 0.50],
                 "cfg1": [7.0, 10.0],
-                "cfg2": [7.0, 10.0],
+                "cfg2": [8.5, 10.0],
             }
             cfg1_eff_max = 9.2
             cfg2_eff_max = 8.2
@@ -440,7 +440,7 @@ def create_parameter_plan_m3(
                 "ks1_den": [0.55, 0.85],
                 "ks2_den": [0.22, 0.55],
                 "cfg1": [7.0, 10.0],
-                "cfg2": [7.0, 10.0],
+                "cfg2": [8.5, 10.0],
             }
             cfg1_eff_max = 9.2
             cfg2_eff_max = 8.4
@@ -506,6 +506,9 @@ def create_parameter_plan_m3(
             clamp_reasons.append("strong_structure_lock_relaxed_cfg1")
 
         # --- Final hard rules ---
+        ip2 = max(ip2, 0.50)
+        if ip1 < ip2 + 0.10:
+            ip1 = min(0.85, ip2 + 0.10)
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
         cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
         pose_strength = min(pose_strength, 0.95)
@@ -519,7 +522,7 @@ def create_parameter_plan_m3(
             clamp_reasons.append("ip2_gt_0_40_capped_cfg2_7_8")
         cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
-        ip2 = min(ip2, 0.55)
+        ip2 = max(0.50, min(ip2, 0.80))
         denoise2 = min(denoise2, 0.60)
 
         ks1["cfg"] = round(cfg1, 2)
@@ -531,7 +534,7 @@ def create_parameter_plan_m3(
         cn_pose["end_percent"] = round(max(float(cn_pose.get("end_percent", 1.0)), 0.9 if P > 0.6 else 0.75), 2)
 
         # Hallucination risk H: if too high, dampen KS2 cfg + IP2 and re-clamp.
-        cfg2_n = (float(ks2["cfg"]) - 7.0) / max(1e-6, (10.0 - 7.0))
+        cfg2_n = (float(ks2["cfg"]) - 8.5) / max(1e-6, (10.0 - 8.5))
         den2_n = (float(ks2["denoise"]) - bounds["ks2_den"][0]) / max(1e-6, (bounds["ks2_den"][1] - bounds["ks2_den"][0]))
         H = max(0.0, min(1.0, 0.30 * cfg2_n + 0.30 * den2_n + 0.25 * ip2 + 0.15 * conflict))
         if H > 0.6:
@@ -576,16 +579,16 @@ def create_parameter_plan_m3(
         if accessory_mismatch >= 0.35:
             ip2_end = min(ip2_end, 0.55)
             clamp_reasons.append("accessory_mismatch_capped_ip2_end_at")
-        # Global KS2 safety: keep stage-2 reference influence refinement-only.
-        ip2 = min(ip2, 0.35)
+        # Global KS2 safety: enforce user minimum influence floor.
+        ip2 = max(ip2, 0.50)
         ip2_end = min(ip2_end, 0.60)
-        clamp_reasons.append("ks2_refinement_only_ip_cap")
+        clamp_reasons.append("ks2_refinement_only_ip_floor")
         # User cap profile for KS2 in problematic large-character cases.
         if entity_type == "single_complex" and object_scale == "large":
             ks2["steps"] = 50
-            ks2["cfg"] = round(min(float(ks2.get("cfg", 8.0)), 9.0), 2)
+            ks2["cfg"] = round(min(max(float(ks2.get("cfg", 8.5)), 8.5), 9.0), 2)
             ks2["denoise"] = round(min(float(ks2.get("denoise", 0.4)), 0.4), 2)
-            ip2 = min(ip2, 0.20)
+            ip2 = max(ip2, 0.50)
             ip2_end = min(ip2_end, 0.80)
             clamp_reasons.append("large_single_complex_ks2_user_caps")
         if plan.get("diagnostics"):

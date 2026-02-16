@@ -148,7 +148,7 @@ def call_comfyui(
                     # Dampeners: reduce KS2 cfg a bit, reduce IP2, and slightly reduce denoise to preserve structure.
                     m3_plan2 = json.loads(json.dumps(m3_plan))
                     ks2 = m3_plan2.get("ksampler2", {})
-                    ks2["cfg"] = max(7.0, float(ks2.get("cfg", 8.0)) - 0.5)
+                    ks2["cfg"] = max(8.5, float(ks2.get("cfg", 8.5)) - 0.5)
                     ks2["denoise"] = max(0.2, float(ks2.get("denoise", 0.4)) - 0.05)
                     m3_plan2["ksampler2"] = ks2
                     ipd = (m3_plan2.get("ip_adapter_dual") or {})
