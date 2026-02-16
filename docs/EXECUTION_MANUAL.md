@@ -36,8 +36,8 @@ The system utilizes a rigid 6-Stage Pipeline to decouple motion from appearance.
 | Milestone | Core Deliverable | Start Date | End Date |
 | :--- | :--- | :--- | :--- |
 | **M1** | Motion-Lock Engine | Dec 12 (Fri) | Dec 19 (Fri) |
-| **M3** | Style Transfer & Retargeting | Dec 22 (Mon) | Dec 30 (Tue) |
-| **M3** | Phase Translation (LoRA) | Dec 31 (Wed) | Jan 14 (Wed) |
+| **M4** | Style Transfer & Retargeting | Dec 22 (Mon) | Dec 30 (Tue) |
+| **M4** | Phase Translation (LoRA) | Dec 31 (Wed) | Jan 14 (Wed) |
 | **M4** | Consistency & Fail-Safe | Jan 15 (Thu) | Jan 27 (Tue) |
 | **M5** | Web Platform | Jan 28 (Wed) | Feb 11 (Wed) |
 | **Final** | Project Closure | Feb 12 (Thu) | Feb 12 (Thu) |
@@ -69,7 +69,7 @@ The system utilizes a rigid 6-Stage Pipeline to decouple motion from appearance.
 *   **Day 6 (Fri, Dec 19): Buffer & Review**
     *   Task 1.13: Finalize M1 Deliverable. Prepare Demo Video.
 
-### 3.2 Milestone 3: Style & Motion Transfer (Dec 22 - Dec 30)
+### 3.2 Milestone 4: Style & Motion Transfer (Dec 22 - Dec 30)
 **Focus:** IP-Adapter & OpenPose.
 
 *   **Day 1 (Mon, Dec 22): Style Injection**
@@ -85,10 +85,10 @@ The system utilizes a rigid 6-Stage Pipeline to decouple motion from appearance.
     *   Task 2.6: Combine Style + Skeleton into one workflow.
 *   **Day 5 (Mon, Dec 29): Optimization**
     *   Task 2.7: Optimize Latent Preview settings for speed.
-*   **Day 6 (Tue, Dec 30): M3 Delivery**
+*   **Day 6 (Tue, Dec 30): M4 Delivery**
     *   Task 2.8: Record Style Transfer Demos.
 
-### 3.3 Milestone 3: Phase Mapping (Dec 31 - Jan 14)
+### 3.3 Milestone 4: Phase Mapping (Dec 31 - Jan 14)
 **Focus:** Custom LoRA Training (Rough to Clean) - Optional Optimization.
 
 *   **Days 1-2 (Wed, Dec 31 - Fri, Jan 2): Dataset Prep**

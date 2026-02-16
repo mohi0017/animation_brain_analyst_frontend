@@ -26,8 +26,8 @@ def run_visual_analyst_m3(
     reference_mime: Optional[str] = None,
 ) -> dict:
     """
-    Run Visual Analyst for M3 using input + reference image.
-    
+    Run Visual Analyst for M4 using input + reference image.
+
     Returns:
         Analysis report dictionary with fixes/removes/preserve + style keywords.
     """
@@ -35,7 +35,6 @@ def run_visual_analyst_m3(
     prompt = DEFAULT_ANALYST_PROMPT_M3.strip()
 
     if not client:
-        # Fallback mock if no key
         return {
             "fixes": [],
             "removes": [],
@@ -60,10 +59,8 @@ def run_visual_analyst_m3(
 
     model_name = get_model_name()
     image_part = genai_types.Part.from_bytes(data=image_bytes, mime_type=mime)
-    
     contents = [image_part]
-    
-    # Add reference image if available
+
     if reference_bytes:
         ref_part = genai_types.Part.from_bytes(data=reference_bytes, mime_type=reference_mime or "image/png")
         contents.append(ref_part)
@@ -90,11 +87,11 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
         )
         text = response.text or ""
         logger.info(f"Visual analyst response received ({len(text)} chars)")
-        
+
         parsed = parse_report_blob(text)
         if parsed:
             return parsed
-        
+
         logger.warning("Failed to parse JSON from analyst response, returning raw notes")
         return {"fixes": [], "removes": [], "notes": [text.strip()]}
 
@@ -122,3 +119,20 @@ ANATOMICAL_LEVEL: {cfg.anatomical_level}
             "style_compatibility": "none",
             "reference_summary": "",
         }
+
+
+def run_visual_analyst_m4(
+    image_bytes: bytes,
+    mime: str,
+    cfg: AnalysisConfig,
+    reference_bytes: Optional[bytes] = None,
+    reference_mime: Optional[str] = None,
+) -> dict:
+    """M4 alias for visual analyst entrypoint."""
+    return run_visual_analyst_m3(
+        image_bytes=image_bytes,
+        mime=mime,
+        cfg=cfg,
+        reference_bytes=reference_bytes,
+        reference_mime=reference_mime,
+    )

@@ -1,10 +1,10 @@
 """
-Animation Director Agent (AD-Agent) - M3 Parameter Planner
+Animation Director Agent (AD-Agent) - M4 Parameter Planner
 """
 
 from __future__ import annotations
 
-from .config import DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
+from .config import DEFAULT_LINE_ART_MODEL, DEFAULT_M4_MODEL
 from .utils import get_logger
 
 logger = get_logger("animation_director")
@@ -18,7 +18,7 @@ def create_parameter_plan_m3(
     style_lock: bool = True,
 ) -> dict:
     """
-    Compute M3 parameters based on analyst buckets and transition.
+    Compute M4 parameters based on analyst buckets and transition.
     Returns a dict with node-specific parameter values.
     """
     transition = f"{source_phase} -> {dest_phase}"
@@ -471,14 +471,16 @@ def create_parameter_plan_m3(
             bounds["ip1"][1] = max(bounds["ip1"][0], bounds["ip1"][1] - 0.05)
             clamp_reasons.append("high_pose_risk_reduced_ip1")
         if object_scale == "large":
-            bounds["union"][1] = min(bounds["union"][1], 0.65)
+            bounds["union"][1] = min(bounds["union"][1], 0.80)
+            bounds["union"][0] = max(bounds["union"][0], 0.70)
             clamp_reasons.append("large_object_capped_union")
             # User policy: for large human subjects, keep denoise floors higher
             # so KS1 stabilizes structure and KS2 has enough cleanup authority.
             if is_human_subject:
-                bounds["ks1_den"][0] = max(bounds["ks1_den"][0], 0.70)
-                # User policy: KS2 denoise should not go below 0.7 for large human cases.
-                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.70)
+                bounds["ks1_den"][0] = max(bounds["ks1_den"][0], 0.75)
+                bounds["ks1_den"][1] = min(0.90, max(bounds["ks1_den"][1], 0.90))
+                bounds["ks2_den"][0] = max(bounds["ks2_den"][0], 0.30)
+                bounds["ks2_den"][1] = min(bounds["ks2_den"][1], 0.55)
                 clamp_reasons.append("large_human_min_denoise_enforced")
         elif object_scale == "small":
             bounds["union"][1] = 1.00
@@ -506,12 +508,28 @@ def create_parameter_plan_m3(
             clamp_reasons.append("strong_structure_lock_relaxed_cfg1")
 
         # --- Final hard rules ---
-        ip2 = max(ip2, 0.50)
+        noisy_or_conflicted = (
+            line_quality == "messy"
+            or conflict >= 0.40
+            or D >= 0.35
+            or text_conflict >= 0.35
+            or image_conflict >= 0.35
+        )
+        if noisy_or_conflicted:
+            pose_strength = max(pose_strength, 0.95)
+            union_strength = _clamp(union_strength, 0.70, 0.80)
+            denoise1 = _clamp(denoise1, 0.75, 0.90)
+            denoise2 = _clamp(denoise2, 0.30, 0.55)
+            ip1 = min(ip1, 0.45)
+            ip2 = min(ip2, 0.35)
+            clamp_reasons.append("noisy_or_conflicted_dynamic_caps")
+        else:
+            ip2 = max(ip2, 0.50)
         if ip1 < ip2 + 0.10:
             ip1 = min(0.85, ip2 + 0.10)
         ip2 = min(ip2, max(bounds["ip2"][0], ip1 - 0.10))  # asymmetric dual-IP
         cn_union["end_percent"] = min(float(cn_union.get("end_percent", 1.0)), 0.85)
-        pose_strength = min(pose_strength, 0.95)
+        pose_strength = min(pose_strength, 1.0)
         cfg1 = min(cfg1, 10.0)
         cfg2 = min(cfg2, 10.0)
         if ip2 > 0.50:
@@ -522,7 +540,10 @@ def create_parameter_plan_m3(
             clamp_reasons.append("ip2_gt_0_40_capped_cfg2_7_8")
         cfg2 = min(cfg2, cfg1)
         ip1 = min(ip1, 0.85)
-        ip2 = max(0.50, min(ip2, 0.80))
+        if noisy_or_conflicted:
+            ip2 = max(0.15, min(ip2, 0.35))
+        else:
+            ip2 = max(0.50, min(ip2, 0.80))
         denoise2 = min(denoise2, 0.60)
 
         ks1["cfg"] = round(cfg1, 2)
@@ -579,10 +600,15 @@ def create_parameter_plan_m3(
         if accessory_mismatch >= 0.35:
             ip2_end = min(ip2_end, 0.55)
             clamp_reasons.append("accessory_mismatch_capped_ip2_end_at")
-        # Global KS2 safety: enforce user minimum influence floor.
-        ip2 = max(ip2, 0.50)
-        ip2_end = min(ip2_end, 0.60)
-        clamp_reasons.append("ks2_refinement_only_ip_floor")
+        # Global KS2 safety: keep KS2 refinement-only and lower under artifact risk.
+        if noisy_or_conflicted:
+            ip2 = min(ip2, 0.35)
+            ip2_end = min(ip2_end, 0.50)
+            clamp_reasons.append("ks2_refinement_only_ip_damped")
+        else:
+            ip2 = max(ip2, 0.50)
+            ip2_end = min(ip2_end, 0.60)
+            clamp_reasons.append("ks2_refinement_only_ip_floor")
         # User cap profile for KS2 in problematic large-character cases.
         if entity_type == "single_complex" and object_scale == "large":
             ks2["steps"] = 50
@@ -645,7 +671,7 @@ def create_parameter_plan_m3(
     if entity_type == "single_simple" and construction_lines == "low" and broken_lines not in ("medium", "high"):
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.70},
             "ksampler2": {"steps": 50, "cfg": 7.0, "denoise": 0.50},
             "controlnet_union": {
@@ -667,7 +693,7 @@ def create_parameter_plan_m3(
         ks2_cfg = 9.6 if broken_lines == "high" else 9.2
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 1.0},
             "ksampler2": {"steps": 40, "cfg": ks2_cfg, "denoise": 0.75 if broken_lines == "high" else 0.70},
             "controlnet_union": {
@@ -693,7 +719,7 @@ def create_parameter_plan_m3(
         is_high = construction_lines == "high"
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.70},
             "ksampler2": {
                 "steps": 40,
@@ -715,7 +741,7 @@ def create_parameter_plan_m3(
     if entity_type == "single_complex" and construction_lines == "low":
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 1.0},
             "ksampler2": {"steps": 40, "cfg": 8.8, "denoise": 0.60},
             "controlnet_union": {
@@ -734,7 +760,7 @@ def create_parameter_plan_m3(
         if construction_lines == "high" and broken_lines in ("medium", "high"):
             plan = {
                 "transition": transition,
-                "model_name": DEFAULT_M3_MODEL,
+                "model_name": DEFAULT_M4_MODEL,
                 # High construction + medium/high broken lines: allow some redraw for cleanup,
                 # but don't over-lock Union or it starts tracing construction marks.
                 "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 1.00},
@@ -753,7 +779,7 @@ def create_parameter_plan_m3(
         if not is_high and broken_lines in ("low", "medium"):
             plan = {
                 "transition": transition,
-                "model_name": DEFAULT_M3_MODEL,
+                "model_name": DEFAULT_M4_MODEL,
                 "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.70},
                 "ksampler2": {"steps": 50, "cfg": 9.0, "denoise": 0.40},
                 "controlnet_union": {"strength": 0.70, "end_percent": 0.8},
@@ -768,7 +794,7 @@ def create_parameter_plan_m3(
 
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             # Keep structure tighter and reduce stage-2 redraw to avoid dotted/pixelated contours.
             "ksampler1": {"steps": 40, "cfg": 9.0, "denoise": 0.70},
             "ksampler2": {"steps": 40, "cfg": 9.0, "denoise": 0.70 if is_high else 0.50},
@@ -787,7 +813,7 @@ def create_parameter_plan_m3(
     if entity_type == "multi_object" and construction_lines == "low":
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.75},
             "ksampler2": {"steps": 50, "cfg": 9.0, "denoise": 0.60},
             "controlnet_union": {
@@ -806,7 +832,7 @@ def create_parameter_plan_m3(
         is_high = construction_lines == "high"
         plan = {
             "transition": transition,
-            "model_name": DEFAULT_M3_MODEL,
+            "model_name": DEFAULT_M4_MODEL,
             "ksampler1": {"steps": 40, "cfg": 8.0, "denoise": 0.70},
             "ksampler2": {"steps": 50, "cfg": 9.2 if broken_lines in ("medium", "high") else 9.0, "denoise": 0.55 if is_high else 0.60},
             "controlnet_union": {"strength": 0.40 if is_high else 0.50, "end_percent": 0.45 if is_high else 0.55},
@@ -1062,7 +1088,7 @@ def create_parameter_plan_m3(
         ks1_denoise = max(cfg["ks1_denoise"][0], ks1_denoise - 0.05)
         logger.info("Low complexity and structured lines detected: reducing KS1 denoise")
 
-    model_name = DEFAULT_M3_MODEL
+    model_name = DEFAULT_M4_MODEL
 
     plan = {
         "transition": transition,
@@ -1092,3 +1118,20 @@ def create_parameter_plan_m3(
     }
     logger.info(f"Parameter plan created: {plan}")
     return plan
+
+
+def create_parameter_plan_m4(
+    report: dict,
+    source_phase: str,
+    dest_phase: str,
+    pose_lock: bool = True,
+    style_lock: bool = True,
+) -> dict:
+    """M4 alias for parameter planner entrypoint."""
+    return create_parameter_plan_m3(
+        report=report,
+        source_phase=source_phase,
+        dest_phase=dest_phase,
+        pose_lock=pose_lock,
+        style_lock=style_lock,
+    )

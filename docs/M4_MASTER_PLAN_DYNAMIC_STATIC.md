@@ -1,6 +1,6 @@
-# M3 Master Plan: Dynamic vs Static System Design
+# M4 Master Plan: Dynamic vs Static System Design
 
-This document is the source of truth for how M3 works end-to-end:
+This document is the source of truth for how M4 works end-to-end:
 - which parts are static (locked),
 - which parts are dynamic (computed per request),
 - how each agent participates,
@@ -11,7 +11,7 @@ This document is the source of truth for how M3 works end-to-end:
 1. `app.py` receives input image + reference image.
 2. `visual_analyst.py` extracts sketch semantics (quality, anatomy risk, complexity, etc.).
 3. `reference_compare.py` computes input-vs-reference signals (similarity, conflicts, style distance).
-4. `animation_director.py` creates adaptive M3 plan:
+4. `animation_director.py` creates adaptive M4 plan:
    - KSampler1/2 values
    - ControlNet Union/OpenPose
    - dual IP-Adapter weights/end_at
@@ -27,8 +27,8 @@ This document is the source of truth for how M3 works end-to-end:
 
 ## Static (Locked / Policy)
 
-- **Model:** `animagine-xl-3.1.safetensors` (M3 locked default).
-- **Workflow template:** `workflows/Animation_Workflow_M3_Api.json`.
+- **Model:** `animagine-xl-3.1.safetensors` (M4 locked default).
+- **Workflow template:** `workflows/Animation_Workflow_M4_Api.json`.
 - **Node mapping:** fixed node IDs for prompts, samplers, controlnets, dual IP.
 - **Global CFG policy:** allowed `[7.0, 10.0]`.
 - **Hard safety constraints:**
@@ -315,14 +315,14 @@ Controller interpretation:
 
 ## 13) Node Driver Map (Who Drives Which Node)
 
-For `workflows/Animation_Workflow_M3_Api.json`:
+For `workflows/Animation_Workflow_M4_Api.json`:
 
 - Node `5` (KS1): `steps`, `cfg`, `denoise` from Director
 - Node `55` (KS2): `steps`, `cfg`, `denoise` from Director
-- Node `62` (ControlNet Union): `strength`, `end_percent`
-- Node `79` (OpenPose): `strength`, `end_percent`
+- Node `103` (ControlNet Union): `strength`, `end_percent`
+- Node `104` (OpenPose): `strength`, `end_percent`
 - Node `66` (IP KS1): `weight`, `end_at`
-- Node `90` (IP KS2): `weight`, `end_at`
+- Node `105` (IP KS2): `weight`, `end_at`
 - Nodes `2/3` (Stage 1 prompts): from Prompt Engineer
 - Nodes `77/76` (Stage 2 prompts): from Prompt Engineer
 - Optional LoRA node(s): enabled by runtime flag + plan strength

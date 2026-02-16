@@ -1,5 +1,5 @@
 """
-Prompt Engineer Agent - M3 dual-stage prompt builder.
+Prompt Engineer Agent - M4 dual-stage prompt builder.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from .utils import get_logger
 logger = get_logger("prompt_engineer")
 
 
-def generate_m3_cleanup_prompts() -> Tuple[str, str, str]:
+def generate_m4_cleanup_prompts() -> Tuple[str, str, str]:
     pos = (
         "(masterpiece), (ultra-clean lineart:1.5), (vector line art:1.3), "
         "high contrast, solid black lines, pure white background, sharp edges, "
@@ -22,7 +22,7 @@ def generate_m3_cleanup_prompts() -> Tuple[str, str, str]:
         "(color:1.6), shading, gradients, shadows, blurry, messy lines, "
         "rough sketch, pencil texture, gray scale, background noise, artifacts"
     )
-    rationale = "M3 Stage 2 cleanup prompt focused on ink quality and line purity."
+    rationale = "M4 Stage 2 cleanup prompt focused on ink quality and line purity."
     return pos, neg, rationale
 
 
@@ -161,7 +161,7 @@ def _drop_plain_when_weighted_exists(prompt: str, base_terms: list[str]) -> str:
     return ", ".join(kept)
 
 
-def _load_m3_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
+def _load_m4_prompt_templates(workflow_path: Optional[str]) -> Optional[dict]:
     if not workflow_path:
         return None
     try:
@@ -212,7 +212,7 @@ def _infer_subject_profile(report: dict, subject: str) -> str:
     return "generic"
 
 
-def run_prompt_engineer_m3(
+def run_prompt_engineer_m4(
     report: dict,
     dest_phase: str,
     source_phase: str = "Roughs",
@@ -220,17 +220,17 @@ def run_prompt_engineer_m3(
     style_lock: bool = True,
     workflow_path: Optional[str] = None,
 ) -> Tuple[str, str, str, str, str]:
-    templates = _load_m3_prompt_templates(workflow_path)
+    templates = _load_m4_prompt_templates(workflow_path)
     if templates:
         pos1 = templates.get("pos1", "") or ""
         neg1 = templates.get("neg1", "") or ""
         pos2 = templates.get("pos2", "") or ""
         neg2 = templates.get("neg2", "") or ""
-        rationale1 = "Stage 1 prompts from M3 workflow template."
-        rationale2 = "Stage 2 prompts from M3 workflow template."
+        rationale1 = "Stage 1 prompts from M4 workflow template."
+        rationale2 = "Stage 2 prompts from M4 workflow template."
     else:
         pos1, neg1, rationale1 = "", "", "Stage 1 prompts missing template."
-        pos2, neg2, rationale2 = generate_m3_cleanup_prompts()
+        pos2, neg2, rationale2 = generate_m4_cleanup_prompts()
 
     subject = _extract_subject_details(report)
     pose = _extract_pose(report)
@@ -346,6 +346,17 @@ def run_prompt_engineer_m3(
             ]
             neg1 = _append_unique_tags(neg1, rescue_negatives)
             neg2 = _append_unique_tags(neg2, rescue_negatives)
+    artifact_risk = line_quality == "messy" or conflict_penalty >= 0.4
+    if artifact_risk:
+        artifact_negatives = [
+            "(palette artifacts:1.6)",
+            "(color banding:1.5)",
+            "(jpeg artifacts:1.5)",
+            "(green artifacts:1.8)",
+            "(gif artifacts:1.5)",
+        ]
+        neg1 = _append_unique_tags(neg1, artifact_negatives)
+        neg2 = _append_unique_tags(neg2, artifact_negatives)
 
     # Color blocking: keep Stage 1 lighter, Stage 2 stronger (avoid noisy artifacts)
     color_block_negatives_stage1 = [
@@ -718,5 +729,5 @@ def run_prompt_engineer_m3(
     )
 
     rationale = f"Stage1: {rationale1} Stage2: {rationale2}"
-    logger.info(f"M3 Prompts generated. Rationale: {rationale}")
+    logger.info(f"M4 Prompts generated. Rationale: {rationale}")
     return pos1, neg1, pos2, neg2, rationale

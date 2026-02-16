@@ -1,4 +1,4 @@
-# M3 Demo Checklist (Task 2.8)
+# M4 Demo Checklist (Task 2.8)
 
 Use this for recording the final demo. Each case should show the UI logs + output images.
 
@@ -27,7 +27,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 **Screenshot targets:**
 - Director Summary
-- AI Strategy (M3 Parameter Plan)
+- AI Strategy (M4 Parameter Plan)
 - Final transparent output
 
 ---
@@ -45,7 +45,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 **Expected logs:**
 - `🧭 Director: line_quality=..., anatomy_risk=high, complexity=...`
-- `✅ Updated M3 OpenPose params`
+- `✅ Updated M4 OpenPose params`
 
 **Validation pointers:**
 - Confirm OpenPose strength is high and end_percent is not being cut too early
@@ -86,7 +86,7 @@ Use this for recording the final demo. Each case should show the UI logs + outpu
 
 - [ ] `COMFYUI_API_URL` set in `.env`
 - [ ] Gemini API key is active
-- [ ] M3 workflow file exists (`Animation_Workflow_M3_Api.json`)
+- [ ] M4 workflow file exists (`Animation_Workflow_M4_Api.json`)
 - [ ] Reference image uploaded
 - [ ] Output shows transparent PNG (checkerboard background)
 

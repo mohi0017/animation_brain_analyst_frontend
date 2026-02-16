@@ -1,6 +1,6 @@
-# M3 Workflow Parameters (Implementation Notes)
+# M4 Workflow Parameters (Implementation Notes)
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
 
 This document describes what the app actually does at runtime (dynamic planning + a few explicit presets),
 not static defaults baked into a single workflow JSON.

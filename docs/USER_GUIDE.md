@@ -1,14 +1,14 @@
-# AI Animation Studio M3 - User Guide
+# AI Animation Studio M4 - User Guide
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
 
-Use this guide to run the M3 cleanup pipeline in the web app.
+Use this guide to run the M4 cleanup pipeline in the web app.
 
 Live app: [animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app](https://animationbrainanalystfrontend-onyntxm9glmlrq5lrfjn8v.streamlit.app/)
 
 ---
 
-## 1) What This App Does (M3)
+## 1) What This App Does (M4)
 - Cleans rough or tiedown sketches into clean line art.
 - Preserves pose using a Motion-Lock control chain.
 - Uses a reference image only for style (IP-Adapter).

@@ -6,8 +6,13 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
+import subprocess
+import tempfile
+import zipfile
 import re
-from typing import Tuple
+from pathlib import Path
+from typing import List, Tuple
 from PIL import Image
 
 # Configure basic logging
@@ -173,3 +178,198 @@ def normalize_report(report: dict) -> dict:
         "style_compatibility": style_compatibility,
         "reference_summary": reference_summary,
     }
+
+
+def sort_filenames_ascending(names: List[str]) -> List[str]:
+    """
+    Strictly sort sequence filenames by frame index.
+
+    Accepted basename patterns:
+    - <prefix><sep><digits>.<ext>   (e.g., shot_0001.png, frame-12.jpg)
+    - <digits>.<ext>                (e.g., 0001.png)
+
+    Validation:
+    - every filename must contain a trailing numeric frame index
+    - all files must share one naming family (same normalized prefix + extension)
+    - frame indices must be unique
+    """
+    if not names:
+        return []
+
+    parsed: list[tuple[str, int, str, str]] = []
+    # (original_name, frame_idx, normalized_prefix, ext)
+
+    for raw_name in names:
+        base = os.path.basename(str(raw_name or "")).strip()
+        stem, ext = os.path.splitext(base)
+        ext = ext.lower()
+        if not stem or not ext:
+            raise ValueError(
+                f"Invalid sequence filename '{raw_name}'. Expected a file with extension, e.g. frame_0001.png."
+            )
+
+        # Require a trailing frame number in the stem.
+        match = re.match(r"^(?P<prefix>.*?)(?:[_\-\s]?)(?P<idx>\d+)$", stem)
+        if not match:
+            raise ValueError(
+                f"Invalid sequence filename '{raw_name}'. "
+                "Expected trailing numeric frame index, e.g. shot_0001.png."
+            )
+
+        prefix = (match.group("prefix") or "").strip().lower()
+        # Normalize separators so shot-a_ and shot a- are treated as same family.
+        prefix = re.sub(r"[_\-\s]+", "_", prefix).strip("_")
+        idx = int(match.group("idx"))
+        parsed.append((raw_name, idx, prefix, ext))
+
+    families = {(pfx, ext) for _, _, pfx, ext in parsed}
+    if len(families) > 1:
+        sample = ", ".join(sorted(f"{pfx or '<numeric-only>'}{ext}" for pfx, ext in families))
+        raise ValueError(
+            "Sequence contains mixed filename families/extensions. "
+            f"Found: {sample}. Keep one consistent pattern (e.g., frame_0001.png ... frame_0120.png)."
+        )
+
+    seen: dict[int, str] = {}
+    for original, idx, _, _ in parsed:
+        if idx in seen:
+            raise ValueError(
+                f"Duplicate frame index detected in sequence: {seen[idx]} and {original}. "
+                "Frame indices must be unique."
+            )
+        seen[idx] = original
+
+    parsed.sort(key=lambda x: x[1])
+    return [original for original, _, _, _ in parsed]
+
+
+def normalize_sequence_frames(frames: List[Tuple[str, bytes]]) -> List[Tuple[str, bytes]]:
+    """
+    Normalize sequence names to frame_000001.png ... frame_N.png in ascending order.
+    """
+    by_name = {name: data for name, data in frames if isinstance(name, str) and data}
+    ordered_names = sort_filenames_ascending(list(by_name.keys()))
+    normalized: List[Tuple[str, bytes]] = []
+    for idx, name in enumerate(ordered_names, start=1):
+        normalized.append((f"frame_{idx:06d}.png", by_name[name]))
+    return normalized
+
+
+def extract_frames_from_video_bytes(video_bytes: bytes, suffix: str = ".mp4") -> List[Tuple[str, bytes]]:
+    """
+    Extract PNG frames from uploaded video bytes using ffmpeg.
+    Requires ffmpeg binary available in PATH.
+    """
+    with tempfile.TemporaryDirectory(prefix="m4_video_") as tmpdir:
+        in_path = Path(tmpdir) / f"input{suffix}"
+        out_dir = Path(tmpdir) / "frames"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        in_path.write_bytes(video_bytes)
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(in_path),
+            "-vsync",
+            "0",
+            str(out_dir / "frame_%06d.png"),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Video frame extraction failed. Ensure ffmpeg is installed and video is valid."
+            )
+
+        frame_paths = sorted(out_dir.glob("frame_*.png"))
+        frames: List[Tuple[str, bytes]] = []
+        for p in frame_paths:
+            frames.append((p.name, p.read_bytes()))
+        if not frames:
+            raise RuntimeError("No frames extracted from uploaded video.")
+        return frames
+
+
+def pick_keyframe_indices(num_frames: int) -> List[int]:
+    """
+    Pick keyframe indices for sequence analysis.
+    - <= 3 frames: all
+    - otherwise: first, middle, last
+    """
+    if num_frames <= 0:
+        return []
+    if num_frames <= 3:
+        return list(range(num_frames))
+    idx = {0, num_frames // 2, num_frames - 1}
+    return sorted(idx)
+
+
+def load_sequence_from_folder(folder_path: str) -> List[Tuple[str, bytes]]:
+    """
+    Load sequence images from a local folder path.
+    Files are validated/sorted using strict filename parser and normalized.
+    """
+    folder = Path(folder_path).expanduser()
+    if not folder.exists():
+        raise ValueError(f"Folder not found: {folder}")
+    if not folder.is_dir():
+        raise ValueError(f"Path is not a folder: {folder}")
+
+    allowed_exts = {".png", ".jpg", ".jpeg"}
+    candidates = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in allowed_exts]
+    if not candidates:
+        raise ValueError("No sequence images found in folder. Supported: PNG, JPG, JPEG.")
+
+    ordered_names = sort_filenames_ascending([p.name for p in candidates])
+    by_name = {p.name: p for p in candidates}
+    frames: List[Tuple[str, bytes]] = []
+    for name in ordered_names:
+        p = by_name[name]
+        try:
+            img = Image.open(p).convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            frames.append((name, buf.getvalue()))
+        except Exception as exc:
+            raise ValueError(f"Failed to read image '{p}': {exc}") from exc
+
+    return normalize_sequence_frames(frames)
+
+
+def extract_frames_from_zip_bytes(zip_bytes: bytes) -> List[Tuple[str, bytes]]:
+    """
+    Extract sequence images from a ZIP archive.
+    Accepts PNG/JPG/JPEG entries and returns normalized frame names.
+    """
+    allowed_exts = {".png", ".jpg", ".jpeg"}
+    frames: List[Tuple[str, bytes]] = []
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+        names = [n for n in zf.namelist() if not n.endswith("/")]
+        image_names = [
+            n for n in names
+            if Path(n).suffix.lower() in allowed_exts
+            and not Path(n).name.startswith(".")
+        ]
+        if not image_names:
+            raise ValueError("ZIP does not contain PNG/JPG/JPEG frames.")
+
+        # Validate and sort by basename frame index.
+        ordered = sort_filenames_ascending([Path(n).name for n in image_names])
+        # For duplicate basenames in different subfolders, keep first occurrence.
+        by_base = {}
+        for n in image_names:
+            by_base.setdefault(Path(n).name, n)
+
+        for base_name in ordered:
+            arc_name = by_base[base_name]
+            data = zf.read(arc_name)
+            try:
+                img = Image.open(io.BytesIO(data)).convert("RGB")
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                frames.append((base_name, buf.getvalue()))
+            except Exception as exc:
+                raise ValueError(f"Invalid image in ZIP: {arc_name} ({exc})") from exc
+
+    return normalize_sequence_frames(frames)

@@ -1,6 +1,6 @@
-# 🎬 AI Animation Studio (M3)
+# 🎬 AI Animation Studio (M4)
 
-AI Animation Studio M3 is a dual-stage animation cleanup pipeline. It preserves pose with a Motion-Lock engine and converts rough sketches into clean line art using ComfyUI + Gemini.
+AI Animation Studio M4 is a dual-stage animation cleanup pipeline. It preserves pose with a Motion-Lock engine and converts rough sketches into clean line art using ComfyUI + Gemini.
 
 ## ✨ What It Does
 
@@ -13,7 +13,7 @@ AI Animation Studio M3 is a dual-stage animation cleanup pipeline. It preserves 
 ## 📁 Project Structure
 
 ```
-M3/
+M4/
 ├── app.py
 ├── pages/
 │   └── 3_📚_Documentation.py
@@ -25,7 +25,7 @@ M3/
 │   ├── config.py
 │   └── utils.py
 ├── workflows/
-│   ├── Animation_Workflow_M3_Api.json
+│   ├── Animation_Workflow_M4_Api.json
 │   └── (optional) other workflow variants
 ├── docs/
 │   ├── COMFYUI_INTEGRATION.md
@@ -67,7 +67,7 @@ COMFYUI_API_URL=http://localhost:8188
 uv run streamlit run app.py
 ```
 
-## 🧠 M3 Pipeline (Short)
+## 🧠 M4 Pipeline (Short)
 
 1) **Visual Analyst** analyzes input image and outputs buckets:
    - line_quality, anatomy_risk, complexity, subject_details

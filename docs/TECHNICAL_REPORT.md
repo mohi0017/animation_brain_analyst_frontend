@@ -1,12 +1,12 @@
-# M3 Technical Report
-## AI Animation Studio - Milestone 3
+# M4 Technical Report
+## AI Animation Studio - Milestone 4
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
 
 ---
 
 ## Quick Summary
-Milestone 3 introduces a **dual-stage pipeline** that decouples pose preservation from line cleanup using a sequential ControlNet chain and dual KSamplers.
+Milestone 4 introduces a **dual-stage pipeline** that decouples pose preservation from line cleanup using a sequential ControlNet chain and dual KSamplers.
 
 ---
 
@@ -30,25 +30,25 @@ Milestone 3 introduces a **dual-stage pipeline** that decouples pose preservatio
 - Applies director-driven modifiers and stage-safe filtering
 
 ### 4) ComfyUI (Executor)
-- Runs `Animation_Workflow_M3_Api.json`
+- Runs `Animation_Workflow_M4_Api.json`
 - Uses dual KSampler process with ControlNet chain
-- Supports dual IP node updates (`66`, `90`)
-- Outputs transparent and original PNG
+- Supports dual IP node updates (`66`, `105`)
+- Outputs M4 video combines (`100`, `99`) and decode images (`41`, `73`)
 
 ---
 
-## Workflow (M3)
+## Workflow (M4)
 
 ### Key Nodes
 - `2/3` → Stage 1 prompts
 - `77/76` → Stage 2 prompts
 - `5` → KSampler 1 (structure)
 - `55` → KSampler 2 (inking)
-- `62` → Union XL ControlNet
-- `79` → OpenPose ControlNet
+- `103` → Union XL ControlNet
+- `104` → OpenPose ControlNet
 - `66` → IP-Adapter (KS1)
-- `90` → IP-Adapter (KS2)
-- `4/72` → input and reference images
+- `105` → IP-Adapter (KS2)
+- `96/72` → input and reference images
 
 ---
 
@@ -66,7 +66,7 @@ Input image + reference image → Visual Analyst + Reference Compare → AD-Agen
 
 ## Project Structure
 ```
-M3/
+M4/
 ├── app.py
 ├── modules/
 │   ├── animation_director.py
@@ -76,7 +76,7 @@ M3/
 │   ├── config.py
 │   └── utils.py
 ├── workflows/
-│   ├── Animation_Workflow_M3_Api.json
+│   ├── Animation_Workflow_M4_Api.json
 │   └── (optional) other workflow variants
 ├── docs/
 │   ├── COMFYUI_INTEGRATION.md

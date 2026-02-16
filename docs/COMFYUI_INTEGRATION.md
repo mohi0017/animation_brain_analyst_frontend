@@ -1,12 +1,12 @@
-# ComfyUI Integration (M3)
-## How the M3 Pipeline Works End-to-End
+# ComfyUI Integration (M4)
+## How the M4 Pipeline Works End-to-End
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
 
 ---
 
 ## Overview
-Milestone 3 uses a dual-stage generation pipeline that separates **structure preservation** from **final inking**.
+Milestone 4 uses a dual-stage generation pipeline that separates **structure preservation** from **final inking**.
 The workflow runs in ComfyUI with two KSamplers and a sequential ControlNet chain:
 
 - **ControlNet Union XL** (line/shape boundary)
@@ -29,7 +29,7 @@ Director can also inject prompt guardrails/modifiers based on reference conflict
 ## Workflow File
 Use the API workflow (v10 format):
 
-- `workflows/Animation_Workflow_M3_Api.json`
+- `workflows/Animation_Workflow_M4_Api.json`
 
 This is required for the ComfyUI API submission.
 
@@ -40,8 +40,8 @@ This is required for the ComfyUI API submission.
 ### Stage 1: Structure & Style (KSampler 1)
 - **KSampler**: Node `5`
 - **Prompts**: Node `2` (positive), Node `3` (negative)
-- **ControlNet Union XL**: Node `62`
-- **OpenPose**: Node `79`
+- **ControlNet Union XL**: Node `103`
+- **OpenPose**: Node `104`
 - **IP-Adapter**: Node `66`
 
 This stage locks pose and structure while allowing controlled cleanup.
@@ -54,20 +54,21 @@ This stage converts the output into clean, solid line art.
 
 ---
 
-## Node Map (M3)
+## Node Map (M4)
 - **CheckpointLoaderSimple**: `1`
-- **Input LoadImage**: `4`
+- **Input Source**: `96` (`VHS_LoadImages` in template, converted to `LoadImage` at API runtime for single-frame uploads)
 - **Reference LoadImage**: `72`
 - **IPAdapterAdvanced**: `66`
-- **IPAdapterAdvanced (KS2 path)**: `90`
-- **ControlNet Union XL**: `62`
-- **OpenPose ControlNet**: `79`
+- **IPAdapterAdvanced (KS2 path)**: `105`
+- **ControlNet Union XL**: `103`
+- **OpenPose ControlNet**: `104`
 - **KSampler 1**: `5`
 - **KSampler 2**: `55`
 - **Stage 1 Prompts**: `2` / `3`
 - **Stage 2 Prompts**: `77` / `76`
 - **DWPreprocessor**: `78`
-- **Outputs**: one or more `SaveImage` nodes (IDs vary by workflow)
+- **Video Outputs**: `100` / `99` (`VHS_VideoCombine`)
+- **Image Decode Outputs**: `41` / `73`
 
 ---
 
@@ -93,7 +94,7 @@ Rules enforced:
 ## API Submission Flow
 1) Upload input image to `/upload/image`
 2) Upload reference image to `/upload/image`
-3) Load `Animation_Workflow_M3_Api.json`
+3) Load `Animation_Workflow_M4_Api.json`
 4) Update prompts + nodes
 5) Submit to `/prompt`
 6) Poll `/history/{prompt_id}`

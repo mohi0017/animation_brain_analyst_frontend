@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from ..config import DEFAULT_LINE_ART_MODEL, DEFAULT_M3_MODEL
+from ..config import DEFAULT_LINE_ART_MODEL, DEFAULT_M4_MODEL
 
 
 @dataclass(frozen=True)
@@ -25,13 +25,13 @@ def get_workflow_specs() -> List[WorkflowSpec]:
     """Return supported milestone workflows in display order."""
     return [
         WorkflowSpec(
-            key="M3",
-            label="Milestone 3 (M3)",
-            api_path="workflows/Animation_Workflow_M3_Api.json",
+            key="M4",
+            label="Milestone 4 (M4)",
+            api_path="workflows/Animation_Workflow_M4_Api.json",
             prompt_mode="dual",
             requires_reference=True,
-            default_model=DEFAULT_M3_MODEL,
-            model_options=[DEFAULT_M3_MODEL, DEFAULT_LINE_ART_MODEL],
+            default_model=DEFAULT_M4_MODEL,
+            model_options=[DEFAULT_M4_MODEL, DEFAULT_LINE_ART_MODEL],
         ),
     ]
 

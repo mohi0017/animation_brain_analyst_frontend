@@ -1,7 +1,7 @@
-# M3 Case Playbook: `single_complex` Cleanup
+# M4 Case Playbook: `single_complex` Cleanup
 
 > Status: legacy tactical playbook.  
-> Current adaptive source of truth: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`.
+> Current adaptive source of truth: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`.
 
 This document defines the working strategy for the stylized character cleanup case where output often shows dotted lines, edge separation, or color/fringe artifacts.
 
@@ -81,13 +81,13 @@ For character cleanup quality:
 ## 6) Output Handling Rule
 
 ComfyUI download order prioritizes:
-1. Node `54` (primary clean output)
-2. Node `74` (secondary/debug-like output)
+1. Node `100` (primary clean output)
+2. Node `99` (secondary/debug-like output)
 3. fallback to other available nodes
 
 Operational note:
-- judge quality primarily from Node `54`
-- Node `74` can be noisier and may show fringe/ghost artifacts
+- judge quality primarily from Node `100`
+- Node `99` can be noisier and may show fringe/ghost artifacts
 
 ## 7) Troubleshooting Matrix (Quick)
 

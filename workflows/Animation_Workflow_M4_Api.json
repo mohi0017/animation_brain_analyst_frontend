@@ -34,33 +34,24 @@
       "title": "CLIP Text Encode (Prompt)"
     }
   },
-  "4": {
-    "inputs": {
-      "image": "BouncingBall_Roughs_0058.png"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
-    }
-  },
   "5": {
     "inputs": {
-      "seed": 211047608039579,
+      "seed": 153563715982477,
       "steps": 40,
-      "cfg": 10,
+      "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 1,
+      "denoise": 0.8,
       "model": [
         "66",
         0
       ],
       "positive": [
-        "79",
+        "104",
         0
       ],
       "negative": [
-        "79",
+        "104",
         1
       ],
       "latent_image": [
@@ -89,29 +80,16 @@
       "title": "VAE Decode"
     }
   },
-  "54": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "41",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
   "55": {
     "inputs": {
-      "seed": 74391471191918,
+      "seed": 153563715982370,
       "steps": 50,
       "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
       "denoise": 0.5,
       "model": [
-        "90",
+        "105",
         0
       ],
       "positive": [
@@ -132,50 +110,10 @@
       "title": "KSampler"
     }
   },
-  "61": {
-    "inputs": {
-      "control_net_name": "controlnet_xl_union_xinsir.safetensors"
-    },
-    "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
-    }
-  },
-  "62": {
-    "inputs": {
-      "strength": 0.6,
-      "start_percent": 0,
-      "end_percent": 0.5,
-      "positive": [
-        "2",
-        0
-      ],
-      "negative": [
-        "3",
-        0
-      ],
-      "control_net": [
-        "61",
-        0
-      ],
-      "image": [
-        "4",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    },
-    "class_type": "ControlNetApplyAdvanced",
-    "_meta": {
-      "title": "Apply ControlNet"
-    }
-  },
   "65": {
     "inputs": {
       "pixels": [
-        "4",
+        "96",
         0
       ],
       "vae": [
@@ -190,11 +128,11 @@
   },
   "66": {
     "inputs": {
-      "weight": 0.8,
+      "weight": 0.4,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0,
-      "end_at": 1,
+      "end_at": 0.6,
       "embeds_scaling": "K+V",
       "model": [
         "89",
@@ -238,7 +176,7 @@
   },
   "72": {
     "inputs": {
-      "image": "BouncingBall_Lines_0004.png"
+      "image": "ComfyUI_00004_.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -259,19 +197,6 @@
     "class_type": "VAEDecode",
     "_meta": {
       "title": "VAE Decode"
-    }
-  },
-  "74": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "73",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
     }
   },
   "76": {
@@ -310,53 +235,13 @@
       "pose_estimator": "dw-ll_ucoco_384_bs5.torchscript.pt",
       "scale_stick_for_xinsr_cn": "disable",
       "image": [
-        "4",
+        "96",
         0
       ]
     },
     "class_type": "DWPreprocessor",
     "_meta": {
       "title": "DWPose Estimator"
-    }
-  },
-  "79": {
-    "inputs": {
-      "strength": 1,
-      "start_percent": 0,
-      "end_percent": 1,
-      "positive": [
-        "62",
-        0
-      ],
-      "negative": [
-        "62",
-        1
-      ],
-      "control_net": [
-        "80",
-        0
-      ],
-      "image": [
-        "78",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    },
-    "class_type": "ControlNetApplyAdvanced",
-    "_meta": {
-      "title": "Apply ControlNet"
-    }
-  },
-  "80": {
-    "inputs": {
-      "control_net_name": "controlnet_openpose_sdxl.safetensors"
-    },
-    "class_type": "ControlNetLoader",
-    "_meta": {
-      "title": "Load ControlNet Model"
     }
   },
   "87": {
@@ -380,7 +265,7 @@
       "strength_model": 0,
       "strength_clip": 0,
       "model": [
-        "1",
+        "97",
         0
       ],
       "clip": [
@@ -393,13 +278,182 @@
       "title": "Load LoRA"
     }
   },
-  "90": {
+  "96": {
     "inputs": {
-      "weight": 0.4,
+      "directory": "m4_test_images",
+      "image_load_cap": 0,
+      "skip_first_images": 0,
+      "select_every_nth": 1
+    },
+    "class_type": "VHS_LoadImages",
+    "_meta": {
+      "title": "Load Images (Upload) 🎥🅥🅗🅢"
+    }
+  },
+  "97": {
+    "inputs": {
+      "model_name": "mm_sdxl_v10_beta.ckpt",
+      "beta_schedule": "linear (AnimateDiff-SDXL)",
+      "model": [
+        "1",
+        0
+      ],
+      "context_options": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "ADE_AnimateDiffLoaderGen1",
+    "_meta": {
+      "title": "AnimateDiff Loader 🎭🅐🅓①"
+    }
+  },
+  "98": {
+    "inputs": {
+      "context_length": 4,
+      "context_stride": 1,
+      "context_overlap": 1,
+      "fuse_method": "pyramid",
+      "use_on_equal_length": false,
+      "start_percent": 0,
+      "guarantee_steps": 1
+    },
+    "class_type": "ADE_StandardUniformContextOptions",
+    "_meta": {
+      "title": "Context Options◆Standard Uniform 🎭🅐🅓"
+    }
+  },
+  "99": {
+    "inputs": {
+      "frame_rate": 30,
+      "loop_count": 0,
+      "filename_prefix": "AnimateDiff",
+      "format": "image/gif",
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "41",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "100": {
+    "inputs": {
+      "frame_rate": 30,
+      "loop_count": 0,
+      "filename_prefix": "AnimateDiff",
+      "format": "image/gif",
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "73",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "101": {
+    "inputs": {
+      "cnet": "controlnet_xl_union_xinsir.safetensors"
+    },
+    "class_type": "ACN_ControlNetLoaderAdvanced",
+    "_meta": {
+      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+    }
+  },
+  "102": {
+    "inputs": {
+      "cnet": "controlnet_openpose_sdxl.safetensors"
+    },
+    "class_type": "ACN_ControlNetLoaderAdvanced",
+    "_meta": {
+      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+    }
+  },
+  "103": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
+      "control_net": [
+        "101",
+        0
+      ],
+      "image": [
+        "96",
+        0
+      ],
+      "vae_optional": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "ACN_AdvancedControlNetApply_v2",
+    "_meta": {
+      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+    }
+  },
+  "104": {
+    "inputs": {
+      "strength": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "103",
+        0
+      ],
+      "negative": [
+        "103",
+        1
+      ],
+      "control_net": [
+        "102",
+        0
+      ],
+      "image": [
+        "78",
+        0
+      ],
+      "vae_optional": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "ACN_AdvancedControlNetApply_v2",
+    "_meta": {
+      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+    }
+  },
+  "105": {
+    "inputs": {
+      "weight": 0.2,
       "weight_type": "linear",
       "combine_embeds": "concat",
       "start_at": 0,
-      "end_at": 1,
+      "end_at": 0.6,
       "embeds_scaling": "K+V",
       "model": [
         "89",

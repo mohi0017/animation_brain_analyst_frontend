@@ -1,12 +1,12 @@
-# ControlNet Anatomy Strategy (M3)
+# ControlNet Anatomy Strategy (M4)
 ## Motion-Lock Engine with Sequential Gap
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
 
 ---
 
 ## Core Idea
-M3 uses a **sequential ControlNet chain** to preserve pose while allowing cleanup:
+M4 uses a **sequential ControlNet chain** to preserve pose while allowing cleanup:
 
 1) **ControlNet Union XL** defines the line/shape boundary
 2) **OpenPose** locks joints and skeleton
@@ -47,4 +47,4 @@ This lets the model fix line quality while keeping pose locked.
 ---
 
 ## Summary
-This strategy preserves motion while allowing high-quality cleanup. It is the core of the M3 Motion-Lock Engine.
+This strategy preserves motion while allowing high-quality cleanup. It is the core of the M4 Motion-Lock Engine.

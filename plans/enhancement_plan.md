@@ -1,6 +1,6 @@
-# Plan: Enhance AI Animation System (M3)
+# Plan: Enhance AI Animation System (M4)
 
-I have analyzed the current implementation of the AI Animation Studio (M3). The system is well-structured with a clear pipeline: Visual Analyst → AD-Agent → Prompt Engineer → ComfyUI.
+I have analyzed the current implementation of the AI Animation Studio (M4). The system is well-structured with a clear pipeline: Visual Analyst → AD-Agent → Prompt Engineer → ComfyUI.
 
 ## Proposed Enhancements
 

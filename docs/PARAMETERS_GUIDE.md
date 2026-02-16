@@ -1,7 +1,7 @@
-# M3 Parameters Guide
+# M4 Parameters Guide
 ## Dynamic Parameters by Phase Transition
 
-> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`  
+> Canonical reference: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`  
 > This file is a quick guide; master document has final policy and latest rules.
 
 ---
@@ -50,7 +50,7 @@ Reference comparison also contributes dynamic control signals (`reference_final_
 
 ---
 
-## Prompt Impact (M3)
+## Prompt Impact (M4)
 - Stage 1 prompt: quality tags + subject + pose
 - Stage 2 prompt: inking/refinement template
 - If `line_quality == messy`, Stage 2 uses `(solid black lines:1.5)`
@@ -62,4 +62,4 @@ Reference comparison also contributes dynamic control signals (`reference_final_
 - Reference image drives dual-IP and dynamic control signals.
 - Reference comparison can indirectly affect prompts via Director modifiers.
 - Global CFG policy: allowed `7–10`; effective caps are case/stage dependent.
-- Detailed final policy: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+- Detailed final policy: `docs/M4_MASTER_PLAN_DYNAMIC_STATIC.md`
