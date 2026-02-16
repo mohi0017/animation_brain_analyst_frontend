@@ -382,44 +382,45 @@ if generate:
         st.markdown("**Why These Instructions Were Created**")
         st.info(rationale or "No explanation available")
 
-        with st.expander("🧩 Workflow + Controller Info"):
-            st.markdown("**Workflow Source**")
-            st.code(
-                f"mode: {'server' if use_server_workflow else 'local'}\n"
-                f"path: {selected_workflow_path or workflow_spec.api_path}\n"
-                f"requires_reference: {workflow_spec.requires_reference}"
-            )
-            st.markdown("**ComfyUI Node Map (M3 API Workflow)**")
-            st.json(
-                {
-                    "stage1_prompts": {"positive": 2, "negative": 3},
-                    "stage2_prompts": {"positive": 77, "negative": 76},
-                    "ksampler1": 5,
-                    "ksampler2": 55,
-                    "controlnet_union": 62,
-                    "openpose_controlnet": 79,
-                    "ip_adapter_ks1": 66,
-                    "ip_adapter_ks2": 90,
-                    "input_image": 4,
-                    "reference_image": 72,
-                    "output_nodes_preferred": [54, 74],
+        if debug_mode:
+            with st.expander("🧩 Workflow + Controller Info"):
+                st.markdown("**Workflow Source**")
+                st.code(
+                    f"mode: {'server' if use_server_workflow else 'local'}\n"
+                    f"path: {selected_workflow_path or workflow_spec.api_path}\n"
+                    f"requires_reference: {workflow_spec.requires_reference}"
+                )
+                st.markdown("**ComfyUI Node Map (M3 API Workflow)**")
+                st.json(
+                    {
+                        "stage1_prompts": {"positive": 2, "negative": 3},
+                        "stage2_prompts": {"positive": 77, "negative": 76},
+                        "ksampler1": 5,
+                        "ksampler2": 55,
+                        "controlnet_union": 62,
+                        "openpose_controlnet": 79,
+                        "ip_adapter_ks1": 66,
+                        "ip_adapter_ks2": 90,
+                        "input_image": 4,
+                        "reference_image": 72,
+                        "output_nodes_preferred": [54, 74],
+                    }
+                )
+                ref_metrics = {
+                    "reference_structural_score": report.get("reference_structural_score"),
+                    "reference_proportion_score": report.get("reference_proportion_score"),
+                    "reference_feature_match_score": report.get("reference_feature_match_score"),
+                    "reference_conflict_penalty": report.get("reference_conflict_penalty"),
+                    "reference_text_conflict": report.get("reference_text_conflict"),
+                    "reference_image_conflict": report.get("reference_image_conflict"),
+                    "reference_accessory_mismatch": report.get("reference_accessory_mismatch"),
+                    "reference_is_colored": report.get("reference_is_colored"),
+                    "reference_style_distance": report.get("reference_style_distance"),
+                    "reference_final_score": report.get("reference_final_score"),
                 }
-            )
-            ref_metrics = {
-                "reference_structural_score": report.get("reference_structural_score"),
-                "reference_proportion_score": report.get("reference_proportion_score"),
-                "reference_feature_match_score": report.get("reference_feature_match_score"),
-                "reference_conflict_penalty": report.get("reference_conflict_penalty"),
-                "reference_text_conflict": report.get("reference_text_conflict"),
-                "reference_image_conflict": report.get("reference_image_conflict"),
-                "reference_accessory_mismatch": report.get("reference_accessory_mismatch"),
-                "reference_is_colored": report.get("reference_is_colored"),
-                "reference_style_distance": report.get("reference_style_distance"),
-                "reference_final_score": report.get("reference_final_score"),
-            }
-            if any(v is not None for v in ref_metrics.values()):
-                st.markdown("**Input vs Reference Analysis**")
-                st.json(ref_metrics)
+                if any(v is not None for v in ref_metrics.values()):
+                    st.markdown("**Input vs Reference Analysis**")
+                    st.json(ref_metrics)
 
         if m3_plan:
             summary = []
@@ -530,20 +531,7 @@ if generate:
                         st.markdown("**Step 2: Reference Image**")
                         st.image(reference_uploaded, caption="Reference image sent to IP-Adapter", width='stretch')
 
-                    # Director diagnostics (signals + modes) for tuning.
-                    if m3_plan:
-                        diags = m3_plan.get("diagnostics")
-                        if diags:
-                            st.markdown("**Diagnostics: Control Signals (S/R/D/P/H)**")
-                            st.json(diags)
-                        meta = {
-                            "_influence_scalar": m3_plan.get("_influence_scalar"),
-                            "reference_mode": m3_plan.get("reference_mode"),
-                            "reference_mode_ks2": m3_plan.get("reference_mode_ks2"),
-                            "ip_adapter_dual": m3_plan.get("ip_adapter_dual"),
-                        }
-                        st.markdown("**Diagnostics: Modes / Influence**")
-                        st.json(meta)
+                    # Diagnostics are shown in "AI Strategy" and "Workflow + Controller Info".
 
                     if debug_payload:
                         raw_imgs = debug_payload.get("raw", [])
