@@ -286,3 +286,106 @@ Open calibration work (recommended):
 - tune thresholds from empirical distributions,
 - tighten per-use-case bounds if repeated artifacts appear.
 
+---
+
+## 12) Formal Signal Computation Spec
+
+Use normalized `0..1` signals.
+
+- `S` (structure confidence): derived from `construction_lines`, `broken_lines`, `line_quality`.
+  - low construction/broken + clean lines => `S` high
+  - high construction/broken + messy lines => `S` low
+- `R` (reference reliability):
+  - `R = similarity * (1 - conflict_penalty)`
+- `D` (style distance):
+  - edge-density delta + grayscale-contrast delta (input vs reference)
+- `P` (pose risk):
+  - derived from `anatomy_risk` (+ pose-lock bias)
+- `H` (hallucination risk):
+  - function of `cfg2`, `denoise2`, `ip2`, `conflict`
+
+Controller interpretation:
+- `S` drives Union + KS1 denoise envelope
+- `R` drives IP strength/end-at and refinement trust
+- `D` drives cleanup pressure (KS2 denoise, optional LoRA)
+- `P` drives OpenPose strength and conservative identity forcing
+- `H` triggers late-stage dampening
+
+---
+
+## 13) Node Driver Map (Who Drives Which Node)
+
+For `workflows/Animation_Workflow_M3_Api.json`:
+
+- Node `5` (KS1): `steps`, `cfg`, `denoise` from Director
+- Node `55` (KS2): `steps`, `cfg`, `denoise` from Director
+- Node `62` (ControlNet Union): `strength`, `end_percent`
+- Node `79` (OpenPose): `strength`, `end_percent`
+- Node `66` (IP KS1): `weight`, `end_at`
+- Node `90` (IP KS2): `weight`, `end_at`
+- Nodes `2/3` (Stage 1 prompts): from Prompt Engineer
+- Nodes `77/76` (Stage 2 prompts): from Prompt Engineer
+- Optional LoRA node(s): enabled by runtime flag + plan strength
+
+Static:
+- workflow graph/node IDs and base template.
+Dynamic:
+- all values listed above.
+
+---
+
+## 14) Dynamic Bounds Enforcement Order
+
+The controller must apply this order:
+
+1. Classify case (`single_simple`, `single_complex`, `multi_object`) and object scale.
+2. Load base bounds for that case.
+3. Apply signal modifiers:
+   - conflict/color => tighten IP2 and end-at
+   - low LQ => more KS1 repair room
+   - high LQ => less KS2 interference
+   - high P => stronger OpenPose target
+   - large object => tighter Union max
+4. Compute raw values from signal formulas.
+5. Clamp into dynamic bounds.
+6. Apply hard safety rules:
+   - `ip2 <= ip1 - 0.10`
+   - `cfg2 <= cfg1`
+   - `ip2`-coupled `cfg2` caps (`7.8` / `7.4`)
+   - high `H` dampening
+7. Emit diagnostics + reasons for key clamps.
+
+---
+
+## 15) Prompt Semantics Contract (Non-Negotiable)
+
+KS1 and KS2 prompts must stay semantically separated:
+
+- KS1 (structure authority):
+  - preserve pose/proportions/accessories
+  - cleanup construction ambiguity
+  - avoid style-heavy directives
+- KS2 (refinement authority):
+  - line consistency, contour confidence, final polish
+  - reference style directives only if safe
+  - anti-artifact negatives (fringe, jitter, dotted lines)
+
+Hard rule:
+- KS1 must not receive KS2-only style directives (e.g., direct stroke matching language).
+
+---
+
+## 16) Missing/Next Dynamic Signals (Roadmap)
+
+To reduce text-only conflict blind spots, add image-level detectors in `reference_compare.py`:
+
+- `CR` (colored-reference flag): HSV saturation-based
+- `AC` (accessory conflict): upper-face dark-blob mismatch heuristic
+
+Then fold into conflict model:
+- `conflict_penalty = f(text_conflict, image_conflict)` (max or weighted fusion)
+
+Expected effect:
+- safer `reference_mode` selection
+- earlier `ip2_end_at` clamping
+- fewer identity/accessory mismatches and color-fringe failures.
