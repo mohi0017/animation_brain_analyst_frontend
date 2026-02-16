@@ -677,25 +677,48 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
 def _postprocess_line_art_bytes(image_bytes: bytes, log) -> bytes:
     """
     Post-process generated image to suppress color fringes and connect fragmented line art.
-    Pipeline (soft cleanup, non-binary):
+    Pipeline (line-art cleanup):
       1) grayscale (remove color fringe)
-      2) mild contrast normalization
-      3) light smoothing (preserve anti-aliased edges; avoid harsh/pixel look)
-      4) border cleanup to remove frame artifacts from raw generations
+      2) median + slight blur (reduce jagged micro-noise)
+      3) soft binarization + morphological close (connect broken lines)
+      4) optional thinning pass (prevent over-bold strokes)
+      5) border cleanup (remove raw frame artifacts)
     """
     try:
         img = Image.open(BytesIO(image_bytes)).convert("RGB")
         gray = ImageOps.grayscale(img)
-        # Keep smoothing very light so lines stay clean but not over-sharp/pixelated.
-        soft = gray.filter(ImageFilter.GaussianBlur(radius=0.30))
 
-        # Force near-white paper tones to pure white to avoid textured/griddy canvas artifacts.
-        soft = soft.point(lambda p: 255 if p >= 228 else p)
+        # Tunables (safe defaults; can be overridden from env without code change).
+        pp_thresh = int(os.getenv("M3_PP_THRESHOLD", "210") or "210")
+        pp_white = int(os.getenv("M3_PP_WHITE_CLIP", "228") or "228")
+        pp_close_size = max(3, int(os.getenv("M3_PP_CLOSE_SIZE", "3") or "3"))
+        pp_thin_pass = max(0, int(os.getenv("M3_PP_THIN_PASS", "1") or "1"))
+
+        # 1) Remove small edge noise and mild jaggedness.
+        den = gray.filter(ImageFilter.MedianFilter(size=3))
+        den = den.filter(ImageFilter.GaussianBlur(radius=0.35))
+
+        # 2) Build an ink mask (dark lines only).
+        #    Higher threshold captures faint broken segments that need healing.
+        ink_mask = den.point(lambda p: 0 if p < pp_thresh else 255, mode="L")
+
+        # 3) Morphological close using PIL filters: dilate then erode.
+        #    This joins dotted segments and closes tiny gaps in strokes.
+        closed = ink_mask.filter(ImageFilter.MaxFilter(size=pp_close_size))
+        closed = closed.filter(ImageFilter.MinFilter(size=pp_close_size))
+
+        # 4) Optional thinning so lines do not become overly bold after close.
+        for _ in range(pp_thin_pass):
+            closed = closed.filter(ImageFilter.MinFilter(size=3))
+
+        # 5) Compose final monochrome line-art (pure black lines on clean white canvas).
+        final_gray = closed.point(lambda p: 255 if p >= 128 else 0, mode="L")
+        final_gray = final_gray.point(lambda p: 255 if p >= pp_white else p)
 
         # Remove border/frame artifacts often present in raw ComfyUI outputs.
         border = 6
-        px = soft.load()
-        w, h = soft.size
+        px = final_gray.load()
+        w, h = final_gray.size
         for x in range(w):
             for y in range(min(border, h)):
                 px[x, y] = 255
@@ -707,11 +730,11 @@ def _postprocess_line_art_bytes(image_bytes: bytes, log) -> bytes:
             for x in range(max(0, w - border), w):
                 px[x, y] = 255
 
-        final = soft.convert("RGB")
+        final = final_gray.convert("RGB")
 
         out = BytesIO()
         final.save(out, format="PNG")
-        log("🧼 Applied post-process line-art cleanup (grayscale+threshold+heal)")
+        log("🧼 Applied post-process line-art cleanup (smooth+close+thin)")
         return out.getvalue()
     except Exception as exc:
         log(f"⚠️ Post-process skipped: {exc}")
