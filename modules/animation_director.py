@@ -303,11 +303,16 @@ def create_parameter_plan_m3(
             image_conflict = float(report.get("reference_image_conflict") or 0.0)
         except Exception:
             image_conflict = 0.0
+        try:
+            accessory_mismatch = float(report.get("reference_accessory_mismatch") or 0.0)
+        except Exception:
+            accessory_mismatch = 0.0
         reference_is_colored = bool(report.get("reference_is_colored") or False)
         sim = max(0.0, min(1.0, sim))
         conflict = max(0.0, min(1.0, conflict))
         text_conflict = max(0.0, min(1.0, text_conflict))
         image_conflict = max(0.0, min(1.0, image_conflict))
+        accessory_mismatch = max(0.0, min(1.0, accessory_mismatch))
         R = max(0.0, min(1.0, sim * (1.0 - conflict)))
 
         # Style distance D from reference compare (0..1), default 0.0 when no reference.
@@ -415,6 +420,9 @@ def create_parameter_plan_m3(
         if reference_is_colored:
             bounds["ip2"][1] = min(bounds["ip2"][1], 0.35)
             clamp_reasons.append("colored_reference_capped_ip2")
+        if accessory_mismatch >= 0.35:
+            bounds["ip2"][1] = min(bounds["ip2"][1], 0.30)
+            clamp_reasons.append("accessory_mismatch_capped_ip2_max")
         if LQ := {"clean": 0.85, "structured": 0.6, "messy": 0.3}.get(line_quality, 0.5):
             if LQ < 0.4:
                 bounds["ks1_den"][1] = min(1.0, bounds["ks1_den"][1] + 0.05)
@@ -523,6 +531,11 @@ def create_parameter_plan_m3(
             ip2_end = min(ip2_end, 0.50)
         if reference_is_colored:
             ip2_end = min(ip2_end, 0.60)
+        if accessory_mismatch >= 0.35:
+            ip2_end = min(ip2_end, 0.55)
+            clamp_reasons.append("accessory_mismatch_capped_ip2_end_at")
+        if plan.get("diagnostics"):
+            plan["diagnostics"]["clamp_reasons"] = sorted(set(clamp_reasons))
         plan["ip_adapter_dual"] = {
             "ksampler1": {"weight": round(ip1, 2), "end_at": round(ip1_end, 2)},
             "ksampler2": {"weight": round(ip2, 2), "end_at": round(ip2_end, 2)},
