@@ -380,6 +380,45 @@ if generate:
         st.markdown("**Why These Instructions Were Created**")
         st.info(rationale or "No explanation available")
 
+        with st.expander("🧩 Workflow + Controller Info"):
+            st.markdown("**Workflow Source**")
+            st.code(
+                f"mode: {'server' if use_server_workflow else 'local'}\n"
+                f"path: {selected_workflow_path or workflow_spec.api_path}\n"
+                f"requires_reference: {workflow_spec.requires_reference}"
+            )
+            st.markdown("**ComfyUI Node Map (M3 API Workflow)**")
+            st.json(
+                {
+                    "stage1_prompts": {"positive": 2, "negative": 3},
+                    "stage2_prompts": {"positive": 77, "negative": 76},
+                    "ksampler1": 5,
+                    "ksampler2": 55,
+                    "controlnet_union": 62,
+                    "openpose_controlnet": 79,
+                    "ip_adapter_ks1": 66,
+                    "ip_adapter_ks2": 90,
+                    "input_image": 4,
+                    "reference_image": 72,
+                    "output_nodes_preferred": [54, 74],
+                }
+            )
+            ref_metrics = {
+                "reference_structural_score": report.get("reference_structural_score"),
+                "reference_proportion_score": report.get("reference_proportion_score"),
+                "reference_feature_match_score": report.get("reference_feature_match_score"),
+                "reference_conflict_penalty": report.get("reference_conflict_penalty"),
+                "reference_text_conflict": report.get("reference_text_conflict"),
+                "reference_image_conflict": report.get("reference_image_conflict"),
+                "reference_accessory_mismatch": report.get("reference_accessory_mismatch"),
+                "reference_is_colored": report.get("reference_is_colored"),
+                "reference_style_distance": report.get("reference_style_distance"),
+                "reference_final_score": report.get("reference_final_score"),
+            }
+            if any(v is not None for v in ref_metrics.values()):
+                st.markdown("**Input vs Reference Analysis**")
+                st.json(ref_metrics)
+
         if m3_plan:
             summary = []
             line_quality = report.get("line_quality", "")
