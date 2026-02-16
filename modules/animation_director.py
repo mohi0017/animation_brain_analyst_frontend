@@ -516,11 +516,11 @@ def create_parameter_plan_m3(
             or image_conflict >= 0.35
         )
         if noisy_or_conflicted:
-            pose_strength = max(pose_strength, 0.95)
-            union_strength = _clamp(union_strength, 0.70, 0.80)
-            denoise1 = _clamp(denoise1, 0.75, 0.90)
-            denoise2 = _clamp(denoise2, 0.30, 0.55)
-            ip1 = min(ip1, 0.45)
+            pose_strength = max(pose_strength, 0.98)
+            union_strength = _clamp(union_strength, 0.80, 0.90)
+            denoise1 = _clamp(denoise1, 0.85, 0.95)
+            denoise2 = _clamp(denoise2, 0.40, 0.55)
+            ip1 = min(ip1, 0.40)
             ip2 = min(ip2, 0.35)
             clamp_reasons.append("noisy_or_conflicted_dynamic_caps")
         else:
@@ -614,8 +614,12 @@ def create_parameter_plan_m3(
             ks2["steps"] = 50
             ks2["cfg"] = round(min(max(float(ks2.get("cfg", 8.5)), 8.5), 9.0), 2)
             ks2["denoise"] = round(min(float(ks2.get("denoise", 0.4)), 0.4), 2)
-            ip2 = max(ip2, 0.50)
-            ip2_end = min(ip2_end, 0.80)
+            if noisy_or_conflicted:
+                ip2 = min(ip2, 0.35)
+                ip2_end = min(ip2_end, 0.50)
+            else:
+                ip2 = max(ip2, 0.50)
+                ip2_end = min(ip2_end, 0.80)
             clamp_reasons.append("large_single_complex_ks2_user_caps")
         if plan.get("diagnostics"):
             plan["diagnostics"]["clamp_reasons"] = sorted(set(clamp_reasons))
