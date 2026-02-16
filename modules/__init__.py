@@ -17,10 +17,32 @@ except ImportError:  # pragma: no cover - compatibility path
 
 from . import utils as _utils
 from .gemini_client import get_genai_client, get_thinking_config, get_model_name
-from .visual_analyst import run_visual_analyst_m4
-from .prompt_engineer import run_prompt_engineer_m4, generate_m4_cleanup_prompts
-from .workflows.registry import get_workflow_spec
-from .animation_director import create_parameter_plan_m4
+
+# Backward-compatible analyst export (older deployments may only provide M3 name).
+try:
+    from .visual_analyst import run_visual_analyst_m4
+except ImportError:  # pragma: no cover - compatibility path
+    from .visual_analyst import run_visual_analyst_m3 as run_visual_analyst_m4
+
+# Backward-compatible prompt exports.
+try:
+    from .prompt_engineer import run_prompt_engineer_m4
+except ImportError:  # pragma: no cover - compatibility path
+    from .prompt_engineer import run_prompt_engineer_m3 as run_prompt_engineer_m4
+from .prompt_engineer import generate_m4_cleanup_prompts
+
+# Workflow registry path compatibility.
+try:
+    from .workflows.registry import get_workflow_spec
+except ImportError:  # pragma: no cover - compatibility path
+    from .workflow_registry import get_workflow_spec
+
+# Backward-compatible parameter planner export.
+try:
+    from .animation_director import create_parameter_plan_m4
+except ImportError:  # pragma: no cover - compatibility path
+    from .animation_director import create_parameter_plan_m3 as create_parameter_plan_m4
+
 from .comfyui_client import call_comfyui
 
 load_image_bytes = _utils.load_image_bytes
