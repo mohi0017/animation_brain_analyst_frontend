@@ -1,6 +1,8 @@
 # ControlNet Anatomy Strategy (M3)
 ## Motion-Lock Engine with Sequential Gap
 
+> Canonical reference: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`
+
 ---
 
 ## Core Idea
@@ -9,21 +11,21 @@ M3 uses a **sequential ControlNet chain** to preserve pose while allowing cleanu
 1) **ControlNet Union XL** defines the line/shape boundary
 2) **OpenPose** locks joints and skeleton
 
-This creates a rigid motion lock without freezing messy sketch lines.
+This creates a motion lock without permanently freezing messy sketch lines.
 
 ---
 
-## Sequential Gap Rule
-The **end_percent gap** is critical:
+## Adaptive End Scheduling
+The **end schedule** is critical:
 
-- Union ends first
-- OpenPose ends later
+- Prefer: Union ends before OpenPose
+- IP (especially KS2 IP) may end earlier for stability
 
 This lets the model fix line quality while keeping pose locked.
 
 **Rule:**
-- Adaptive-path intent: `ip_adapter.end_at < controlnet_union.end_percent < openpose.end_percent`
-- Preset-path exception: some explicit presets pin multiple `end_percent` values to 1.0 for trace-like behavior.
+- Adaptive path prefers sequential ordering.
+- Controller can override ordering/caps for conflict, pose risk, or artifact suppression.
 
 ---
 
@@ -33,7 +35,7 @@ This lets the model fix line quality while keeping pose locked.
   - `<= ~0.65` for messy/high-construction roughs
   - can be higher for clean tie-down
 - **IP-Adapter end_at**:
-  - typically before Union in the adaptive path
+  - dual-path (`KS1`, `KS2`) and dynamically clamped
 
 ---
 

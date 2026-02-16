@@ -1,5 +1,8 @@
 # M3 Case Playbook: `single_complex` Cleanup
 
+> Status: legacy tactical playbook.  
+> Current adaptive source of truth: `docs/M3_MASTER_PLAN_DYNAMIC_STATIC.md`.
+
 This document defines the working strategy for the stylized character cleanup case where output often shows dotted lines, edge separation, or color/fringe artifacts.
 
 ## 1) Case Definition
@@ -109,4 +112,3 @@ Healthy case logs should include one of these:
 - `single_complex+construction high/medium_or_high override`
 
 and parameter block should match section 4 values.
-
