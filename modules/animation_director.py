@@ -190,24 +190,51 @@ def create_parameter_plan_m3(
             cn_union = plan.get("controlnet_union", {})
             cn_openpose = plan.get("controlnet_openpose", {})
             ip = plan.get("ip_adapter", {})
-            cn_union["strength"] = max(0.7, float(cn_union.get("strength", 0.7)))
+
+            # Union policy:
+            # - clean/no construction-no broken -> 1.0 @ 1.0
+            # - construction/broken present -> 0.8 @ 1.0
+            has_structure_noise = (
+                construction_lines in ("medium", "high")
+                or broken_lines in ("medium", "high")
+                or line_quality == "messy"
+            )
+            cn_union["strength"] = 0.8 if has_structure_noise else 1.0
             cn_union["end_percent"] = 1.0
             cn_openpose["strength"] = 1.0
             cn_openpose["end_percent"] = 1.0
-            ip["weight"] = max(0.7, float(ip.get("weight", 0.7)))
+
+            # KS1/KS2 fixed policy for single small geometric objects.
+            ks1 = plan.get("ksampler1", {})
+            ks2 = plan.get("ksampler2", {})
+            ks1["steps"] = 40
+            ks1["cfg"] = 9.0
+            ks1["denoise"] = 1.0
+            ks2["steps"] = 50
+            ks2["cfg"] = 9.0
+            ks2["denoise"] = 0.5
+
+            # IP policy:
+            # - KS1 strong style lock
+            # - KS2 light refinement-only
+            ip["weight"] = 0.9
             ip["end_at"] = 1.0
             plan["controlnet_union"] = cn_union
             plan["controlnet_openpose"] = cn_openpose
             plan["ip_adapter"] = ip
-            ip_dual = plan.get("ip_adapter_dual")
-            if isinstance(ip_dual, dict):
-                ks1_ip = dict(ip_dual.get("ksampler1") or {})
-                ks2_ip = dict(ip_dual.get("ksampler2") or {})
-                ks1_ip["weight"] = max(0.7, float(ks1_ip.get("weight", ip["weight"])))
-                ks1_ip["end_at"] = 1.0
-                ks2_ip["weight"] = max(0.7, float(ks2_ip.get("weight", ip["weight"])))
-                ks2_ip["end_at"] = 1.0
-                plan["ip_adapter_dual"] = {"ksampler1": ks1_ip, "ksampler2": ks2_ip}
+            plan["ksampler1"] = ks1
+            plan["ksampler2"] = ks2
+            plan["ip_adapter_dual"] = {
+                "ksampler1": {"weight": 0.9, "end_at": 1.0},
+                "ksampler2": {"weight": 0.3, "end_at": 1.0},
+            }
+
+            # Keep diagnostics explicit for this strict geometric profile.
+            diag = dict(plan.get("diagnostics") or {})
+            diag["single_simple_geometric_lock"] = True
+            diag["union_profile"] = "noisy" if has_structure_noise else "clean"
+            plan["diagnostics"] = diag
+            return plan
         # Apply full adaptive control system for complex cases even when there are no explicit issues.
         if entity_type == "single_complex":
             try:
