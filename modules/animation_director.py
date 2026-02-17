@@ -192,15 +192,15 @@ def create_parameter_plan_m3(
             ip = plan.get("ip_adapter", {})
 
             # Union policy:
-            # - clean/no construction-no broken -> 1.0 @ 1.0
-            # - construction/broken present -> 0.8 @ 1.0
+            # - clean/no construction-no broken -> 0.9 @ 0.9
+            # - construction/broken present -> 0.8 @ 0.9
             has_structure_noise = (
                 construction_lines in ("medium", "high")
                 or broken_lines in ("medium", "high")
                 or line_quality == "messy"
             )
-            cn_union["strength"] = 0.8 if has_structure_noise else 1.0
-            cn_union["end_percent"] = 1.0
+            cn_union["strength"] = 0.8 if has_structure_noise else 0.9
+            cn_union["end_percent"] = 0.9
             cn_openpose["strength"] = 1.0
             cn_openpose["end_percent"] = 1.0
 
@@ -241,6 +241,22 @@ def create_parameter_plan_m3(
                 plan = _apply_adaptive_control(plan)
             except Exception:
                 pass
+            # User policy: for large single-complex subjects with heavy construction/noisy lines,
+            # keep Union in a safer 0.5-0.6 band and end it early.
+            if object_scale == "large":
+                has_heavy_noise = (
+                    construction_lines in ("medium", "high")
+                    or broken_lines in ("medium", "high")
+                    or line_quality == "messy"
+                )
+                cn_union = plan.get("controlnet_union", {})
+                if has_heavy_noise:
+                    cn_union["strength"] = max(0.5, min(0.6, float(cn_union.get("strength", 0.55))))
+                    cn_union["end_percent"] = min(0.6, float(cn_union.get("end_percent", 0.6)))
+                else:
+                    # Keep a minimum lock of 0.5 for large single-complex objects.
+                    cn_union["strength"] = max(0.5, float(cn_union.get("strength", 0.5)))
+                plan["controlnet_union"] = cn_union
         # Keep semantic controls aligned with the final numeric plan to avoid prompt/parameter drift.
         try:
             inf = float(plan.get("_influence_scalar") or 0.0)
