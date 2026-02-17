@@ -36,7 +36,7 @@
   },
   "5": {
     "inputs": {
-      "seed": 153563715982477,
+      "seed": 153563715982490,
       "steps": 40,
       "cfg": 9,
       "sampler_name": "dpmpp_2m_sde_gpu",
@@ -83,11 +83,11 @@
   "55": {
     "inputs": {
       "seed": 153563715982370,
-      "steps": 50,
-      "cfg": 9,
+      "steps": 40,
+      "cfg": 7.5,
       "sampler_name": "dpmpp_2m_sde_gpu",
       "scheduler": "karras",
-      "denoise": 0.5,
+      "denoise": 0.3,
       "model": [
         "105",
         0
@@ -265,7 +265,7 @@
       "strength_model": 0,
       "strength_clip": 0,
       "model": [
-        "97",
+        "1",
         0
       ],
       "clip": [
@@ -280,47 +280,14 @@
   },
   "96": {
     "inputs": {
-      "directory": "m4_test_images",
-      "image_load_cap": 0,
+      "directory": "less_imiages",
+      "image_load_cap": 16,
       "skip_first_images": 0,
       "select_every_nth": 1
     },
     "class_type": "VHS_LoadImages",
     "_meta": {
-      "title": "Load Images (Upload) \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
-    }
-  },
-  "97": {
-    "inputs": {
-      "model_name": "mm_sdxl_v10_beta.ckpt",
-      "beta_schedule": "linear (AnimateDiff-SDXL)",
-      "model": [
-        "1",
-        0
-      ],
-      "context_options": [
-        "98",
-        0
-      ]
-    },
-    "class_type": "ADE_AnimateDiffLoaderGen1",
-    "_meta": {
-      "title": "AnimateDiff Loader \ud83c\udfad\ud83c\udd50\ud83c\udd53\u2460"
-    }
-  },
-  "98": {
-    "inputs": {
-      "context_length": 4,
-      "context_stride": 1,
-      "context_overlap": 1,
-      "fuse_method": "pyramid",
-      "use_on_equal_length": false,
-      "start_percent": 0,
-      "guarantee_steps": 1
-    },
-    "class_type": "ADE_StandardUniformContextOptions",
-    "_meta": {
-      "title": "Context Options\u25c6Standard Uniform \ud83c\udfad\ud83c\udd50\ud83c\udd53"
+      "title": "Load Images (Upload) 🎥🅥🅗🅢"
     }
   },
   "99": {
@@ -342,7 +309,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
+      "title": "Video Combine 🎥🅥🅗🅢"
     }
   },
   "100": {
@@ -364,7 +331,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
+      "title": "Video Combine 🎥🅥🅗🅢"
     }
   },
   "101": {
@@ -373,7 +340,7 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
+      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
     }
   },
   "102": {
@@ -382,14 +349,14 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
+      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
     }
   },
   "103": {
     "inputs": {
-      "strength": 1,
+      "strength": 0.5,
       "start_percent": 0,
-      "end_percent": 1,
+      "end_percent": 0.5,
       "positive": [
         "2",
         0
@@ -413,7 +380,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
+      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
     }
   },
   "104": {
@@ -444,7 +411,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
+      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
     }
   },
   "105": {
@@ -475,32 +442,6 @@
     "class_type": "IPAdapterAdvanced",
     "_meta": {
       "title": "IPAdapter Advanced"
-    }
-  },
-  "141": {
-    "inputs": {
-      "filename_prefix": "M4_KS2_Decode",
-      "images": [
-        "41",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image (KS2 Decode)"
-    }
-  },
-  "173": {
-    "inputs": {
-      "filename_prefix": "M4_KS1_Decode",
-      "images": [
-        "73",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image (KS1 Decode)"
     }
   }
 }

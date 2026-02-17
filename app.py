@@ -666,7 +666,7 @@ if generate:
                         "ip_adapter_ks2": 105,
                         "input_image": 96,
                         "reference_image": 72,
-                        "output_nodes_preferred": [141, 173, 41, 73, 100, 99],
+                        "output_nodes_preferred": [41, 73, 100, 99],
                     }
                 )
                 ref_metrics = {
@@ -803,8 +803,6 @@ if generate:
                         raw_nodes = debug_payload.get("raw_node_ids", [])
                         processed_imgs = debug_payload.get("processed", [])
                         node_role = {
-                            "141": "KSampler 2 SaveImage Output (Node 141)",
-                            "173": "KSampler 1 SaveImage Output (Node 173)",
                             "41": "KSampler 2 Decode Output (Node 41)",
                             "73": "KSampler 1 Decode Output (Node 73)",
                             "100": "Video Combine from KSampler 1 (Node 100)",

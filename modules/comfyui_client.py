@@ -752,8 +752,8 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
                 if len(downloaded) >= 2:
                     return
 
-    # Prefer saved decoded frame outputs first, then decode nodes, then media combine fallbacks.
-    for preferred_node in ("141", "173", "41", "73", "100", "99"):
+    # Prefer decoded frame outputs first, then media combine fallbacks.
+    for preferred_node in ("41", "73", "100", "99"):
         if preferred_node in outputs and len(downloaded) < 2:
             _download_from_node(preferred_node)
 
