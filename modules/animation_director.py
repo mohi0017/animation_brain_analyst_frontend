@@ -183,6 +183,31 @@ def create_parameter_plan_m3(
           - ip_adapter: {weight,end_at}
         """
         plan = _apply_reference_correlation(plan)
+
+        # Geometric single-simple lock (client request):
+        # Keep shape/pose rigid for basic objects like circle/ellipse and avoid drift.
+        if is_single_simple_geometric:
+            cn_union = plan.get("controlnet_union", {})
+            cn_openpose = plan.get("controlnet_openpose", {})
+            ip = plan.get("ip_adapter", {})
+            cn_union["strength"] = max(0.7, float(cn_union.get("strength", 0.7)))
+            cn_union["end_percent"] = 1.0
+            cn_openpose["strength"] = 1.0
+            cn_openpose["end_percent"] = 1.0
+            ip["weight"] = max(0.7, float(ip.get("weight", 0.7)))
+            ip["end_at"] = 1.0
+            plan["controlnet_union"] = cn_union
+            plan["controlnet_openpose"] = cn_openpose
+            plan["ip_adapter"] = ip
+            ip_dual = plan.get("ip_adapter_dual")
+            if isinstance(ip_dual, dict):
+                ks1_ip = dict(ip_dual.get("ksampler1") or {})
+                ks2_ip = dict(ip_dual.get("ksampler2") or {})
+                ks1_ip["weight"] = max(0.7, float(ks1_ip.get("weight", ip["weight"])))
+                ks1_ip["end_at"] = 1.0
+                ks2_ip["weight"] = max(0.7, float(ks2_ip.get("weight", ip["weight"])))
+                ks2_ip["end_at"] = 1.0
+                plan["ip_adapter_dual"] = {"ksampler1": ks1_ip, "ksampler2": ks2_ip}
         # Apply full adaptive control system for complex cases even when there are no explicit issues.
         if entity_type == "single_complex":
             try:

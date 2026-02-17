@@ -769,8 +769,9 @@ def _download_images(base_url: str, status: dict, log, debug_mode: bool = False)
         processed: list[bytes] = []
         for i, img in enumerate(downloaded[:2]):
             node_id = raw_node_ids[i] if i < len(raw_node_ids) else ""
-            # Apply post-processing to decoded outputs first and media fallbacks as needed.
-            if node_id in ("41", "73", "99", "100"):
+            # Apply post-processing only to decoded image outputs.
+            # Media-combine previews (99/100) are already encoded and can degrade further if post-processed.
+            if node_id in ("41", "73", "141", "173"):
                 processed.append(_postprocess_line_art_bytes(img, log))
             else:
                 processed.append(img)
