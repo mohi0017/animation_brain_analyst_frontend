@@ -287,15 +287,15 @@
     },
     "class_type": "VHS_LoadImages",
     "_meta": {
-      "title": "Load Images (Upload) 🎥🅥🅗🅢"
+      "title": "Load Images (Upload) \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "99": {
     "inputs": {
       "frame_rate": 30,
       "loop_count": 0,
-      "filename_prefix": "AnimateDiff",
-      "format": "image/gif",
+      "filename_prefix": "M4_Output",
+      "format": "video/h264-mp4",
       "pingpong": false,
       "save_output": true,
       "images": [
@@ -309,15 +309,15 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine 🎥🅥🅗🅢"
+      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "100": {
     "inputs": {
       "frame_rate": 30,
       "loop_count": 0,
-      "filename_prefix": "AnimateDiff",
-      "format": "image/gif",
+      "filename_prefix": "M4_Output",
+      "format": "video/h264-mp4",
       "pingpong": false,
       "save_output": true,
       "images": [
@@ -331,7 +331,7 @@
     },
     "class_type": "VHS_VideoCombine",
     "_meta": {
-      "title": "Video Combine 🎥🅥🅗🅢"
+      "title": "Video Combine \ud83c\udfa5\ud83c\udd65\ud83c\udd57\ud83c\udd62"
     }
   },
   "101": {
@@ -340,7 +340,7 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "102": {
@@ -349,7 +349,7 @@
     },
     "class_type": "ACN_ControlNetLoaderAdvanced",
     "_meta": {
-      "title": "Load Advanced ControlNet Model 🛂🅐🅒🅝"
+      "title": "Load Advanced ControlNet Model \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "103": {
@@ -380,7 +380,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "104": {
@@ -411,7 +411,7 @@
     },
     "class_type": "ACN_AdvancedControlNetApply_v2",
     "_meta": {
-      "title": "Apply Advanced ControlNet 🛂🅐🅒🅝"
+      "title": "Apply Advanced ControlNet \ud83d\udec2\ud83c\udd50\ud83c\udd52\ud83c\udd5d"
     }
   },
   "105": {

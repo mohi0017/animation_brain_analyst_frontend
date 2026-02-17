@@ -183,6 +183,14 @@ def create_parameter_plan_m3(
           - ip_adapter: {weight,end_at}
         """
         plan = _apply_reference_correlation(plan)
+        object_scale = (report.get("object_scale") or "").lower().strip()
+        if not object_scale:
+            if entity_type == "single_simple":
+                object_scale = "small"
+            elif entity_type == "single_complex":
+                object_scale = "large"
+            else:
+                object_scale = "medium"
 
         # Geometric single-simple lock (client request):
         # Keep shape/pose rigid for basic objects like circle/ellipse and avoid drift.
